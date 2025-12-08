@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -17,6 +17,7 @@ import { PhysicalActivityStep } from './steps/PhysicalActivityStep';
 import { SportsDemandStep } from './steps/SportsDemandStep';
 import { ObjectivesStep } from './steps/ObjectivesStep';
 import { ConsentStep } from './steps/ConsentStep';
+import { useState } from 'react';
 
 export interface AnamnesisData {
   // Block 1: Personal Data
@@ -130,14 +131,24 @@ interface AnamnesisWizardProps {
 }
 
 export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardProps) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [data, setData] = useState<AnamnesisData>(initialData);
+  const {
+    data,
+    updateData: baseUpdateData,
+    currentStep,
+    setCurrentStep,
+    clearPersistedData,
+  } = useWizardPersistence<AnamnesisData>({
+    key: 'anamnesis_wizard',
+    initialData,
+    assessmentId,
+  });
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const updateData = (updates: Partial<AnamnesisData>) => {
-    setData((prev) => {
+    baseUpdateData((prev) => {
       const newData = { ...prev, ...updates };
       
       // Check for red flags
@@ -206,6 +217,9 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
         .from('assessments')
         .update({ status: 'in_progress', started_at: new Date().toISOString() })
         .eq('id', assessmentId);
+
+      // Clear persisted data after successful save
+      clearPersistedData();
 
       toast({
         title: 'Anamnese salva!',

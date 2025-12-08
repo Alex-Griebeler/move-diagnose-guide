@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,13 +27,54 @@ interface TestResult {
   cutoffValue?: number;
 }
 
+const STORAGE_KEY_PREFIX = 'segmental_tests_wizard';
+
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [suggestedTests, setSuggestedTests] = useState<SegmentalTest[]>([]);
-  const [currentTestIndex, setCurrentTestIndex] = useState(0);
   const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
   const [showSummary, setShowSummary] = useState(false);
+
+  // Persist and restore step
+  const [currentTestIndex, setCurrentTestIndex] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_step`);
+      return stored ? parseInt(stored, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  // Save step to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_step`, currentTestIndex.toString());
+    } catch (e) {
+      console.error('Error saving step:', e);
+    }
+  }, [currentTestIndex, assessmentId]);
+
+  // Save results to localStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(testResults).length > 0) {
+      try {
+        localStorage.setItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_results`, JSON.stringify(testResults));
+      } catch (e) {
+        console.error('Error saving results:', e);
+      }
+    }
+  }, [testResults, assessmentId]);
+
+  // Clear persisted data
+  const clearPersistedData = useCallback(() => {
+    try {
+      localStorage.removeItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_step`);
+      localStorage.removeItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_results`);
+    } catch (e) {
+      console.error('Error clearing persisted data:', e);
+    }
+  }, [assessmentId]);
 
   useEffect(() => {
     fetchGlobalTestResults();
@@ -70,29 +111,43 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       const tests = getSuggestedTests(uniqueCompensations);
       setSuggestedTests(tests);
 
-      // Initialize results
-      const initialResults: Record<string, TestResult> = {};
-      tests.forEach(test => {
-        initialResults[test.id] = {
-          testId: test.id,
-          testName: test.name,
-          bodyRegion: test.bodyRegion,
-          leftValue: null,
-          rightValue: null,
-          passFailLeft: null,
-          passFailRight: null,
-          notes: '',
-          unit: test.unit,
-          cutoffValue: test.cutoffValue,
-        };
-      });
-      setTestResults(initialResults);
+      // Try to restore saved results, otherwise initialize
+      const savedResults = localStorage.getItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_results`);
+      if (savedResults) {
+        try {
+          const parsed = JSON.parse(savedResults);
+          setTestResults(parsed);
+        } catch {
+          initializeResults(tests);
+        }
+      } else {
+        initializeResults(tests);
+      }
     } catch (error) {
       console.error('Error fetching global test results:', error);
       toast.error('Erro ao carregar compensações detectadas');
     } finally {
       setLoading(false);
     }
+  };
+
+  const initializeResults = (tests: SegmentalTest[]) => {
+    const initialResults: Record<string, TestResult> = {};
+    tests.forEach(test => {
+      initialResults[test.id] = {
+        testId: test.id,
+        testName: test.name,
+        bodyRegion: test.bodyRegion,
+        leftValue: null,
+        rightValue: null,
+        passFailLeft: null,
+        passFailRight: null,
+        notes: '',
+        unit: test.unit,
+        cutoffValue: test.cutoffValue,
+      };
+    });
+    setTestResults(initialResults);
   };
 
   const handleTestResult = (testId: string, result: Partial<TestResult>) => {
@@ -142,6 +197,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       if (error) throw error;
 
+      clearPersistedData();
       toast.success('Testes segmentados salvos com sucesso!');
       onComplete();
     } catch (error) {
@@ -153,6 +209,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   };
 
   const handleSkip = () => {
+    clearPersistedData();
     toast.info('Testes segmentados pulados');
     onComplete();
   };

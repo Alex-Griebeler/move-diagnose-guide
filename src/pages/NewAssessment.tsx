@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
+import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
 
-type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests';
+type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests' | 'protocol';
 
 interface Student {
   id: string;
@@ -124,8 +125,16 @@ export default function NewAssessment() {
 
   const handleSegmentalTestsComplete = () => {
     toast({
-      title: 'Avaliação concluída!',
-      description: 'Todos os testes foram salvos com sucesso.',
+      title: 'Testes concluídos!',
+      description: 'Gerando protocolo de exercícios...',
+    });
+    setStep('protocol');
+  };
+
+  const handleProtocolComplete = () => {
+    toast({
+      title: 'Avaliação finalizada!',
+      description: 'Protocolo salvo com sucesso.',
     });
     navigate('/dashboard');
   };
@@ -160,6 +169,7 @@ export default function NewAssessment() {
                 {step === 'anamnesis' && `Anamnese - ${selectedStudent?.full_name}`}
                 {step === 'global-tests' && `Testes Globais - ${selectedStudent?.full_name}`}
                 {step === 'segmental-tests' && `Testes Segmentados - ${selectedStudent?.full_name}`}
+                {step === 'protocol' && `Protocolo - ${selectedStudent?.full_name}`}
               </p>
             </div>
           </div>
@@ -246,6 +256,13 @@ export default function NewAssessment() {
           <SegmentalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleSegmentalTestsComplete}
+          />
+        )}
+
+        {step === 'protocol' && assessmentId && (
+          <ProtocolGenerator
+            assessmentId={assessmentId}
+            onComplete={handleProtocolComplete}
           />
         )}
       </main>

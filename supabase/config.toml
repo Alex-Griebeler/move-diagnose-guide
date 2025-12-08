@@ -1,1 +1,4 @@
 project_id = "xrtsioacrybmcexyhaia"
+
+[functions.generate-protocol]
+verify_jwt = false

@@ -28,7 +28,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Posicione o pé paralelo à parede. Avance o joelho em direção à parede mantendo o calcanhar no solo. Meça a distância do hálux até a parede.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral/Posterior
       'heels_rise', 'heels_rise_posterior', 'feet_eversion', 'feet_eversion_posterior',
       // SLS
       'foot_collapse',
@@ -44,6 +44,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito dorsal, com joelho estendido, realize dorsiflexão passiva máxima. Meça o ângulo em relação à posição neutra.',
     triggeredBy: [
+      // OHS
       'heels_rise', 'heels_rise_posterior', 'feet_abduction',
     ],
   },
@@ -61,12 +62,12 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Paciente em decúbito dorsal na borda da maca. Flexione um quadril ao máximo e observe a posição da coxa contralateral. Avalie extensão do quadril e flexão do joelho.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral
       'lumbar_hyperextension', 'trunk_forward_lean', 'spine_flexion',
       // SLS
       'trunk_forward_lean_sls', 'hip_hike',
       // Push-up
-      'lumbar_extension', 'hips_drop',
+      'lumbar_extension', 'hips_drop', 'hip_elevation',
     ],
   },
   {
@@ -79,7 +80,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito ventral com joelho flexionado a 90°. Realize rotação interna e externa passivamente. Meça os ângulos de cada movimento.',
     triggeredBy: [
-      // OHS
+      // OHS Anterior/Posterior
       'knee_valgus', 'knee_varus', 'asymmetric_shift', 'trunk_rotation',
       // SLS
       'trunk_rotation_medial', 'trunk_rotation_lateral',
@@ -95,7 +96,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Decúbito lateral. Estabilize a pelve e realize abdução + extensão do quadril, depois solte. A coxa deve cair abaixo da horizontal.',
     triggeredBy: [
-      // OHS
+      // OHS Anterior
       'knee_valgus', 'knee_varus',
       // SLS
       'hip_drop', 'hip_hike',
@@ -111,7 +112,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito lateral, realize abdução isométrica contra resistência manual. Gradue de 0 a 5 conforme escala de Oxford.',
     triggeredBy: [
-      // OHS
+      // OHS Anterior/Posterior
       'knee_valgus', 'asymmetric_shift',
       // SLS
       'hip_drop', 'hip_hike', 'instability', 'balance_loss',
@@ -130,7 +131,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: false,
     instructions: 'Paciente em prono sobre a maca com pernas para fora. Realize pressão sobre processos espinhosos com e sem ativação de extensores. Dor que alivia com ativação muscular indica instabilidade.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral/Posterior
       'lumbar_hyperextension', 'asymmetric_shift', 'spine_flexion',
       // Push-up
       'lumbar_extension', 'hips_drop', 'hip_elevation',
@@ -146,7 +147,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: false,
     instructions: 'Posição de flexão parcial do tronco (60°) com joelhos e quadris flexionados a 90°. Mantenha a posição o máximo possível.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral
       'lumbar_hyperextension',
       // Push-up
       'lumbar_extension', 'hips_drop', 'hip_elevation',
@@ -162,7 +163,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Apoie-se no cotovelo e pés, mantendo o corpo alinhado. Sustente a posição o máximo possível de cada lado.',
     triggeredBy: [
-      // OHS
+      // OHS Posterior
       'asymmetric_shift', 'trunk_rotation',
       // SLS
       'hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral',
@@ -184,7 +185,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em pé ou sentado, eleve os braços ativamente acima da cabeça. Observe compensações e meça a amplitude máxima.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral
       'arms_fall_forward',
       // Push-up
       'scapular_winging', 'shoulder_protraction', 'shoulder_retraction_insufficient',
@@ -200,7 +201,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito dorsal relaxado, meça a distância do acrômio até a maca. Compare bilateralmente.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral
       'arms_fall_forward',
       // Push-up
       'scapular_winging', 'shoulder_protraction', 'elbow_flare',
@@ -215,7 +216,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Observe a escápula durante flexão e abdução ativa de ombro com peso leve (1-2kg). Classifique o padrão de discinese.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral
       'arms_fall_forward',
       // Push-up
       'scapular_winging', 'shoulder_protraction', 'shoulder_retraction_insufficient',
@@ -263,10 +264,27 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em sentado, estabilize o ombro e realize flexão lateral cervical contralateral passiva. Meça a amplitude.',
     triggeredBy: [
-      // OHS
+      // OHS Lateral
       'arms_fall_forward',
       // Push-up
       'head_forward', 'scapular_winging', 'shoulder_protraction',
+    ],
+  },
+
+  // ============================================
+  // Knee Tests (NEW)
+  // ============================================
+  {
+    id: 'single_leg_squat_control',
+    name: 'Controle de Flexão de Joelho',
+    bodyRegion: 'Joelho',
+    description: 'Avalia controle excêntrico do quadríceps e estabilidade do joelho',
+    unit: 'qualitativo',
+    isBilateral: true,
+    instructions: 'Realize agachamento unilateral lento observando tremor, controle e profundidade alcançada.',
+    triggeredBy: [
+      // SLS
+      'knee_flexion_insufficient', 'tremor', 'instability',
     ],
   },
 ];

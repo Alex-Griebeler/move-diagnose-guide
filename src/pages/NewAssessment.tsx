@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
+import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 
-type Step = 'select-student' | 'anamnesis' | 'global-tests';
+type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests';
 
 interface Student {
   id: string;
@@ -116,7 +117,15 @@ export default function NewAssessment() {
   const handleGlobalTestsComplete = () => {
     toast({
       title: 'Testes globais concluídos!',
-      description: 'Avaliação salva com sucesso.',
+      description: 'Prossiga para os testes segmentados.',
+    });
+    setStep('segmental-tests');
+  };
+
+  const handleSegmentalTestsComplete = () => {
+    toast({
+      title: 'Avaliação concluída!',
+      description: 'Todos os testes foram salvos com sucesso.',
     });
     navigate('/dashboard');
   };
@@ -150,6 +159,7 @@ export default function NewAssessment() {
                 {step === 'select-student' && 'Selecione o aluno'}
                 {step === 'anamnesis' && `Anamnese - ${selectedStudent?.full_name}`}
                 {step === 'global-tests' && `Testes Globais - ${selectedStudent?.full_name}`}
+                {step === 'segmental-tests' && `Testes Segmentados - ${selectedStudent?.full_name}`}
               </p>
             </div>
           </div>
@@ -229,6 +239,13 @@ export default function NewAssessment() {
           <GlobalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleGlobalTestsComplete}
+          />
+        )}
+
+        {step === 'segmental-tests' && assessmentId && (
+          <SegmentalTestsWizard
+            assessmentId={assessmentId}
+            onComplete={handleSegmentalTestsComplete}
           />
         )}
       </main>

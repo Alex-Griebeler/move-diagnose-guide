@@ -49,12 +49,13 @@ export const compensacaoCausas: Record<string, CausaProvavel[]> = {
     { id: 'gastroc_tight', label: 'Gastrocnêmio Encurtado', categoria: 'HYPER', baseWeight: 3 },
   ],
 
-  // Inclinação do tronco
+  // Inclinação do tronco (OHS lateral)
   trunk_forward_lean: [
     { id: 'tspine_ext_limit', label: 'Limitação Extensão Torácica', categoria: 'MOB_L', baseWeight: 3 },
     { id: 'core_deep_hypo', label: 'Core Profundo Hipoativo', categoria: 'HYPO', baseWeight: 2 },
     { id: 'paravertebrais_hyper', label: 'Paravertebrais Hiperativos', categoria: 'HYPER', baseWeight: 2 },
     { id: 'hip_flexor_tight', label: 'Flexores do Quadril Encurtados', categoria: 'HYPER', baseWeight: 2 },
+    { id: 'glute_max_hypo', label: 'Glúteo Máximo Hipoativo', categoria: 'HYPO', baseWeight: 3 },
   ],
 
   // Hiperextensão lombar
@@ -65,20 +66,41 @@ export const compensacaoCausas: Record<string, CausaProvavel[]> = {
     { id: 'lumbar_control', label: 'Déficit Controle Motor Lombar', categoria: 'CM', baseWeight: 3 },
   ],
 
-  // Flexão da coluna (butt wink)
+  // Flexão da coluna (butt wink) - usando spine_flexion como ID
   spine_flexion: [
     { id: 'hamstring_tight', label: 'Isquiotibiais Encurtados', categoria: 'HYPER', baseWeight: 3 },
     { id: 'hip_flexion_limit', label: 'Limitação Flexão Quadril', categoria: 'MOB_L', baseWeight: 3 },
     { id: 'lumbar_erector_hypo', label: 'Eretores Lombares Hipoativos', categoria: 'HYPO', baseWeight: 2 },
+    { id: 'glute_max_tight', label: 'Glúteo Máximo Encurtado', categoria: 'HYPER', baseWeight: 2 },
   ],
 
-  // Braços caem
+  // Alias para butt_wink (mesmo que spine_flexion)
+  butt_wink: [
+    { id: 'hamstring_tight', label: 'Isquiotibiais Encurtados', categoria: 'HYPER', baseWeight: 3 },
+    { id: 'hip_flexion_limit', label: 'Limitação Flexão Quadril', categoria: 'MOB_L', baseWeight: 3 },
+  ],
+
+  // Braços caem (OHS lateral) - usando arms_fall_forward como ID principal
   arms_fall_forward: [
     { id: 'serratus_hypo', label: 'Serrátil Anterior Hipoativo', categoria: 'HYPO', baseWeight: 3 },
     { id: 'trap_inf_hypo', label: 'Trapézio Inferior Hipoativo', categoria: 'HYPO', baseWeight: 2 },
     { id: 'trap_sup_hyper', label: 'Trapézio Superior Hiperativo', categoria: 'HYPER', baseWeight: 2 },
     { id: 'tspine_ext_limit', label: 'Limitação Extensão Torácica', categoria: 'MOB_L', baseWeight: 2 },
     { id: 'shoulder_flex_limit', label: 'Limitação Flexão Ombro', categoria: 'MOB_L', baseWeight: 3 },
+    { id: 'lat_tight', label: 'Latíssimo do Dorso Encurtado', categoria: 'HYPER', baseWeight: 2 },
+  ],
+
+  // Alias para arms_fall (alguns lugares usam sem _forward)
+  arms_fall: [
+    { id: 'serratus_hypo', label: 'Serrátil Anterior Hipoativo', categoria: 'HYPO', baseWeight: 3 },
+    { id: 'shoulder_flex_limit', label: 'Limitação Flexão Ombro', categoria: 'MOB_L', baseWeight: 3 },
+  ],
+
+  // Pronação do pé (referenciado em knee_valgus)
+  foot_pronation: [
+    { id: 'tib_post_hypo', label: 'Tibial Posterior Hipoativo', categoria: 'HYPO', baseWeight: 3 },
+    { id: 'foot_intrinsic_hypo', label: 'Intrínsecos do Pé Hipoativos', categoria: 'HYPO', baseWeight: 2 },
+    { id: 'peroneal_hyper', label: 'Fibulares Hiperativos', categoria: 'HYPER', baseWeight: 2 },
   ],
 
   // Pés abduzidos

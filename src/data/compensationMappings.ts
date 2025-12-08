@@ -1,5 +1,5 @@
 // Compensation to muscle mapping based on FABRIK methodology (Table A)
-// Updated with precise data from clinical assessment tables
+// Updated with precise data from clinical assessment tables (Novas_tabelas_app_movimento)
 
 export interface CompensationMapping {
   id: string;
@@ -18,8 +18,8 @@ export const ohsAnteriorCompensations: CompensationMapping[] = [
   {
     id: 'feet_abduction',
     label: 'Pés abduzidos (giram para fora)',
-    hyperactiveMuscles: ['Piriforme', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral (cabeça curta)'],
-    hypoactiveMuscles: ['Gastrocnêmio medial', 'Grácil', 'Sartório', 'Poplíteo'],
+    hyperactiveMuscles: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral (cabeça curta)'],
+    hypoactiveMuscles: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório', 'Poplíteo'],
     associatedInjuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome da banda iliotibial'],
   },
   {
@@ -32,15 +32,15 @@ export const ohsAnteriorCompensations: CompensationMapping[] = [
   {
     id: 'knee_valgus',
     label: 'Joelhos valgos (cavam para dentro)',
-    hyperactiveMuscles: ['Adutores', 'TFL', 'Vasto lateral', 'Gastrocnêmio lateral'],
-    hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'VMO', 'Vasto medial oblíquo'],
+    hyperactiveMuscles: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral', 'Bíceps femoral (cabeça curta)'],
+    hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'Vasto medial oblíquo (VMO)', 'Rotadores laterais do quadril'],
     associatedInjuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA', 'Condromalácia'],
   },
   {
     id: 'knee_varus',
     label: 'Joelhos varos (arqueados para fora)',
-    hyperactiveMuscles: ['Piriforme', 'Bíceps femoral', 'TFL', 'Glúteo mínimo', 'Adutores'],
-    hypoactiveMuscles: ['Glúteo máximo', 'Vasto medial'],
+    hyperactiveMuscles: ['Tensor da fáscia lata (TFL)', 'Piriforme', 'Glúteo mínimo', 'Bíceps femoral', 'Adutores (em algumas cadeias)'],
+    hypoactiveMuscles: ['Glúteo máximo', 'Glúteo médio (porção posterior)', 'Vasto medial'],
     associatedInjuries: ['Sobrecarga lateral do joelho', 'Síndrome da banda iliotibial', 'Artrose lateral'],
   },
 ];
@@ -50,8 +50,8 @@ export const ohsLateralCompensations: CompensationMapping[] = [
   {
     id: 'trunk_forward_lean',
     label: 'Inclinação excessiva do tronco para frente',
-    hyperactiveMuscles: ['Sóleo', 'Gastrocnêmio', 'Flexores do quadril', 'Eretores da espinha'],
-    hypoactiveMuscles: ['Glúteo máximo', 'Core anterior', 'Transverso abdominal'],
+    hyperactiveMuscles: ['Sóleo', 'Gastrocnêmio', 'Flexores do quadril (iliopsoas, reto femoral)', 'Abdominais (reto abdominal)'],
+    hypoactiveMuscles: ['Glúteo máximo', 'Eretores da espinha torácica', 'Core estabilizador'],
     associatedInjuries: ['Dor lombar', 'Impacto femoroacetabular', 'Tendinopatia patelar'],
   },
   {
@@ -100,6 +100,20 @@ export const ohsPosteriorCompensations: CompensationMapping[] = [
     hypoactiveMuscles: ['Oblíquo interno', 'Multífidos', 'Core estabilizador', 'Transverso abdominal'],
     associatedInjuries: ['Disfunção sacroilíaca', 'Dor lombar assimétrica', 'Escoliose funcional'],
   },
+  {
+    id: 'feet_eversion_posterior',
+    label: 'Eversão dos pés (vista posterior)',
+    hyperactiveMuscles: ['Gastrocnêmio lateral', 'Bíceps femoral', 'TFL', 'Fibulares'],
+    hypoactiveMuscles: ['Tibial posterior', 'Glúteo médio', 'Flexor longo dos dedos'],
+    associatedInjuries: ['Lesões plantares', 'Lesões tibiais', 'Instabilidade de tornozelo'],
+  },
+  {
+    id: 'heels_rise_posterior',
+    label: 'Calcanhares sobem (vista posterior)',
+    hyperactiveMuscles: ['Sóleo', 'Gastrocnêmio', 'Tibial anterior'],
+    hypoactiveMuscles: ['Dorsiflexores do tornozelo'],
+    associatedInjuries: ['Déficit de dorsiflexão', 'Impacto no agachamento'],
+  },
 ];
 
 // ============================================
@@ -110,16 +124,51 @@ export const slsCompensations: CompensationMapping[] = [
   {
     id: 'knee_valgus',
     label: 'Valgismo de joelho',
-    hyperactiveMuscles: ['Adutores', 'TFL', 'Vasto lateral', 'Gastrocnêmio lateral'],
-    hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'VMO', 'Tibial posterior'],
+    hyperactiveMuscles: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral', 'Bíceps femoral (cabeça curta)'],
+    hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'Vasto medial oblíquo (VMO)', 'Rotadores laterais do quadril'],
     associatedInjuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA'],
   },
   {
     id: 'hip_drop',
     label: 'Queda do quadril contralateral (Trendelenburg)',
-    hyperactiveMuscles: ['Quadrado lombar (lado de apoio)', 'TFL', 'Piriforme'],
+    hyperactiveMuscles: ['Quadrado lombar (lado de apoio)', 'TFL', 'Piriforme', 'Adutores'],
     hypoactiveMuscles: ['Glúteo médio', 'Glúteo mínimo', 'Core lateral', 'Oblíquos'],
     associatedInjuries: ['Síndrome da banda iliotibial', 'Tendinopatia glútea', 'Bursite trocantérica'],
+  },
+  {
+    id: 'hip_hike',
+    label: 'Elevação do quadril contralateral (hip hike)',
+    hyperactiveMuscles: ['Quadrado lombar (lado oposto)', 'TFL', 'Glúteo mínimo', 'Adutores'],
+    hypoactiveMuscles: ['Glúteo médio (mesmo lado)', 'Core estabilizador'],
+    associatedInjuries: ['Compensações sacroilíacas', 'Dor lateral de quadril'],
+  },
+  {
+    id: 'trunk_rotation_medial',
+    label: 'Rotação medial do tronco',
+    hyperactiveMuscles: ['Oblíquos internos (mesmo lado)', 'Oblíquos externos', 'TFL'],
+    hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'Core estabilizador'],
+    associatedInjuries: ['Valgo persistente', 'Sobrecarga lombar'],
+  },
+  {
+    id: 'trunk_rotation_lateral',
+    label: 'Rotação lateral do tronco',
+    hyperactiveMuscles: ['Oblíquos externos (lado oposto)', 'Quadrado lombar'],
+    hypoactiveMuscles: ['Glúteo médio', 'Oblíquos internos', 'Core estabilizador'],
+    associatedInjuries: ['Desequilíbrio rotacional', 'Dor lombar'],
+  },
+  {
+    id: 'trunk_forward_lean_sls',
+    label: 'Inclinação anterior do tronco',
+    hyperactiveMuscles: ['Iliopsoas', 'Reto femoral', 'Eretores da espinha lombar'],
+    hypoactiveMuscles: ['Glúteo máximo', 'Core anterior', 'Transverso abdominal'],
+    associatedInjuries: ['Sobrecarga lombar', 'Impacto do quadril'],
+  },
+  {
+    id: 'knee_flexion_insufficient',
+    label: 'Flexão insuficiente de joelho',
+    hyperactiveMuscles: ['Quadríceps (em proteção)', 'Gastrocnêmio'],
+    hypoactiveMuscles: ['Glúteo máximo', 'Controle excêntrico de quadríceps'],
+    associatedInjuries: ['Compensação por dor ou restrição', 'Déficit de controle motor'],
   },
   {
     id: 'instability',
@@ -159,7 +208,7 @@ export const pushupCompensations: CompensationMapping[] = [
   {
     id: 'scapular_winging',
     label: 'Escápula alada (scapular winging)',
-    hyperactiveMuscles: ['Peitoral menor', 'Romboides (em excesso)', 'Levantador da escápula'],
+    hyperactiveMuscles: ['Peitoral menor', 'Romboides (em excesso)', 'Levantador da escápula', 'Trapézio superior'],
     hypoactiveMuscles: ['Serrátil anterior', 'Trapézio inferior', 'Trapézio médio'],
     associatedInjuries: ['Discinese escapular', 'Impacto do ombro', 'Tendinopatia do manguito rotador'],
   },
@@ -171,6 +220,13 @@ export const pushupCompensations: CompensationMapping[] = [
     associatedInjuries: ['Dor lombar', 'Espondilolistese', 'Hiperlordose funcional'],
   },
   {
+    id: 'hip_elevation',
+    label: 'Elevação da pelve (hip pike)',
+    hyperactiveMuscles: ['Reto abdominal', 'Oblíquo externo', 'Flexores do quadril'],
+    hypoactiveMuscles: ['Glúteo máximo', 'Core posterior', 'Eretores da espinha'],
+    associatedInjuries: ['Perda de eficiência do movimento', 'Compensação por fraqueza de core'],
+  },
+  {
     id: 'lumbar_extension',
     label: 'Lombar estende (hiperlordose)',
     hyperactiveMuscles: ['Eretores da espinha lombar', 'Latíssimo do dorso', 'Psoas'],
@@ -180,9 +236,30 @@ export const pushupCompensations: CompensationMapping[] = [
   {
     id: 'elbow_flare',
     label: 'Flare de cotovelos (cotovelos abrem)',
-    hyperactiveMuscles: ['Peitoral maior (fibras esternais)', 'Deltóide anterior', 'Subescapular'],
+    hyperactiveMuscles: ['Peitoral maior (fibras esternais)', 'Deltóide anterior', 'Subescapular', 'Deltóide médio'],
     hypoactiveMuscles: ['Tríceps', 'Serrátil anterior', 'Rotadores externos do ombro', 'Infraespinhal'],
     associatedInjuries: ['Impacto do ombro', 'Tendinopatia do manguito rotador', 'Bursite subacromial'],
+  },
+  {
+    id: 'shoulder_protraction',
+    label: 'Protração excessiva dos ombros',
+    hyperactiveMuscles: ['Peitoral menor', 'Serrátil anterior (dominância)', 'Peitoral maior'],
+    hypoactiveMuscles: ['Trapézio médio', 'Romboides', 'Trapézio inferior'],
+    associatedInjuries: ['Cifose torácica', 'Impacto do ombro', 'Síndrome do desfiladeiro torácico'],
+  },
+  {
+    id: 'shoulder_retraction_insufficient',
+    label: 'Retração escapular insuficiente',
+    hyperactiveMuscles: ['Peitoral menor', 'Serrátil anterior'],
+    hypoactiveMuscles: ['Romboides', 'Trapézio médio', 'Trapézio inferior'],
+    associatedInjuries: ['Discinese escapular', 'Impacto do ombro'],
+  },
+  {
+    id: 'head_forward',
+    label: 'Cabeça projetada / hiperextensão cervical',
+    hyperactiveMuscles: ['Trapézio superior', 'Esternocleidomastóideo', 'Elevador da escápula', 'Suboccipitais'],
+    hypoactiveMuscles: ['Flexores cervicais profundos', 'Longo do pescoço', 'Longo da cabeça'],
+    associatedInjuries: ['Cefaleia cervicogênica', 'Tensão cervical', 'Dor cervical'],
   },
   {
     id: 'misalignment',

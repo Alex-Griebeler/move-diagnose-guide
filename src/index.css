@@ -2,120 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
-/* FABRIK Design System - "Apple meets boutique sports science studio" */
+/* 
+  FABRIK Design System
+  =====================
+  Aesthetic: "Apple minimalista + Quiet luxury"
+  
+  Cores (Superprompt):
+  - Terracota: #A45248 → HSL(5, 36%, 46%)
+  - Cinza claro: #F8F8F8 → HSL(0, 0%, 97%)
+  - Preto: #1C1C1C → HSL(0, 0%, 11%)
+  - Cinza médio: #4A4A4A → HSL(0, 0%, 29%)
+  - Cinza borda: #C7C7C7 → HSL(0, 0%, 78%)
+  
+  Tipografia:
+  - Títulos: Bebas Neue (similar Square 721 Condensed)
+  - Corpo: Inter / SF Pro / Roboto
+*/
 
 @layer base {
   :root {
-    /* Primary - Deep Navy (Authority, Precision) */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* FABRIK Core Colors */
+    --background: 0 0% 97%;           /* #F8F8F8 - Cinza claro */
+    --foreground: 0 0% 11%;           /* #1C1C1C - Preto */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 0 0% 100%;                /* Branco puro */
+    --card-foreground: 0 0% 11%;      /* #1C1C1C */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 0 0% 11%;
 
-    /* Primary Navy */
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Terracota FABRIK */
+    --primary: 5 36% 46%;             /* #A45248 - Terracota */
+    --primary-foreground: 0 0% 100%;  /* Branco */
 
-    /* Secondary - Warm Gray */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    /* Secondary - Cinza neutro */
+    --secondary: 0 0% 97%;            /* #F8F8F8 */
+    --secondary-foreground: 0 0% 11%; /* #1C1C1C */
 
-    /* Muted - Soft Gray */
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    /* Muted - Cinza suave */
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 29%;     /* #4A4A4A */
 
-    /* Accent - Teal (Movement, Health) */
-    --accent: 173 58% 39%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent - Terracota mais suave */
+    --accent: 5 36% 92%;              /* Terracota claro para hover */
+    --accent-foreground: 5 36% 46%;   /* Terracota */
 
-    /* Success - Green */
-    --success: 142 71% 45%;
+    /* Success - Verde elegante */
+    --success: 142 50% 40%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning - Amber */
-    --warning: 38 92% 50%;
+    /* Warning - Âmbar sofisticado */
+    --warning: 38 80% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* Destructive - Red */
-    --destructive: 0 84% 60%;
+    /* Destructive - Vermelho discreto */
+    --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 173 58% 39%;
+    /* Borders & Inputs */
+    --border: 0 0% 78%;               /* #C7C7C7 */
+    --input: 0 0% 78%;
+    --ring: 5 36% 46%;                /* Terracota no focus */
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;                 /* Cantos sutis - Apple style */
 
-    /* Sidebar */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 173 58% 39%;
+    /* Sidebar - Tema escuro elegante */
+    --sidebar-background: 0 0% 11%;   /* #1C1C1C */
+    --sidebar-foreground: 0 0% 97%;   /* #F8F8F8 */
+    --sidebar-primary: 5 36% 46%;     /* Terracota */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 18%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 173 58% 39%;
+    --sidebar-accent: 0 0% 18%;
+    --sidebar-accent-foreground: 0 0% 97%;
+    --sidebar-border: 0 0% 22%;
+    --sidebar-ring: 5 36% 46%;
 
-    /* Custom FABRIK Colors */
-    --fabrik-navy: 222 47% 11%;
-    --fabrik-teal: 173 58% 39%;
-    --fabrik-slate: 220 9% 46%;
-    --fabrik-cream: 40 33% 96%;
-    --fabrik-gold: 38 92% 50%;
+    /* FABRIK Brand Tokens */
+    --fabrik-terracota: 5 36% 46%;
+    --fabrik-terracota-light: 5 36% 55%;
+    --fabrik-terracota-dark: 5 36% 38%;
+    --fabrik-black: 0 0% 11%;
+    --fabrik-gray-dark: 0 0% 29%;
+    --fabrik-gray-medium: 0 0% 50%;
+    --fabrik-gray-light: 0 0% 78%;
+    --fabrik-gray-bg: 0 0% 97%;
+    --fabrik-white: 0 0% 100%;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 20%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(173 58% 39%) 0%, hsl(173 58% 50%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(210 20% 98%) 0%, hsl(220 14% 96%) 100%);
+    /* Shadows & Effects */
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    --shadow-elevated: 0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04);
+    --shadow-soft: 0 8px 30px -6px rgb(0 0 0 / 0.06);
   }
 
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 8%;
+    --foreground: 0 0% 97%;
 
-    --card: 222 47% 9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 97%;
 
-    --popover: 222 47% 9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 97%;
 
-    --primary: 173 58% 45%;
-    --primary-foreground: 222 47% 6%;
+    --primary: 5 36% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 14%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 97%;
 
-    --muted: 222 47% 14%;
-    --muted-foreground: 220 9% 65%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 173 58% 45%;
-    --accent-foreground: 222 47% 6%;
+    --accent: 5 36% 20%;
+    --accent-foreground: 5 36% 55%;
 
-    --success: 142 71% 45%;
+    --success: 142 50% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 38 80% 55%;
     --warning-foreground: 0 0% 0%;
 
-    --destructive: 0 62% 45%;
+    --destructive: 0 55% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 18%;
-    --ring: 173 58% 45%;
+    --border: 0 0% 22%;
+    --input: 0 0% 22%;
+    --ring: 5 36% 55%;
 
-    --sidebar-background: 222 47% 4%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 173 58% 45%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 222 47% 12%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 12%;
-    --sidebar-ring: 173 58% 45%;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 97%;
+    --sidebar-primary: 5 36% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 97%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 5 36% 55%;
   }
 }
 
@@ -126,50 +146,140 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Typography */
+  /* FABRIK Typography Hierarchy */
   h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
+    font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+    @apply tracking-wide;
+    letter-spacing: 0.02em;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl;
+  }
+
+  /* Premium link underline */
+  a {
+    @apply transition-colors duration-200;
   }
 }
 
 @layer utilities {
-  /* FABRIK Custom Utilities */
-  .gradient-primary {
-    background: var(--gradient-primary);
+  /* FABRIK Brand Utilities */
+  .bg-fabrik-terracota {
+    background-color: hsl(var(--fabrik-terracota));
   }
 
-  .gradient-accent {
-    background: var(--gradient-accent);
+  .text-fabrik-terracota {
+    color: hsl(var(--fabrik-terracota));
   }
 
-  .gradient-hero {
-    background: var(--gradient-hero);
+  .border-fabrik-terracota {
+    border-color: hsl(var(--fabrik-terracota));
   }
 
+  /* Font utilities */
+  .font-display {
+    font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Text balance for headlines */
   .text-balance {
     text-wrap: balance;
   }
 
-  /* Smooth transitions */
+  /* Smooth transitions - Apple style */
   .transition-smooth {
     @apply transition-all duration-300 ease-out;
   }
 
-  /* Glass effect */
+  .transition-fast {
+    @apply transition-all duration-150 ease-out;
+  }
+
+  /* Card styles - White with subtle shadow */
+  .card-fabrik {
+    @apply bg-card rounded-lg;
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-fabrik-elevated {
+    @apply bg-card rounded-lg;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    @apply transition-all duration-300;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Focus ring - Terracota */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Glass effect - Apple style */
   .glass {
     @apply bg-background/80 backdrop-blur-xl;
   }
 
-  /* Card hover effect */
-  .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+  /* Premium button glow */
+  .btn-glow {
+    @apply relative overflow-hidden;
   }
 
-  /* Focus ring */
-  .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  .btn-glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
+  }
+
+  /* Quiet luxury spacing */
+  .section-spacing {
+    @apply py-12 md:py-16 lg:py-20;
+  }
+
+  .container-narrow {
+    @apply max-w-3xl mx-auto px-4;
+  }
+
+  /* Premium accordions */
+  .accordion-premium {
+    @apply border-b border-border/50;
+  }
+
+  /* Input styles - Clean, minimal */
+  .input-fabrik {
+    @apply bg-background border border-border rounded-md px-4 py-3 text-sm;
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
+    @apply placeholder:text-muted-foreground/60;
   }
 }

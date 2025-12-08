@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddStudentModal } from '@/components/students/AddStudentModal';
+import { StudentsList } from '@/components/students/StudentsList';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Dashboard() {
@@ -192,6 +193,9 @@ function ProfessionalDashboard() {
           onStudentAdded={fetchStudentCount}
         />
       </div>
+
+      {/* Students List */}
+      <StudentsList onStudentRemoved={fetchStudentCount} />
 
       {/* Recent Activity */}
       <div>

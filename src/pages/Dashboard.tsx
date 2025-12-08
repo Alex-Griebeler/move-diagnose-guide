@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Activity, Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AddStudentModal } from '@/components/students/AddStudentModal';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Dashboard() {
   const { user, role, loading, signOut } = useAuth();
@@ -83,6 +85,23 @@ export default function Dashboard() {
 }
 
 function ProfessionalDashboard() {
+  const [showAddStudent, setShowAddStudent] = useState(false);
+  const [studentCount, setStudentCount] = useState(0);
+  const { user } = useAuth();
+
+  const fetchStudentCount = async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from('professional_students')
+      .select('*', { count: 'exact', head: true })
+      .eq('professional_id', user.id);
+    setStudentCount(count || 0);
+  };
+
+  useEffect(() => {
+    fetchStudentCount();
+  }, [user]);
+
   return (
     <div className="space-y-8">
       {/* Stats */}
@@ -95,9 +114,9 @@ function ProfessionalDashboard() {
             <Users className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-bold">{studentCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Nenhum aluno cadastrado
+              {studentCount === 0 ? 'Nenhum aluno cadastrado' : 'Alunos vinculados'}
             </p>
           </CardContent>
         </Card>
@@ -151,18 +170,27 @@ function ProfessionalDashboard() {
             </Card>
           </Link>
 
-          <Card className="card-hover cursor-pointer border-dashed border-2">
+          <Card 
+            className="card-hover cursor-pointer border-dashed border-2"
+            onClick={() => setShowAddStudent(true)}
+          >
             <CardContent className="flex items-center gap-4 py-6">
               <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
                 <Users className="w-6 h-6 text-accent" />
               </div>
               <div>
                 <CardTitle className="text-base">Adicionar Aluno</CardTitle>
-                <CardDescription>Cadastrar ou convidar um novo aluno</CardDescription>
+                <CardDescription>Vincular um aluno por email</CardDescription>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        <AddStudentModal 
+          open={showAddStudent} 
+          onOpenChange={setShowAddStudent}
+          onStudentAdded={fetchStudentCount}
+        />
       </div>
 
       {/* Recent Activity */}

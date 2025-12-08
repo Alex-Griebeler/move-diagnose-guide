@@ -38,10 +38,21 @@ interface AnamnesisData {
   sleepHours?: number;
 }
 
+interface PrioritizedIssue {
+  id: string;
+  label: string;
+  categoria: string;
+  priorityScore: number;
+  fontes: string[];
+}
+
 interface ProtocolRequest {
   compensations: CompensationFinding[];
   segmentalResults: SegmentalResult[];
   anamnesis: AnamnesisData;
+  priorityAnalysis?: string;
+  primaryIssues?: PrioritizedIssue[];
+  secondaryIssues?: PrioritizedIssue[];
 }
 
 serve(async (req) => {
@@ -50,7 +61,7 @@ serve(async (req) => {
   }
 
   try {
-    const { compensations, segmentalResults, anamnesis }: ProtocolRequest = await req.json();
+    const { compensations, segmentalResults, anamnesis, priorityAnalysis, primaryIssues, secondaryIssues }: ProtocolRequest = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -95,7 +106,25 @@ REGRAS IMPORTANTES:
 - Máximo de 8-10 exercícios por protocolo para não sobrecarregar
 - Considere os objetivos e horizonte temporal do aluno`;
 
+    // Build priority issues summary
+    const primaryIssuesSummary = primaryIssues?.map((issue, i) => 
+      `${i + 1}. ${issue.label} [${issue.categoria}] - Score: ${issue.priorityScore} (Fontes: ${issue.fontes.join(', ')})`
+    ).join('\n') || 'Nenhuma issue primária';
+
+    const secondaryIssuesSummary = secondaryIssues?.map((issue, i) => 
+      `${i + 1}. ${issue.label} [${issue.categoria}] - Score: ${issue.priorityScore}`
+    ).join('\n') || 'Nenhuma issue secundária';
+
     const userPrompt = `Gere um protocolo de exercícios corretivos baseado na avaliação abaixo.
+
+## ANÁLISE DE PRIORIDADES (Engine FABRIK):
+${priorityAnalysis || 'Análise não disponível'}
+
+### Issues Primárias (PRIORIZAR):
+${primaryIssuesSummary}
+
+### Issues Secundárias:
+${secondaryIssuesSummary}
 
 ## COMPENSAÇÕES DETECTADAS NOS TESTES GLOBAIS:
 ${compensationSummary || 'Nenhuma compensação detectada'}
@@ -113,7 +142,7 @@ ${segmentalSummary || 'Nenhum teste segmentado realizado'}
 - Qualidade do sono: ${anamnesis.sleepQuality || 'N/A'}/10
 - Horas de sono: ${anamnesis.sleepHours || 'N/A'} horas
 
-Retorne um protocolo estruturado com exercícios organizados por fase FABRIK.`;
+IMPORTANTE: Priorize exercícios para as Issues Primárias listadas acima. Organize por fase FABRIK.`;
 
     console.log("Generating protocol with AI...");
 

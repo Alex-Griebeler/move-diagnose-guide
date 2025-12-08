@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check, Eye, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';

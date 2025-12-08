@@ -175,7 +175,7 @@ export function OverheadSquatTest({ data, updateData }: OverheadSquatTestProps) 
 
         <TabsContent value="anterior" className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground mb-4">
-            Observe de frente: pés, joelhos e alinhamento geral.
+            Observe de frente: posição dos pés (abdução/eversão), joelhos (valgo/varo) e alinhamento geral.
           </p>
           {ohsAnteriorCompensations.map((comp) => (
             <CompensationCheckbox
@@ -191,7 +191,7 @@ export function OverheadSquatTest({ data, updateData }: OverheadSquatTestProps) 
 
         <TabsContent value="lateral" className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground mb-4">
-            Observe de lado: inclinação do tronco, posição dos braços e coluna.
+            Observe de lado: inclinação do tronco, lordose/cifose lombar, calcanhares e braços.
           </p>
           {ohsLateralCompensations.map((comp) => (
             <CompensationCheckbox
@@ -207,7 +207,7 @@ export function OverheadSquatTest({ data, updateData }: OverheadSquatTestProps) 
 
         <TabsContent value="posterior" className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground mb-4">
-            Observe de trás: simetria pélvica e pés.
+            Observe de trás: simetria pélvica (shift), rotação do tronco e assimetrias.
           </p>
           {ohsPosteriorCompensations.map((comp) => (
             <CompensationCheckbox

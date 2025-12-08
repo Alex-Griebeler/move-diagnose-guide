@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Check, Eye, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -61,15 +62,21 @@ interface GlobalTestsWizardProps {
 }
 
 export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizardProps) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [data, setData] = useState<GlobalTestData>(initialData);
+  const {
+    data,
+    updateData,
+    currentStep,
+    setCurrentStep,
+    clearPersistedData,
+  } = useWizardPersistence<GlobalTestData>({
+    key: 'global_tests_wizard',
+    initialData,
+    assessmentId,
+  });
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  const updateData = (updates: Partial<GlobalTestData>) => {
-    setData((prev) => ({ ...prev, ...updates }));
-  };
 
   const handleNext = () => {
     if (currentStep < 4) {
@@ -119,6 +126,9 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         .from('assessments')
         .update({ status: 'in_progress' })
         .eq('id', assessmentId);
+
+      // Clear persisted data after successful save
+      clearPersistedData();
 
       toast({
         title: 'Testes globais salvos!',

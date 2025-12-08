@@ -136,9 +136,9 @@ export function PersonalDataStep({ data, updateData }: PersonalDataStepProps) {
           </Popover>
         </div>
 
-        {/* Laterality */}
+        {/* Dominant Side */}
         <div className="space-y-2">
-          <Label>Lateralidade</Label>
+          <Label>Lado Dominante</Label>
           <Select
             value={data.laterality}
             onValueChange={(value: 'right' | 'left' | 'ambidextrous') => 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
@@ -16,6 +17,37 @@ interface PersonalDataStepProps {
 }
 
 export function PersonalDataStep({ data, updateData }: PersonalDataStepProps) {
+  const [calendarMonth, setCalendarMonth] = useState<Date>(data.birthDate || new Date(1990, 0, 1));
+  
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1920 + 1 }, (_, i) => currentYear - i);
+  const months = [
+    { value: 0, label: 'Janeiro' },
+    { value: 1, label: 'Fevereiro' },
+    { value: 2, label: 'Março' },
+    { value: 3, label: 'Abril' },
+    { value: 4, label: 'Maio' },
+    { value: 5, label: 'Junho' },
+    { value: 6, label: 'Julho' },
+    { value: 7, label: 'Agosto' },
+    { value: 8, label: 'Setembro' },
+    { value: 9, label: 'Outubro' },
+    { value: 10, label: 'Novembro' },
+    { value: 11, label: 'Dezembro' },
+  ];
+
+  const handleMonthChange = (month: string) => {
+    const newDate = new Date(calendarMonth);
+    newDate.setMonth(parseInt(month));
+    setCalendarMonth(newDate);
+  };
+
+  const handleYearChange = (year: string) => {
+    const newDate = new Date(calendarMonth);
+    newDate.setFullYear(parseInt(year));
+    setCalendarMonth(newDate);
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -46,15 +78,60 @@ export function PersonalDataStep({ data, updateData }: PersonalDataStepProps) {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={data.birthDate}
-                onSelect={(date) => updateData({ birthDate: date })}
-                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
+            <PopoverContent 
+              className="w-auto p-0 bg-popover border shadow-lg z-50" 
+              align="start"
+              side="bottom"
+              sideOffset={4}
+              avoidCollisions={false}
+            >
+              <div className="p-3 space-y-3">
+                {/* Month/Year Selectors */}
+                <div className="flex gap-2">
+                  <Select
+                    value={calendarMonth.getMonth().toString()}
+                    onValueChange={handleMonthChange}
+                  >
+                    <SelectTrigger className="flex-1 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-[100]">
+                      {months.map((month) => (
+                        <SelectItem key={month.value} value={month.value.toString()}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select
+                    value={calendarMonth.getFullYear().toString()}
+                    onValueChange={handleYearChange}
+                  >
+                    <SelectTrigger className="w-24 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-[100] max-h-60">
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Calendar
+                  mode="single"
+                  selected={data.birthDate}
+                  onSelect={(date) => updateData({ birthDate: date })}
+                  month={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                  disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                  className="pointer-events-auto"
+                  locale={ptBR}
+                />
+              </div>
             </PopoverContent>
           </Popover>
         </div>
@@ -71,7 +148,7 @@ export function PersonalDataStep({ data, updateData }: PersonalDataStepProps) {
             <SelectTrigger className="h-11">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-popover">
               <SelectItem value="right">Destro</SelectItem>
               <SelectItem value="left">Canhoto</SelectItem>
               <SelectItem value="ambidextrous">Ambidestro</SelectItem>

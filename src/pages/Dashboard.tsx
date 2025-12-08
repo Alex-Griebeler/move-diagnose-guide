@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Activity, Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -137,17 +137,19 @@ function ProfessionalDashboard() {
       <div>
         <h2 className="text-lg font-semibold mb-4">Ações Rápidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="card-hover cursor-pointer border-dashed border-2">
-            <CardContent className="flex items-center gap-4 py-6">
-              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                <Plus className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Nova Avaliação</CardTitle>
-                <CardDescription>Iniciar uma nova avaliação de movimento</CardDescription>
-              </div>
-            </CardContent>
-          </Card>
+          <Link to="/assessment/new">
+            <Card className="card-hover cursor-pointer border-dashed border-2">
+              <CardContent className="flex items-center gap-4 py-6">
+                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Nova Avaliação</CardTitle>
+                  <CardDescription>Iniciar uma nova avaliação de movimento</CardDescription>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
 
           <Card className="card-hover cursor-pointer border-dashed border-2">
             <CardContent className="flex items-center gap-4 py-6">

@@ -4,15 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { toast } from 'sonner';
 import { 
-  Loader2, Sparkles, CheckCircle2, AlertCircle, ArrowRight, 
-  Dumbbell, Target, Zap, Shield, Flame, RotateCcw 
+  Loader2, Sparkles, CheckCircle2, AlertCircle, 
+  Dumbbell, Target, Zap, Shield, Flame, RotateCcw, TrendingUp
 } from 'lucide-react';
 import { 
   ohsAnteriorCompensations, ohsLateralCompensations, ohsPosteriorCompensations,
   slsCompensations, pushupCompensations, CompensationMapping 
 } from '@/data/compensationMappings';
+import { 
+  calcularPrioridades, 
+  formatarParaIA, 
+  CompensacaoDetectada,
+  PriorityEngineResult,
+  CausaPriorizada
+} from '@/lib/priorityEngine';
 
 interface ProtocolGeneratorProps {
   assessmentId: string;
@@ -57,25 +65,35 @@ const priorityColors: Record<string, string> = {
   maintenance: 'bg-green-500 text-white',
 };
 
+const categoriaLabels: Record<string, string> = {
+  HYPO: 'Hipoativo',
+  HYPER: 'Hiperativo',
+  MOB_L: 'Mobilidade',
+  INSTAB: 'Instabilidade',
+  CM: 'Controle Motor',
+  TECH: 'Técnica',
+};
+
+const getAllCompensations = (): Record<string, CompensationMapping> => {
+  const all: Record<string, CompensationMapping> = {};
+  [...ohsAnteriorCompensations, ...ohsLateralCompensations, ...ohsPosteriorCompensations,
+   ...slsCompensations, ...pushupCompensations].forEach(c => {
+    all[c.id] = c;
+  });
+  return all;
+};
+
 export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGeneratorProps) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [protocol, setProtocol] = useState<GeneratedProtocol | null>(null);
+  const [priorityResult, setPriorityResult] = useState<PriorityEngineResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     generateProtocol();
   }, [assessmentId]);
-
-  const getAllCompensations = (): Record<string, CompensationMapping> => {
-    const all: Record<string, CompensationMapping> = {};
-    [...ohsAnteriorCompensations, ...ohsLateralCompensations, ...ohsPosteriorCompensations,
-     ...slsCompensations, ...pushupCompensations].forEach(c => {
-      all[c.id] = c;
-    });
-    return all;
-  };
 
   const generateProtocol = async () => {
     setLoading(true);
@@ -95,7 +113,8 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
       // Extract compensations from global tests
       const allCompensationMappings = getAllCompensations();
-      const compensations: any[] = [];
+      const compensacoesDetectadas: CompensacaoDetectada[] = [];
+      const compensationsForAI: any[] = [];
 
       globalResults.data?.forEach(result => {
         const views = [
@@ -114,7 +133,16 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
               compIds.forEach(id => {
                 const mapping = allCompensationMappings[id];
                 if (mapping) {
-                  compensations.push({
+                  // Para o engine de priorização
+                  compensacoesDetectadas.push({
+                    id,
+                    testName: view.testName,
+                    view: view.name,
+                    side: view.side,
+                  });
+                  
+                  // Para a IA
+                  compensationsForAI.push({
                     id,
                     label: mapping.label,
                     testName: view.testName,
@@ -131,6 +159,28 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         });
       });
 
+      // Format anamnesis
+      const anamnesis = anamnesisData.data ? {
+        objectives: anamnesisData.data.objectives,
+        timeHorizon: anamnesisData.data.time_horizon,
+        activityFrequency: anamnesisData.data.activity_frequency,
+        activityTypes: anamnesisData.data.activity_types as string[] | undefined,
+        sports: anamnesisData.data.sports as any[] | undefined,
+        painHistory: anamnesisData.data.pain_history as any[] | undefined,
+        sleepQuality: anamnesisData.data.sleep_quality,
+        sleepHours: anamnesisData.data.sleep_hours,
+        sedentaryHoursPerDay: anamnesisData.data.sedentary_hours_per_day,
+      } : {};
+
+      // ============================================
+      // EXECUTAR ENGINE DE PRIORIZAÇÃO (Tabelas E e F)
+      // ============================================
+      const prioridadesCalculadas = calcularPrioridades(compensacoesDetectadas, anamnesis);
+      setPriorityResult(prioridadesCalculadas);
+      
+      // Formatar análise de prioridades para a IA
+      const analiseIA = formatarParaIA(prioridadesCalculadas);
+
       // Format segmental results
       const segmentalFormatted = segmentalResults.data?.map(s => ({
         testName: s.test_name,
@@ -143,24 +193,15 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         cutoffValue: s.cutoff_value,
       })) || [];
 
-      // Format anamnesis
-      const anamnesis = anamnesisData.data ? {
-        objectives: anamnesisData.data.objectives,
-        timeHorizon: anamnesisData.data.time_horizon,
-        activityFrequency: anamnesisData.data.activity_frequency,
-        activityTypes: anamnesisData.data.activity_types as string[] | undefined,
-        sports: anamnesisData.data.sports as any[] | undefined,
-        painHistory: anamnesisData.data.pain_history as any[] | undefined,
-        sleepQuality: anamnesisData.data.sleep_quality,
-        sleepHours: anamnesisData.data.sleep_hours,
-      } : {};
-
-      // Call AI to generate protocol
+      // Call AI to generate protocol WITH priority analysis
       const { data, error: fnError } = await supabase.functions.invoke('generate-protocol', {
         body: {
-          compensations,
+          compensations: compensationsForAI,
           segmentalResults: segmentalFormatted,
           anamnesis,
+          priorityAnalysis: analiseIA,
+          primaryIssues: prioridadesCalculadas.primaryIssues,
+          secondaryIssues: prioridadesCalculadas.secondaryIssues,
         },
       });
 
@@ -199,6 +240,25 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
       if (protocolError) throw protocolError;
 
+      // Save functional findings from priority engine
+      if (priorityResult) {
+        const findingsToInsert = priorityResult.primaryIssues.map(issue => ({
+          assessment_id: assessmentId,
+          classification_tag: issue.id,
+          body_region: getBodyRegionFromCausa(issue.id),
+          severity: getSeverityFromScore(issue.priorityScore) as "none" | "mild" | "moderate" | "severe",
+          hyperactive_muscles: issue.categoria === 'HYPER' ? [issue.label] : [],
+          hypoactive_muscles: issue.categoria === 'HYPO' ? [issue.label] : [],
+          priority_score: issue.priorityScore,
+          context_weight: issue.contextAdjustment,
+          biomechanical_importance: issue.baseWeight,
+        }));
+
+        if (findingsToInsert.length > 0) {
+          await supabase.from('functional_findings').insert(findingsToInsert);
+        }
+      }
+
       // Update assessment status to completed
       const { error: assessmentError } = await supabase
         .from('assessments')
@@ -220,6 +280,23 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
     }
   };
 
+  // Helper functions
+  const getBodyRegionFromCausa = (causaId: string): string => {
+    if (causaId.includes('glute') || causaId.includes('hip') || causaId.includes('tfl') || causaId.includes('piriformis')) return 'Quadril';
+    if (causaId.includes('ankle') || causaId.includes('dorsi') || causaId.includes('tib') || causaId.includes('calf') || causaId.includes('foot')) return 'Tornozelo/Pé';
+    if (causaId.includes('core') || causaId.includes('lumbar') || causaId.includes('spine')) return 'Core/Lombar';
+    if (causaId.includes('shoulder') || causaId.includes('scapula') || causaId.includes('serratus') || causaId.includes('trap') || causaId.includes('pec')) return 'Ombro/Escápula';
+    if (causaId.includes('neck') || causaId.includes('cervical')) return 'Cervical';
+    if (causaId.includes('knee') || causaId.includes('quad')) return 'Joelho';
+    return 'Geral';
+  };
+
+  const getSeverityFromScore = (score: number): string => {
+    if (score >= 6) return 'severe';
+    if (score >= 4) return 'moderate';
+    return 'mild';
+  };
+
   // Group exercises by phase
   const groupedExercises = protocol?.exercises.reduce((acc, ex) => {
     if (!acc[ex.phase]) acc[ex.phase] = [];
@@ -237,9 +314,9 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
           </div>
           <h3 className="text-lg font-semibold mt-6 mb-2">Gerando Protocolo FABRIK</h3>
           <p className="text-muted-foreground text-center max-w-md">
-            Analisando compensações, testes segmentados e dados do aluno para criar um protocolo personalizado...
+            Calculando prioridades com Engine de Pesos e gerando protocolo personalizado...
           </p>
-          <Progress value={33} className="w-64 mt-6" />
+          <Progress value={generating ? 66 : 33} className="w-64 mt-6" />
         </CardContent>
       </Card>
     );
@@ -276,6 +353,74 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
   return (
     <div className="space-y-6">
+      {/* Priority Analysis Section */}
+      {priorityResult && priorityResult.primaryIssues.length > 0 && (
+        <Card className="border-warning/30 bg-warning/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-warning" />
+              Análise de Prioridades (Engine FABRIK)
+            </CardTitle>
+            <CardDescription>
+              {priorityResult.contextosAplicados.length > 0 && (
+                <span>Contextos aplicados: {priorityResult.contextosAplicados.join(', ')}</span>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="primary" className="border-none">
+                <AccordionTrigger className="py-2 hover:no-underline">
+                  <span className="text-sm font-medium">
+                    Issues Primárias ({priorityResult.primaryIssues.length})
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-2">
+                    {priorityResult.primaryIssues.map((issue, idx) => (
+                      <div key={issue.id} className="flex items-center justify-between p-2 bg-background rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-muted-foreground w-5">{idx + 1}.</span>
+                          <div>
+                            <p className="text-sm font-medium">{issue.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {categoriaLabels[issue.categoria]} • Fontes: {issue.fontes.join(', ')}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          Score: {issue.priorityScore}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              
+              {priorityResult.secondaryIssues.length > 0 && (
+                <AccordionItem value="secondary" className="border-none">
+                  <AccordionTrigger className="py-2 hover:no-underline">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Issues Secundárias ({priorityResult.secondaryIssues.length})
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-1">
+                      {priorityResult.secondaryIssues.map((issue) => (
+                        <div key={issue.id} className="flex items-center justify-between p-2 text-sm">
+                          <span className="text-muted-foreground">{issue.label}</span>
+                          <span className="text-xs">{issue.priorityScore}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+            </Accordion>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Protocol Header */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
         <CardHeader>

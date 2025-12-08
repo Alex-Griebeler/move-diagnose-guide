@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
@@ -22,19 +21,35 @@ interface Student {
 }
 
 export default function NewAssessment() {
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>('select-student');
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [assessmentId, setAssessmentId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [newStudentEmail, setNewStudentEmail] = useState('');
-  const [newStudentName, setNewStudentName] = useState('');
-  const [showNewStudentForm, setShowNewStudentForm] = useState(false);
 
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check for URL parameters (from in-person registration)
+  useEffect(() => {
+    const studentIdParam = searchParams.get('studentId');
+    const assessmentIdParam = searchParams.get('assessmentId');
+    const studentNameParam = searchParams.get('studentName');
+
+    if (studentIdParam && assessmentIdParam) {
+      // Coming from in-person registration - go directly to anamnesis
+      setSelectedStudent({
+        id: studentIdParam,
+        full_name: studentNameParam ? decodeURIComponent(studentNameParam) : 'Aluno',
+        email: '',
+      });
+      setAssessmentId(assessmentIdParam);
+      setStep('anamnesis');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!loading && (!user || role !== 'professional')) {
@@ -43,10 +58,10 @@ export default function NewAssessment() {
   }, [user, role, loading, navigate]);
 
   useEffect(() => {
-    if (user) {
+    if (user && step === 'select-student') {
       fetchStudents();
     }
-  }, [user]);
+  }, [user, step]);
 
   const fetchStudents = async () => {
     try {

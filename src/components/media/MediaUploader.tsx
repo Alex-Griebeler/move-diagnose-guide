@@ -59,10 +59,11 @@ export function MediaUploader({
       .from('assessment-media')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: false,
+        upsert: true, // Allow overwriting existing files
       });
 
     if (error) {
+      console.error('Storage upload error:', { error, filePath, fileSize: file.size, fileType: file.type });
       throw error;
     }
 
@@ -71,6 +72,44 @@ export function MediaUploader({
       .getPublicUrl(data.path);
 
     return urlData.publicUrl;
+  };
+
+  const deleteFileFromStorage = async (url: string) => {
+    try {
+      // Extract path from URL
+      const urlObj = new URL(url);
+      const pathMatch = urlObj.pathname.match(/\/assessment-media\/(.+)$/);
+      if (pathMatch) {
+        const filePath = decodeURIComponent(pathMatch[1]);
+        await supabase.storage.from('assessment-media').remove([filePath]);
+      }
+    } catch (error) {
+      console.error('Error deleting file from storage:', error);
+    }
+  };
+
+  const getErrorMessage = (error: any, type: 'photo' | 'video'): string => {
+    const errorMessage = error?.message?.toLowerCase() || '';
+    const errorCode = error?.statusCode || error?.status;
+    
+    if (errorCode === 413 || errorMessage.includes('payload too large')) {
+      return type === 'video' 
+        ? 'Vídeo muito grande. Grave em 720p ou menor qualidade.'
+        : 'Imagem muito grande. Máximo 10MB.';
+    }
+    if (errorCode === 403 || errorMessage.includes('permission') || errorMessage.includes('policy')) {
+      return 'Sem permissão para upload. Faça login novamente.';
+    }
+    if (errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
+      return 'Erro de arquivo duplicado. Tente novamente.';
+    }
+    if (errorCode === 404) {
+      return 'Bucket de armazenamento não encontrado.';
+    }
+    
+    return type === 'video'
+      ? `Erro ao enviar vídeo (${errorCode || 'desconhecido'}). Tente novamente.`
+      : `Erro ao enviar foto (${errorCode || 'desconhecido'}). Tente novamente.`;
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,10 +137,10 @@ export function MediaUploader({
       onUploadComplete({ photoUrl: url, videoUrl: videoUrl || undefined });
       triggerHaptic('success');
       toast.success('Foto enviada com sucesso');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading photo:', error);
       triggerHaptic('error');
-      toast.error('Erro ao enviar foto');
+      toast.error(getErrorMessage(error, 'photo'));
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -133,25 +172,31 @@ export function MediaUploader({
       onUploadComplete({ photoUrl: photoUrl || undefined, videoUrl: url });
       triggerHaptic('success');
       toast.success('Vídeo enviado com sucesso');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading video:', error);
       triggerHaptic('error');
-      toast.error('Erro ao enviar vídeo. Tente gravar em menor qualidade.');
+      toast.error(getErrorMessage(error, 'video'));
     } finally {
       setIsUploadingVideo(false);
     }
   };
 
-  const removePhoto = () => {
+  const removePhoto = async () => {
     triggerHaptic('tap');
+    if (photoUrl) {
+      await deleteFileFromStorage(photoUrl);
+    }
     setPhotoUrl(null);
     onUploadComplete({ videoUrl: videoUrl || undefined });
     if (photoCameraRef.current) photoCameraRef.current.value = '';
     if (photoGalleryRef.current) photoGalleryRef.current.value = '';
   };
 
-  const removeVideo = () => {
+  const removeVideo = async () => {
     triggerHaptic('tap');
+    if (videoUrl) {
+      await deleteFileFromStorage(videoUrl);
+    }
     setVideoUrl(null);
     onUploadComplete({ photoUrl: photoUrl || undefined });
     if (videoCameraRef.current) videoCameraRef.current.value = '';

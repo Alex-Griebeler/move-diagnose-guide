@@ -145,6 +145,8 @@ export default {
       spacing: {
         '18': '4.5rem',
         '22': '5.5rem',
+        'sm': '0.75rem',   // 12px - Fabrik Performance pattern
+        'lg': '1.25rem',   // 20px - Fabrik Performance pattern
       },
     },
   },

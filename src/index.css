@@ -3,16 +3,17 @@
 @tailwind utilities;
 
 /* 
-  FABRIK Design System
-  =====================
+  FABRIK Design System - Synchronized with Fabrik Performance
+  ============================================================
   Aesthetic: "Apple minimalista + Quiet luxury"
+  Theme: Dark mode by default (matching Fabrik Performance)
   
-  Cores (Superprompt):
-  - Terracota: #A45248 → HSL(5, 36%, 46%)
-  - Cinza claro: #F8F8F8 → HSL(0, 0%, 97%)
-  - Preto: #1C1C1C → HSL(0, 0%, 11%)
-  - Cinza médio: #4A4A4A → HSL(0, 0%, 29%)
-  - Cinza borda: #C7C7C7 → HSL(0, 0%, 78%)
+  Cores:
+  - Terracota: #A45248 → HSL(5, 36%, 46%) | Dark: #c06b63 → HSL(5, 40%, 57%)
+  - Background Dark: #141414 → HSL(0, 0%, 8%)
+  - Card Dark: #1C1C1C → HSL(0, 0%, 11%)
+  - Muted Dark: #262626 → HSL(0, 0%, 15%)
+  - Border Dark: #383838 → HSL(0, 0%, 22%)
   
   Tipografia:
   - Títulos: Bebas Neue (similar Square 721 Condensed)
@@ -21,7 +22,7 @@
 
 @layer base {
   :root {
-    /* FABRIK Core Colors */
+    /* FABRIK Core Colors - Light Mode */
     --background: 0 0% 97%;           /* #F8F8F8 - Cinza claro */
     --foreground: 0 0% 11%;           /* #1C1C1C - Preto */
 
@@ -87,34 +88,43 @@
     --fabrik-gray-bg: 0 0% 97%;
     --fabrik-white: 0 0% 100%;
 
-    /* Shadows & Effects */
+    /* Shadows & Effects - Light Mode */
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
     --shadow-elevated: 0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04);
     --shadow-soft: 0 8px 30px -6px rgb(0 0 0 / 0.06);
   }
 
+  /* Dark Mode - Synchronized with Fabrik Performance */
   .dark {
+    /* Background - #141414 */
     --background: 0 0% 8%;
     --foreground: 0 0% 97%;
 
+    /* Card - #1C1C1C */
     --card: 0 0% 11%;
     --card-foreground: 0 0% 97%;
 
+    /* Popover */
     --popover: 0 0% 11%;
     --popover-foreground: 0 0% 97%;
 
-    --primary: 5 36% 55%;
+    /* Primary - Terracota mais vibrante no dark #c06b63 */
+    --primary: 5 40% 57%;
     --primary-foreground: 0 0% 100%;
 
+    /* Secondary */
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 97%;
 
+    /* Muted - #262626 para tabs background */
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 60%;
 
+    /* Accent */
     --accent: 5 36% 20%;
-    --accent-foreground: 5 36% 55%;
+    --accent-foreground: 5 40% 65%;
 
+    /* Status Colors */
     --success: 142 50% 45%;
     --success-foreground: 0 0% 100%;
 
@@ -124,18 +134,25 @@
     --destructive: 0 55% 45%;
     --destructive-foreground: 0 0% 100%;
 
+    /* Border - #383838 */
     --border: 0 0% 22%;
     --input: 0 0% 22%;
-    --ring: 5 36% 55%;
+    --ring: 5 40% 57%;
 
+    /* Sidebar */
     --sidebar-background: 0 0% 6%;
     --sidebar-foreground: 0 0% 97%;
-    --sidebar-primary: 5 36% 55%;
+    --sidebar-primary: 5 40% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 12%;
     --sidebar-accent-foreground: 0 0% 97%;
     --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 5 36% 55%;
+    --sidebar-ring: 5 40% 57%;
+
+    /* Shadows - Adjusted for dark mode */
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+    --shadow-elevated: 0 4px 16px -2px rgb(0 0 0 / 0.3), 0 2px 6px -2px rgb(0 0 0 / 0.2);
+    --shadow-soft: 0 8px 30px -6px rgb(0 0 0 / 0.25);
   }
 }
 
@@ -218,7 +235,7 @@
     @apply transition-all duration-150 ease-out;
   }
 
-  /* Card styles - White with subtle shadow */
+  /* Card styles - Fabrik Performance pattern */
   .card-fabrik {
     @apply bg-card rounded-lg;
     box-shadow: var(--shadow-card);
@@ -226,6 +243,15 @@
 
   .card-fabrik-elevated {
     @apply bg-card rounded-lg;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Card hover - Fabrik Performance pattern */
+  .card-hover {
+    @apply transition-all duration-200;
+  }
+
+  .card-hover:hover {
     box-shadow: var(--shadow-elevated);
   }
 
@@ -281,5 +307,30 @@
     @apply bg-background border border-border rounded-md px-4 py-3 text-sm;
     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
     @apply placeholder:text-muted-foreground/60;
+  }
+
+  /* Divider with centered text - Fabrik Performance pattern */
+  .divider-text {
+    @apply flex items-center gap-4 text-xs text-muted-foreground uppercase tracking-wider;
+  }
+
+  .divider-text::before,
+  .divider-text::after {
+    content: '';
+    @apply flex-1 h-px bg-border;
+  }
+
+  /* Gradient backgrounds - Fabrik Performance pattern */
+  .gradient-primary {
+    @apply bg-gradient-to-br from-primary to-primary/80;
+  }
+
+  .gradient-accent {
+    @apply bg-gradient-to-br from-accent to-accent/80;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70;
   }
 }

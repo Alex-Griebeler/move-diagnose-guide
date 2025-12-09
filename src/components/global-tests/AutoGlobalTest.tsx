@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Info, Sparkles, X, Plus, Check, Loader2 } from 'lucide-react';
+import { Info, Sparkles, X, Plus, Check, Loader2, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -390,68 +391,72 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         </Button>
       </div>
 
-      {/* Aggregated Summary */}
+      {/* Aggregated Summary - Collapsible */}
       {allSelectedIds.length > 0 && (
-        <Card className="border-accent/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              📊 Resumo do {config.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <p className="text-xs font-medium text-destructive mb-1">
-                Músculos Hiperativos ({aggregated.hyperactiveMuscles.length})
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {aggregated.hyperactiveMuscles.slice(0, 8).map((m) => (
-                  <Badge key={m} variant="outline" className="text-xs">
-                    {m}
-                  </Badge>
-                ))}
-                {aggregated.hyperactiveMuscles.length > 8 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{aggregated.hyperactiveMuscles.length - 8}
-                  </Badge>
-                )}
+        <Collapsible defaultOpen={false}>
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 rounded-lg transition-colors group">
+              <div className="flex items-center gap-3">
+                <span className="text-base">📊</span>
+                <span className="text-sm font-medium">Resumo do {config.title}</span>
               </div>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-success mb-1">
-                Músculos Hipoativos ({aggregated.hypoactiveMuscles.length})
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {aggregated.hypoactiveMuscles.slice(0, 8).map((m) => (
-                  <Badge key={m} variant="outline" className="text-xs">
-                    {m}
-                  </Badge>
-                ))}
-                {aggregated.hypoactiveMuscles.length > 8 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{aggregated.hypoactiveMuscles.length - 8}
-                  </Badge>
-                )}
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
+                  {aggregated.hyperactiveMuscles.length} hiper
+                </Badge>
+                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">
+                  {aggregated.hypoactiveMuscles.length} hipo
+                </Badge>
+                <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30">
+                  {aggregated.associatedInjuries.length} lesões
+                </Badge>
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
               </div>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-warning mb-1">
-                Lesões Associadas ({aggregated.associatedInjuries.length})
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {aggregated.associatedInjuries.slice(0, 6).map((i) => (
-                  <Badge key={i} variant="outline" className="text-xs bg-warning/10">
-                    {i}
-                  </Badge>
-                ))}
-                {aggregated.associatedInjuries.length > 6 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{aggregated.associatedInjuries.length - 6}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+            <Card className="border-accent/30 mt-2">
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-destructive mb-1">
+                    Músculos Hiperativos ({aggregated.hyperactiveMuscles.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {aggregated.hyperactiveMuscles.map((m) => (
+                      <Badge key={m} variant="outline" className="text-xs">
+                        {m}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-success mb-1">
+                    Músculos Hipoativos ({aggregated.hypoactiveMuscles.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {aggregated.hypoactiveMuscles.map((m) => (
+                      <Badge key={m} variant="outline" className="text-xs">
+                        {m}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-warning mb-1">
+                    Lesões Associadas ({aggregated.associatedInjuries.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {aggregated.associatedInjuries.map((i) => (
+                      <Badge key={i} variant="outline" className="text-xs bg-warning/10">
+                        {i}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Notes */}

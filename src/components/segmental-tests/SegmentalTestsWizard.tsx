@@ -290,25 +290,20 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       {/* Minimal Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">
-              {isSummaryStep ? 'Resumo' : currentTest?.name}
-            </h2>
-            {!isSummaryStep && currentTest?.description && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="text-muted-foreground hover:text-foreground transition-colors">
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <p>{currentTest.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h2 className="text-lg font-semibold cursor-help hover:text-foreground/80 transition-colors">
+                  {isSummaryStep ? 'Resumo' : currentTest?.name}
+                </h2>
+              </TooltipTrigger>
+              {!isSummaryStep && currentTest?.description && (
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p>{currentTest.description}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
           <span className="text-sm text-muted-foreground">
             {currentStep} de {totalSteps}
           </span>

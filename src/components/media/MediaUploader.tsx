@@ -326,11 +326,11 @@ export function MediaUploader({
 
           {/* Video Upload */}
           <div className="space-y-2">
-            {videoUrl ? (
+          {videoUrl ? (
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
                 <video
                   src={videoUrl}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-black"
                   controls
                 />
                 <button

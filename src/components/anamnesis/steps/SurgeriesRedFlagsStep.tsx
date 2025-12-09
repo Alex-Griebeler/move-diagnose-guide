@@ -28,6 +28,13 @@ const surgeryRegions = [
   'Outro',
 ];
 
+const lateralityOptions = [
+  { value: 'direito', label: 'Direito' },
+  { value: 'esquerdo', label: 'Esquerdo' },
+  { value: 'bilateral', label: 'Bilateral' },
+  { value: 'na', label: 'N/A (Central)' },
+];
+
 const redFlagItems = [
   { key: 'unexplainedWeightLoss', label: 'Perda de peso inexplicada' },
   { key: 'nightPain', label: 'Dor noturna que não melhora com posição' },
@@ -44,6 +51,7 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
     type: '',
     year: '',
     region: '',
+    laterality: '',
   });
 
   const addSurgery = () => {
@@ -51,8 +59,20 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
       updateData({
         surgeries: [...data.surgeries, { ...newSurgery }],
       });
-      setNewSurgery({ type: '', year: '', region: '' });
+      setNewSurgery({ type: '', year: '', region: '', laterality: '' });
     }
+  };
+
+  const formatSurgeryDisplay = (surgery: { region: string; laterality?: string; year?: string }) => {
+    const lateralityLabel = lateralityOptions.find(l => l.value === surgery.laterality)?.label;
+    const parts = [surgery.region];
+    if (surgery.laterality && surgery.laterality !== 'na') {
+      parts.push(lateralityLabel || surgery.laterality);
+    }
+    if (surgery.year) {
+      parts.push(surgery.year);
+    }
+    return parts.join(', ');
   };
 
   const removeSurgery = (index: number) => {
@@ -89,7 +109,7 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
                   <div>
                     <span className="font-medium">{surgery.type}</span>
                     <span className="text-sm text-muted-foreground ml-2">
-                      ({surgery.region}{surgery.year && `, ${surgery.year}`})
+                      ({formatSurgeryDisplay(surgery)})
                     </span>
                   </div>
                   <Button
@@ -109,7 +129,7 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
         {/* Add Surgery Form */}
         <Card>
           <CardContent className="p-4 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de Cirurgia</Label>
                 <Input
@@ -132,6 +152,25 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
                     {surgeryRegions.map((region) => (
                       <SelectItem key={region} value={region}>
                         {region}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Lado</Label>
+                <Select
+                  value={newSurgery.laterality}
+                  onValueChange={(value) => setNewSurgery({ ...newSurgery, laterality: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o lado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lateralityOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

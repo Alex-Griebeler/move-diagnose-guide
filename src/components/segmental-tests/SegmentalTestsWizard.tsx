@@ -3,15 +3,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowRight, ArrowLeft, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
-import { getSuggestedTests, groupTestsByRegion, SegmentalTest, getTestById } from '@/data/segmentalTestMappings';
+import { ArrowRight, ArrowLeft, CheckCircle2, Loader2, Sparkles, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
-import { TestReasoningChain } from './TestReasoningChain';
+import { TestReasoningChainWithPriority } from './TestReasoningChainWithPriority';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
-import { compensacaoCausas } from '@/data/weightEngine';
-import { causaToTests } from '@/data/causaTestMappings';
+import { 
+  getSuggestedTestsWithPriority, 
+  SuggestedTestWithPriority, 
+  TestPrioritizationResult,
+  priorityConfig,
+  getContextLabels,
+} from '@/lib/testPrioritization';
+import { Anamnese } from '@/lib/priorityEngine';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 
 interface SegmentalTestsWizardProps {
   assessmentId: string;
@@ -45,8 +54,10 @@ const initialWizardData: WizardData = {
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [suggestedTests, setSuggestedTests] = useState<SegmentalTest[]>([]);
+  const [prioritizationResult, setPrioritizationResult] = useState<TestPrioritizationResult | null>(null);
   const [detectedCompensations, setDetectedCompensations] = useState<string[]>([]);
+  const [showAdditionalTests, setShowAdditionalTests] = useState(false);
+  
   // Use unified wizard persistence hook
   const {
     data: wizardData,
@@ -61,6 +72,12 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     assessmentId,
   });
 
+  // Get prioritized tests
+  const suggestedTests = prioritizationResult?.prioritizedTests.map(p => p.test) || [];
+  const prioritizedTestsMap = new Map(
+    prioritizationResult?.prioritizedTests.map(p => [p.test.id, p]) || []
+  );
+
   const { testResults, showSummary } = wizardData;
 
   useEffect(() => {
@@ -69,17 +86,25 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   const fetchGlobalTestResults = async () => {
     try {
-      const { data: globalResults, error } = await supabase
-        .from('global_test_results')
-        .select('*')
-        .eq('assessment_id', assessmentId);
+      // Fetch global test results and anamnesis in parallel
+      const [globalResultsResponse, anamnesisResponse] = await Promise.all([
+        supabase
+          .from('global_test_results')
+          .select('*')
+          .eq('assessment_id', assessmentId),
+        supabase
+          .from('anamnesis_responses')
+          .select('pain_history, sports, activity_types, sedentary_hours_per_day, sleep_quality, objectives')
+          .eq('assessment_id', assessmentId)
+          .single(),
+      ]);
 
-      if (error) throw error;
+      if (globalResultsResponse.error) throw globalResultsResponse.error;
 
       // Extract all compensation IDs from global tests
       const allCompensations: string[] = [];
       
-      globalResults?.forEach(result => {
+      globalResultsResponse.data?.forEach(result => {
         const views = ['anterior_view', 'lateral_view', 'posterior_view', 'left_side', 'right_side'];
         views.forEach(view => {
           const viewData = result[view as keyof typeof result] as Record<string, unknown> | null;
@@ -92,57 +117,31 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         });
       });
 
-      // Get unique suggested tests
       const uniqueCompensations = [...new Set(allCompensations)];
       setDetectedCompensations(uniqueCompensations);
-      const tests = getSuggestedTests(uniqueCompensations);
-      setSuggestedTests(tests);
 
-      // ============================================
-      // LOGGING DETALHADO: Cadeia de Raciocínio
-      // Compensação → Causas → Testes Sugeridos
-      // ============================================
-      console.group('[FABRIK] Cadeia de Raciocínio - Testes Segmentados');
-      console.log('📊 Compensações detectadas:', uniqueCompensations);
-      
-      // Build detailed reasoning chain
-      const reasoningChain: Record<string, { causas: string[]; testes: string[] }> = {};
-      
-      uniqueCompensations.forEach(compId => {
-        const causas = compensacaoCausas[compId] || [];
-        const causaIds = causas.map(c => c.id);
-        
-        // Find tests triggered by these causes
-        const testesFromCausas = new Set<string>();
-        causaIds.forEach(causaId => {
-          const testsForCausa = causaToTests[causaId] || [];
-          testsForCausa.forEach(t => testesFromCausas.add(t));
-        });
-        
-        reasoningChain[compId] = {
-          causas: causas.map(c => `${c.label} (${c.id})`),
-          testes: Array.from(testesFromCausas),
-        };
-      });
+      // Build anamnese object for priority engine
+      const anamnesisData = anamnesisResponse.data;
+      const anamnese: Anamnese = {
+        painHistory: anamnesisData?.pain_history as Array<{ region: string; intensity: number }> || [],
+        sports: anamnesisData?.sports as Array<{ name: string }> || [],
+        activityTypes: anamnesisData?.activity_types as string[] || [],
+        sedentaryHoursPerDay: anamnesisData?.sedentary_hours_per_day || undefined,
+        sleepQuality: anamnesisData?.sleep_quality || undefined,
+        objectives: anamnesisData?.objectives || undefined,
+      };
 
-      console.log('🔗 Cadeia Completa:');
-      Object.entries(reasoningChain).forEach(([compId, chain]) => {
-        console.group(`  Compensação: ${compId}`);
-        console.log('    → Causas prováveis:', chain.causas);
-        console.log('    → Testes indicados:', chain.testes);
-        console.groupEnd();
-      });
-
-      console.log('✅ Testes Sugeridos Finais:', tests.map(t => `${t.name} (${t.id})`));
-      console.groupEnd();
-      // ============================================
+      // Use prioritization engine instead of simple getSuggestedTests
+      const result = getSuggestedTestsWithPriority(uniqueCompensations, anamnese);
+      setPrioritizationResult(result);
 
       // Initialize results if empty
+      const allTests = [...result.prioritizedTests, ...result.additionalTests].map(p => p.test);
       if (Object.keys(testResults).length === 0) {
-        initializeResults(tests);
+        initializeResults(allTests);
       }
     } catch (error) {
-      console.error('Error fetching global test results:', error);
+      console.error('Error fetching data:', error);
       toast.error('Erro ao carregar compensações detectadas');
     } finally {
       setLoading(false);
@@ -284,19 +283,42 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     r.passFailLeft !== null || r.passFailRight !== null || r.leftValue !== null || r.rightValue !== null
   ).length;
 
+  const currentTestPriority = currentTest ? prioritizedTestsMap.get(currentTest.id) : null;
+  const contextLabels = prioritizationResult ? getContextLabels(prioritizationResult.contextosAplicados) : [];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Priority Info */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="py-4">
           <div className="flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-primary mt-0.5" />
-            <div>
-              <h3 className="font-medium">Testes Segmentados Automatizados</h3>
-              <p className="text-sm text-muted-foreground">
-                {suggestedTests.length} teste(s) sugerido(s) • {completedCount} completo(s) • 
-                Capture fotos para análise por IA
+            <Zap className="w-5 h-5 text-primary mt-0.5" />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-medium">Testes Priorizados</h3>
+                {prioritizationResult?.paretoApplied && (
+                  <Badge variant="outline" className="text-xs bg-primary/10">
+                    Pareto aplicado
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                {suggestedTests.length} teste(s) prioritário(s) • {completedCount} completo(s)
+                {prioritizationResult?.additionalTests.length ? 
+                  ` • +${prioritizationResult.additionalTests.length} adicional(is)` : ''}
               </p>
+              
+              {/* Applied Contexts */}
+              {contextLabels.length > 0 && (
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">Contextos:</span>
+                  {contextLabels.map((label, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -315,23 +337,70 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       {/* Content */}
       {showSummary ? (
-        <SegmentalTestsSummary 
-          results={testResults} 
-          tests={suggestedTests}
-          groupedTests={groupedTests}
-        />
-      ) : currentTest ? (
         <div className="space-y-4">
+          <SegmentalTestsSummary 
+            results={testResults} 
+            tests={suggestedTests}
+            groupedTests={groupedTests}
+          />
+          
+          {/* Additional Tests Section */}
+          {prioritizationResult?.additionalTests && prioritizationResult.additionalTests.length > 0 && (
+            <Collapsible open={showAdditionalTests} onOpenChange={setShowAdditionalTests}>
+              <CollapsibleTrigger asChild>
+                <button className="w-full flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <span className="text-sm font-medium">
+                    Testes Adicionais ({prioritizationResult.additionalTests.length})
+                  </span>
+                  {showAdditionalTests ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-2 space-y-2 p-3 bg-muted/20 rounded-lg">
+                  {prioritizationResult.additionalTests.map((pt) => (
+                    <div key={pt.test.id} className="flex items-center justify-between text-sm">
+                      <span>{pt.test.name}</span>
+                      <Badge variant="outline" className={cn('text-xs', priorityConfig[pt.priority].className)}>
+                        Score: {pt.score}
+                      </Badge>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Estes testes têm menor prioridade baseado na análise de compensações e anamnese.
+                  </p>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </div>
+      ) : currentTest && currentTestPriority ? (
+        <div className="space-y-4">
+          {/* Priority Badge */}
+          <div className="flex items-center gap-2">
+            <Badge className={cn('text-xs', priorityConfig[currentTestPriority.priority].className)}>
+              {priorityConfig[currentTestPriority.priority].emoji} Prioridade {priorityConfig[currentTestPriority.priority].label}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              Score: {currentTestPriority.score} • {currentTestPriority.coveredCausesCount} causa(s)
+            </span>
+          </div>
+          
           {/* Reasoning Chain - Why this test was suggested */}
-          <TestReasoningChain 
-            testId={currentTest.id} 
-            compensationIds={detectedCompensations} 
+          <TestReasoningChainWithPriority 
+            testId={currentTest.id}
+            prioritizedTest={currentTestPriority}
+            compensationIds={detectedCompensations}
+            contextosAplicados={prioritizationResult?.contextosAplicados || []}
           />
           
           <AutoSegmentalTest
-          test={currentTest}
-          assessmentId={assessmentId}
-          result={testResults[currentTest.id]}
+            test={currentTest}
+            assessmentId={assessmentId}
+            result={testResults[currentTest.id]}
             onUpdate={(result) => handleTestResult(currentTest.id, result)}
           />
         </div>

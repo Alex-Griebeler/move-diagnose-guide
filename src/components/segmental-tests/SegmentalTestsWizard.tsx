@@ -8,6 +8,7 @@ import { ArrowRight, ArrowLeft, CheckCircle2, Loader2, Sparkles } from 'lucide-r
 import { getSuggestedTests, groupTestsByRegion, SegmentalTest, getTestById } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
+import { TestReasoningChain } from './TestReasoningChain';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { compensacaoCausas } from '@/data/weightEngine';
 import { causaToTests } from '@/data/causaTestMappings';
@@ -45,7 +46,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [suggestedTests, setSuggestedTests] = useState<SegmentalTest[]>([]);
-
+  const [detectedCompensations, setDetectedCompensations] = useState<string[]>([]);
   // Use unified wizard persistence hook
   const {
     data: wizardData,
@@ -93,6 +94,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       // Get unique suggested tests
       const uniqueCompensations = [...new Set(allCompensations)];
+      setDetectedCompensations(uniqueCompensations);
       const tests = getSuggestedTests(uniqueCompensations);
       setSuggestedTests(tests);
 
@@ -319,12 +321,20 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           groupedTests={groupedTests}
         />
       ) : currentTest ? (
-        <AutoSegmentalTest
+        <div className="space-y-4">
+          {/* Reasoning Chain - Why this test was suggested */}
+          <TestReasoningChain 
+            testId={currentTest.id} 
+            compensationIds={detectedCompensations} 
+          />
+          
+          <AutoSegmentalTest
           test={currentTest}
           assessmentId={assessmentId}
           result={testResults[currentTest.id]}
-          onUpdate={(result) => handleTestResult(currentTest.id, result)}
-        />
+            onUpdate={(result) => handleTestResult(currentTest.id, result)}
+          />
+        </div>
       ) : null}
 
       {/* Navigation */}

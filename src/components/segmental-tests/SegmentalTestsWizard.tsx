@@ -3,20 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
-import { TestReasoningChainWithPriority } from './TestReasoningChainWithPriority';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { 
   getSuggestedTestsWithPriority, 
-  SuggestedTestWithPriority, 
   TestPrioritizationResult,
-  priorityConfig,
-  getContextLabels,
 } from '@/lib/testPrioritization';
 import { Anamnese } from '@/lib/priorityEngine';
 import { cn } from '@/lib/utils';
@@ -55,7 +50,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const [prioritizationResult, setPrioritizationResult] = useState<TestPrioritizationResult | null>(null);
   const [detectedCompensations, setDetectedCompensations] = useState<string[]>([]);
   
-  // Use unified wizard persistence hook
   const {
     data: wizardData,
     updateData,
@@ -69,16 +63,11 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     assessmentId,
   });
 
-  // Get prioritized tests - add 1 for summary step
   const suggestedTests = prioritizationResult?.prioritizedTests.map(p => p.test) || [];
-  const totalSteps = suggestedTests.length + 1; // +1 for summary
-  const prioritizedTestsMap = new Map(
-    prioritizationResult?.prioritizedTests.map(p => [p.test.id, p]) || []
-  );
+  const totalSteps = suggestedTests.length + 1;
 
   const { testResults } = wizardData;
 
-  // Detect new assessment and reset wizard
   useEffect(() => {
     const savedAssessmentId = localStorage.getItem('segmentalTests_assessmentId');
     
@@ -245,7 +234,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     onComplete();
   };
 
-  // Check if a test step is completed
   const isTestCompleted = (testId: string): boolean => {
     const result = testResults[testId];
     if (!result) return false;
@@ -259,7 +247,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary mr-3" />
           <span className="text-muted-foreground">
-            {isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações detectadas...'}
+            {isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações...'}
           </span>
         </div>
       </div>
@@ -274,7 +262,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             <Check className="w-12 h-12 text-success mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhum teste segmentado sugerido</h3>
             <p className="text-muted-foreground mb-6">
-              Não foram detectadas compensações que exijam testes segmentados adicionais.
+              Não foram detectadas compensações que exijam testes adicionais.
             </p>
             <Button onClick={onComplete}>
               Continuar <ChevronRight className="w-4 h-4 ml-2" />
@@ -288,53 +276,32 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const isSummaryStep = currentStep === totalSteps;
   const currentTestIndex = currentStep - 1;
   const currentTest = !isSummaryStep ? suggestedTests[currentTestIndex] : null;
-  const currentTestPriority = currentTest ? prioritizedTestsMap.get(currentTest.id) : null;
-  const contextLabels = prioritizationResult ? getContextLabels(prioritizationResult.contextosAplicados) : [];
-
   const progress = (currentStep / totalSteps) * 100;
   const groupedTests = groupTestsByRegion(suggestedTests);
-  
-  const completedCount = suggestedTests.filter(t => isTestCompleted(t.id)).length;
 
-  // Build steps array for visual indicators
-  const steps = [
-    ...prioritizationResult!.prioritizedTests.map((pt, i) => ({
-      id: i + 1,
-      title: pt.test.name,
-      shortTitle: pt.test.name.split(' ')[0],
-      icon: priorityConfig[pt.priority].emoji,
-      testId: pt.test.id,
-      priority: pt.priority,
-      score: pt.score,
-    })),
-    { id: totalSteps, title: 'Resumo', shortTitle: 'Resumo', icon: '📊', testId: null, priority: 'low' as const, score: 0 },
-  ];
+  const steps = suggestedTests.map((test, i) => ({
+    id: i + 1,
+    testId: test.id,
+  }));
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Progress Header */}
+      {/* Minimal Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            {isSummaryStep ? (
-              <>📊 Resumo dos Testes</>
-            ) : (
-              <>
-                <span>{steps[currentTestIndex].icon}</span>
-                {currentTest?.name}
-              </>
-            )}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">
+            {isSummaryStep ? 'Resumo' : currentTest?.name}
           </h2>
           <span className="text-sm text-muted-foreground">
-            Etapa {currentStep} de {totalSteps}
+            {currentStep} de {totalSteps}
           </span>
         </div>
-        <Progress value={progress} className="h-2" />
+        <Progress value={progress} className="h-1.5" />
 
-        {/* Step indicators */}
-        <div className="flex justify-between mt-4 overflow-x-auto pb-2">
+        {/* Minimal step indicators */}
+        <div className="flex justify-center gap-2 mt-4">
           {steps.map((step) => {
-            const isCompleted = step.testId ? isTestCompleted(step.testId) : completedCount === suggestedTests.length;
+            const isCompleted = isTestCompleted(step.testId);
             const isCurrent = step.id === currentStep;
             
             return (
@@ -342,65 +309,33 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
                 key={step.id}
                 onClick={() => setCurrentStep(step.id)}
                 className={cn(
-                  "flex flex-col items-center min-w-[60px] transition-colors",
+                  "w-2.5 h-2.5 rounded-full transition-all",
                   isCurrent
-                    ? "text-primary"
+                    ? "bg-primary scale-125"
                     : isCompleted
-                    ? "text-success"
-                    : "text-muted-foreground"
+                    ? "bg-success"
+                    : "bg-muted-foreground/30"
                 )}
-              >
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
-                    isCurrent
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : isCompleted
-                      ? "border-success bg-success text-success-foreground"
-                      : step.testId ? cn(
-                          "border-muted-foreground/30",
-                          step.priority === 'high' ? 'bg-destructive/5' :
-                          step.priority === 'medium' ? 'bg-warning/5' : ''
-                        )
-                      : "border-muted-foreground/30"
-                  )}
-                >
-                  {isCompleted ? <Check className="w-5 h-5" /> : step.icon}
-                </div>
-                <span className="text-[10px] mt-1 hidden sm:block truncate max-w-[60px]">
-                  {step.shortTitle}
-                </span>
-              </button>
+                aria-label={`Etapa ${step.id}`}
+              />
             );
           })}
+          {/* Summary step indicator */}
+          <button
+            onClick={() => setCurrentStep(totalSteps)}
+            className={cn(
+              "w-2.5 h-2.5 rounded-full transition-all",
+              isSummaryStep
+                ? "bg-primary scale-125"
+                : "bg-muted-foreground/30"
+            )}
+            aria-label="Resumo"
+          />
         </div>
       </div>
 
-      {/* Context Banner */}
-      {contextLabels.length > 0 && !isSummaryStep && (
-        <div className="mb-6 p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-center gap-3 flex-wrap">
-          <Zap className="w-5 h-5 text-primary" />
-          <span className="text-sm">Contextos aplicados:</span>
-          {contextLabels.map((label, i) => (
-            <Badge key={i} variant="secondary" className="text-xs bg-primary/10">
-              {label}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Completion Counter */}
-      {!isSummaryStep && completedCount > 0 && (
-        <div className="mb-6 p-3 bg-success/10 border border-success/20 rounded-lg flex items-center gap-3">
-          <Check className="w-5 h-5 text-success" />
-          <span className="text-sm">
-            <strong>{completedCount}</strong> de {suggestedTests.length} testes completos
-          </span>
-        </div>
-      )}
-
-      {/* Step Content */}
-      <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
+      {/* Content */}
+      <div className="mb-6 animate-fade-in">
         {isSummaryStep ? (
           <SegmentalTestsSummary 
             results={testResults} 
@@ -408,33 +343,13 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             groupedTests={groupedTests}
             prioritizedTests={prioritizationResult?.prioritizedTests}
           />
-        ) : currentTest && currentTestPriority ? (
-          <div className="space-y-4">
-            {/* Priority Badge */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={cn('text-xs', priorityConfig[currentTestPriority.priority].className)}>
-                {priorityConfig[currentTestPriority.priority].emoji} Prioridade {priorityConfig[currentTestPriority.priority].label}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                Score: {currentTestPriority.score} • {currentTestPriority.coveredCausesCount} causa(s)
-              </span>
-            </div>
-            
-            {/* Reasoning Chain */}
-            <TestReasoningChainWithPriority 
-              testId={currentTest.id}
-              prioritizedTest={currentTestPriority}
-              compensationIds={detectedCompensations}
-              contextosAplicados={prioritizationResult?.contextosAplicados || []}
-            />
-            
-            <AutoSegmentalTest
-              test={currentTest}
-              assessmentId={assessmentId}
-              result={testResults[currentTest.id]}
-              onUpdate={(result) => handleTestResult(currentTest.id, result)}
-            />
-          </div>
+        ) : currentTest ? (
+          <AutoSegmentalTest
+            test={currentTest}
+            assessmentId={assessmentId}
+            result={testResults[currentTest.id]}
+            onUpdate={(result) => handleTestResult(currentTest.id, result)}
+          />
         ) : null}
       </div>
 
@@ -451,8 +366,8 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
         <div className="flex gap-2">
           {!isSummaryStep && (
-            <Button variant="ghost" onClick={handleSkip}>
-              Pular Testes
+            <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
+              Pular
             </Button>
           )}
 
@@ -467,7 +382,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
               ) : (
                 <>
                   <Check className="w-4 h-4 mr-2" />
-                  Concluir Testes Segmentados
+                  Concluir
                 </>
               )}
             </Button>

@@ -19,72 +19,102 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
 // Test-specific prompts for movement analysis
 const TEST_PROMPTS: Record<string, string> = {
   // Global Tests
-  overhead_squat: `Você é um especialista em análise biomecânica. Analise esta imagem/vídeo de um Overhead Squat (agachamento com braços elevados).
+  overhead_squat: `Você é um especialista em análise biomecânica com formação em fisioterapia e movimento funcional. Analise CUIDADOSAMENTE esta imagem/vídeo de um Overhead Squat (agachamento com braços elevados).
 
-Identifique TODAS as compensações presentes. Compensações possíveis:
+IMPORTANTE: Seja METICULOSO na análise. Observe cada detalhe do movimento antes de responder.
 
-VISTA ANTERIOR:
-- knee_valgus: Joelhos colapsando para dentro (valgo dinâmico)
-- knee_varus: Joelhos se afastando excessivamente (varo)
-- foot_pronation: Desabamento do arco plantar
-- feet_abduction: Pés rotacionados para fora excessivamente
-- feet_eversion: Eversão dos tornozelos
+Identifique TODAS as compensações presentes. Compensações possíveis por vista:
 
-VISTA LATERAL:
-- trunk_lean: Inclinação excessiva do tronco para frente
-- butt_wink: Retroversão pélvica no fundo do agachamento
-- heels_rise: Elevação dos calcanhares
-- arms_fall: Queda dos braços para frente
-- lumbar_hyperextension: Hiperextensão lombar
-- spine_flexion: Flexão excessiva da coluna
+VISTA ANTERIOR (de frente):
+- feet_abduction: Pés abduzidos (giram para fora excessivamente, >30°)
+- feet_eversion: Eversão dos pés (pronação, arco plantar colapsando)
+- knee_valgus: Joelhos valgos (cavam para dentro, especialmente na descida)
+- knee_varus: Joelhos varos (arqueados para fora excessivamente)
 
-VISTA POSTERIOR:
-- trunk_rotation: Rotação do tronco
-- asymmetry: Assimetria geral do movimento
+VISTA LATERAL (de lado):
+- trunk_forward_lean: Inclinação excessiva do tronco para frente (>45° com a vertical)
+- lumbar_hyperextension: Hiperextensão lombar (arco excessivo na região lombar)
+- spine_flexion: Flexão da coluna/butt wink (arredondamento da lombar no fundo do agachamento)
+- heels_rise: Calcanhares sobem do chão durante a descida
+- arms_fall_forward: Braços caem para frente (não mantém alinhados com o tronco)
+
+VISTA POSTERIOR (de trás):
+- asymmetric_shift: Shift pélvico (quadril desvia para um lado durante o movimento)
+- trunk_rotation: Rotação do tronco (ombros ou pelve rotam durante o movimento)
+- feet_eversion_posterior: Eversão dos pés visível por trás (calcanhares inclinam para fora)
+- heels_rise_posterior: Elevação de calcanhar visível por trás
+
+DICAS DE ANÁLISE:
+- Compare simetria entre lado direito e esquerdo
+- Observe o alinhamento vertical: orelha-ombro-quadril-joelho-tornozelo
+- Verifique se há compensações diferentes na descida vs. subida
+- Note a posição mais baixa alcançada (profundidade do agachamento)
 
 Responda APENAS em JSON válido com este formato:
 {
   "detected_compensations": ["compensation_id_1", "compensation_id_2"],
   "confidence": 0.85,
-  "notes": "Observações adicionais relevantes"
+  "notes": "Observações detalhadas sobre as compensações identificadas e qualidade geral do movimento"
 }`,
 
-  single_leg_squat: `Você é um especialista em análise biomecânica. Analise esta imagem/vídeo de um Single-Leg Squat (agachamento unipodal).
+  single_leg_squat: `Você é um especialista em análise biomecânica. Analise CUIDADOSAMENTE esta imagem/vídeo de um Single-Leg Squat (agachamento unipodal).
 
-Identifique TODAS as compensações presentes para o lado visível. Compensações possíveis:
-- knee_valgus: Joelho colapsando para dentro
-- hip_drop: Queda da pelve do lado contralateral (Trendelenburg)
-- hip_hike: Elevação da pelve do lado contralateral
-- instability: Instabilidade geral durante o movimento
-- tremor: Tremor ou oscilação
-- foot_collapse: Desabamento do arco plantar
-- balance_loss: Perda de equilíbrio/toque no chão
+IMPORTANTE: Observe atentamente a estabilidade, alinhamento e controle durante todo o movimento.
+
+Compensações possíveis:
+
+VISTA ANTERIOR (de frente):
+- knee_valgus: Joelho de apoio colapsa para dentro (valgo dinâmico)
+- foot_collapse: Arco plantar desaba (pronação excessiva)
+- instability: Instabilidade geral, oscilações no apoio
+- tremor: Tremor muscular visível
+- balance_loss: Perda de equilíbrio, toca o chão com a outra perna
+
+VISTA POSTERIOR (de trás):
+- hip_drop: Queda da pelve do lado da perna elevada (sinal de Trendelenburg)
+- hip_hike: Elevação excessiva da pelve do lado da perna elevada
 - trunk_rotation_medial: Rotação do tronco para o lado da perna de apoio
 - trunk_rotation_lateral: Rotação do tronco para o lado da perna elevada
 - trunk_forward_lean_sls: Inclinação excessiva do tronco para frente
-- knee_flexion_insufficient: Amplitude de flexão do joelho insuficiente
+- knee_flexion_insufficient: Amplitude de flexão do joelho insuficiente (<45°)
+
+CRITÉRIOS DE QUALIDADE:
+- Joelho deve alinhar com 2º dedo do pé
+- Pelve deve manter-se nivelada
+- Tronco deve permanecer relativamente vertical
+- Movimento deve ser controlado, sem oscilações
 
 Responda APENAS em JSON válido com este formato:
 {
   "detected_compensations": ["compensation_id_1", "compensation_id_2"],
-  "side": "left" ou "right",
+  "side": "left" ou "right" (identifique qual perna está em apoio),
   "confidence": 0.85,
-  "notes": "Observações adicionais relevantes"
+  "notes": "Observações sobre estabilidade, controle e compensações identificadas"
 }`,
 
-  pushup: `Você é um especialista em análise biomecânica. Analise esta imagem/vídeo de um Push-up (flexão de braços).
+  pushup: `Você é um especialista em análise biomecânica. Analise CUIDADOSAMENTE esta imagem/vídeo de um Push-up (flexão de braços).
 
-Identifique TODAS as compensações presentes. Compensações possíveis (vista posterior):
-- scapular_winging: Escápulas protraindo excessivamente (aladas)
-- elbow_flare: Cotovelos afastando excessivamente do corpo (>45°)
-- shoulder_protraction: Protração excessiva dos ombros
-- shoulder_retraction_insufficient: Retração escapular insuficiente
+IMPORTANTE: Foque especialmente na posição escapular e alinhamento da coluna.
+
+Compensações possíveis (vista posterior - de trás):
+- scapular_winging: Escápulas aladas (bordas mediais se projetam para fora do tórax)
+- elbow_flare: Cotovelos abrem excessivamente (>60° do tronco)
+- shoulder_protraction: Protração excessiva dos ombros (ombros muito arredondados para frente)
+- shoulder_retraction_insufficient: Falta de estabilidade escapular na fase excêntrica
+- hip_elevation: Quadril sobe excessivamente (pike)
+- hip_drop: Quadril afunda (lordose excessiva)
+
+CRITÉRIOS DE QUALIDADE:
+- Corpo deve formar linha reta da cabeça aos calcanhares
+- Escápulas devem permanecer planas contra as costelas
+- Cotovelos devem formar ~45° com o tronco
+- Core deve permanecer ativado (sem movimento do quadril)
 
 Responda APENAS em JSON válido com este formato:
 {
   "detected_compensations": ["compensation_id_1", "compensation_id_2"],
   "confidence": 0.85,
-  "notes": "Observações adicionais relevantes"
+  "notes": "Observações sobre estabilidade escapular, alinhamento corporal e controle"
 }`
 };
 
@@ -219,7 +249,7 @@ serve(async (req) => {
       { type: 'image_url', image_url: { url: imageUrl } }
     ];
 
-    // Call Lovable AI Gateway with vision model
+    // Call Lovable AI Gateway with vision model (use Pro for better accuracy)
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -227,15 +257,15 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro', // Pro model for better movement analysis
         messages: [
           {
             role: 'user',
             content: messageContent
           }
         ],
-        max_tokens: 1000,
-        temperature: 0.3, // Lower temperature for more consistent analysis
+        max_tokens: 1500,
+        temperature: 0.2, // Lower temperature for more consistent/precise analysis
       }),
     });
 

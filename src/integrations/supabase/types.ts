@@ -106,6 +106,41 @@ export type Database = {
           },
         ]
       }
+      assessment_drafts: {
+        Row: {
+          assessment_id: string
+          current_step: number | null
+          draft_data: Json
+          id: string
+          step_type: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          current_step?: number | null
+          draft_data?: Json
+          id?: string
+          step_type: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          current_step?: number | null
+          draft_data?: Json
+          id?: string
+          step_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_drafts_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessments: {
         Row: {
           completed_at: string | null

@@ -390,6 +390,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
             assessmentId={assessmentId}
             testName={`${testType}_${currentView.id}`}
             viewType={currentView.id}
+            initialPhotoUrl={currentMedia.photoUrl}
+            initialVideoUrl={currentMedia.videoUrl}
             onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
             onAnalyze={handleAnalyze}
             isAnalyzing={isAnalyzing}

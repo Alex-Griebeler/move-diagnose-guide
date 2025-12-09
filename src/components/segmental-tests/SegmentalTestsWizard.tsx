@@ -298,27 +298,45 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
                 <h3 className="font-medium">Testes Priorizados</h3>
                 {prioritizationResult?.paretoApplied && (
                   <Badge variant="outline" className="text-xs bg-primary/10">
-                    Pareto aplicado
+                    Pareto: {prioritizationResult.totalCausasAnalisadas} causas → {suggestedTests.length} testes
                   </Badge>
                 )}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                {suggestedTests.length} teste(s) prioritário(s) • {completedCount} completo(s)
-                {prioritizationResult?.additionalTests.length ? 
-                  ` • +${prioritizationResult.additionalTests.length} adicional(is)` : ''}
+                Ordenados por impacto clínico (maior → menor)
               </p>
               
               {/* Applied Contexts */}
               {contextLabels.length > 0 && (
                 <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground">Contextos:</span>
+                  <span className="text-xs text-muted-foreground">Contextos que elevaram prioridade:</span>
                   {contextLabels.map((label, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
+                    <Badge key={i} variant="secondary" className="text-xs bg-primary/10">
                       {label}
                     </Badge>
                   ))}
                 </div>
               )}
+
+              {/* Priority Order Preview */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {prioritizationResult?.prioritizedTests.map((pt, i) => (
+                  <div 
+                    key={pt.test.id}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full text-xs',
+                      currentStep === i + 1 ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : '',
+                      pt.priority === 'high' ? 'bg-destructive/10 text-destructive' :
+                      pt.priority === 'medium' ? 'bg-warning/10 text-warning' :
+                      'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    <span className="font-bold">{i + 1}</span>
+                    <span className="truncate max-w-[100px]">{pt.test.name.split(' ')[0]}</span>
+                    <span className="opacity-70">({pt.score})</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -342,6 +360,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             results={testResults} 
             tests={suggestedTests}
             groupedTests={groupedTests}
+            prioritizedTests={prioritizationResult?.prioritizedTests}
           />
           
           {/* Additional Tests Section */}

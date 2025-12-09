@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SegmentalTest } from '@/data/segmentalTestMappings';
-import { CheckCircle2, XCircle, MinusCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, MinusCircle, AlertTriangle, TrendingUp } from 'lucide-react';
+import { SuggestedTestWithPriority, priorityConfig } from '@/lib/testPrioritization';
+import { cn } from '@/lib/utils';
 
 interface TestResult {
   testId: string;
@@ -20,9 +22,15 @@ interface SegmentalTestsSummaryProps {
   results: Record<string, TestResult>;
   tests: SegmentalTest[];
   groupedTests: Record<string, SegmentalTest[]>;
+  prioritizedTests?: SuggestedTestWithPriority[];
 }
 
-export function SegmentalTestsSummary({ results, tests, groupedTests }: SegmentalTestsSummaryProps) {
+export function SegmentalTestsSummary({ 
+  results, 
+  tests, 
+  groupedTests,
+  prioritizedTests,
+}: SegmentalTestsSummaryProps) {
   const getResultStatus = (result: TestResult, test: SegmentalTest): 'pass' | 'fail' | 'partial' | 'unknown' => {
     if (test.isBilateral) {
       if (result.passFailLeft === null && result.passFailRight === null) return 'unknown';
@@ -74,6 +82,9 @@ export function SegmentalTestsSummary({ results, tests, groupedTests }: Segmenta
     { pass: 0, fail: 0, partial: 0, unknown: 0 }
   );
 
+  // Use prioritized order if available, otherwise fall back to region grouping
+  const hasPriorityData = prioritizedTests && prioritizedTests.length > 0;
+
   return (
     <div className="space-y-6">
       {/* Stats Overview */}
@@ -104,45 +115,61 @@ export function SegmentalTestsSummary({ results, tests, groupedTests }: Segmenta
         </Card>
       </div>
 
-      {/* Detailed Results by Region */}
-      {Object.entries(groupedTests).map(([region, regionTests]) => (
-        <Card key={region}>
+      {/* Priority-ordered Results */}
+      {hasPriorityData ? (
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Badge variant="outline">{region}</Badge>
-              <span className="text-muted-foreground font-normal">
-                ({regionTests.length} teste{regionTests.length > 1 ? 's' : ''})
-              </span>
+              <TrendingUp className="w-4 h-4 text-primary" />
+              Resultados por Ordem de Prioridade
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {regionTests.map(test => {
-              const result = results[test.id];
-              const status = getResultStatus(result, test);
+            {prioritizedTests.map((pt, index) => {
+              const result = results[pt.test.id];
+              const status = getResultStatus(result, pt.test);
+              const priorityStyle = priorityConfig[pt.priority];
 
               return (
                 <div
-                  key={test.id}
+                  key={pt.test.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                 >
                   <div className="flex items-center gap-3">
+                    <div className={cn(
+                      'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold',
+                      pt.priority === 'high' ? 'bg-destructive/20 text-destructive' :
+                      pt.priority === 'medium' ? 'bg-warning/20 text-warning' :
+                      'bg-muted text-muted-foreground'
+                    )}>
+                      {index + 1}
+                    </div>
                     {getStatusIcon(status)}
                     <div>
-                      <p className="font-medium text-sm">{test.name}</p>
-                      {test.isBilateral ? (
-                        <div className="flex gap-4 text-xs text-muted-foreground mt-1">
-                          <span>
-                            E: {result.leftValue !== null ? `${result.leftValue} ${test.unit}` : '-'}
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{pt.test.name}</p>
+                        <Badge 
+                          variant="outline" 
+                          className={cn('text-[10px] px-1.5 py-0', priorityStyle.className)}
+                        >
+                          {priorityStyle.emoji} {pt.score}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {pt.test.bodyRegion}
+                        </Badge>
+                        {pt.test.isBilateral ? (
+                          <span className="text-xs text-muted-foreground">
+                            E: {result?.leftValue !== null ? `${result?.leftValue} ${pt.test.unit}` : '-'} | 
+                            D: {result?.rightValue !== null ? `${result?.rightValue} ${pt.test.unit}` : '-'}
                           </span>
-                          <span>
-                            D: {result.rightValue !== null ? `${result.rightValue} ${test.unit}` : '-'}
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {result?.leftValue !== null ? `${result?.leftValue} ${pt.test.unit}` : '-'}
                           </span>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {result.leftValue !== null ? `${result.leftValue} ${test.unit}` : '-'}
-                        </p>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                   {getStatusBadge(status)}
@@ -151,7 +178,56 @@ export function SegmentalTestsSummary({ results, tests, groupedTests }: Segmenta
             })}
           </CardContent>
         </Card>
-      ))}
+      ) : (
+        /* Fallback: Detailed Results by Region */
+        Object.entries(groupedTests).map(([region, regionTests]) => (
+          <Card key={region}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Badge variant="outline">{region}</Badge>
+                <span className="text-muted-foreground font-normal">
+                  ({regionTests.length} teste{regionTests.length > 1 ? 's' : ''})
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {regionTests.map(test => {
+                const result = results[test.id];
+                const status = getResultStatus(result, test);
+
+                return (
+                  <div
+                    key={test.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      {getStatusIcon(status)}
+                      <div>
+                        <p className="font-medium text-sm">{test.name}</p>
+                        {test.isBilateral ? (
+                          <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+                            <span>
+                              E: {result.leftValue !== null ? `${result.leftValue} ${test.unit}` : '-'}
+                            </span>
+                            <span>
+                              D: {result.rightValue !== null ? `${result.rightValue} ${test.unit}` : '-'}
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {result.leftValue !== null ? `${result.leftValue} ${test.unit}` : '-'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {getStatusBadge(status)}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        ))
+      )}
     </div>
   );
 }

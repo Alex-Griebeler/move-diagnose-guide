@@ -431,7 +431,7 @@ export function identificarContextos(anamnese: {
     if (esporte.includes('nata') || esporte.includes('swim')) {
       contextos.push('natacao');
     }
-    if (esporte.includes('muscula') || esporte.includes('academia') || esporte.includes('gym') || esporte.includes('peso')) {
+    if (esporte.includes('muscula') || esporte.includes('academia') || esporte.includes('gym') || esporte.includes('peso') || esporte.includes('strength') || esporte.includes('força') || esporte.includes('treino')) {
       contextos.push('musculacao');
     }
   });

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Info, Sparkles, X, Plus, Check, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,15 +11,23 @@ import {
   ohsAnteriorCompensations,
   ohsLateralCompensations,
   ohsPosteriorCompensations,
-  slsCompensations,
-  pushupCompensations,
+  slsAnteriorCompensations,
+  slsPosteriorCompensations,
+  pushupPosteriorCompensations,
   getAggregatedMuscles,
   CompensationMapping,
 } from '@/data/compensationMappings';
 import { cn } from '@/lib/utils';
 
 type TestType = 'ohs' | 'sls' | 'pushup';
-type ViewType = 'anterior' | 'lateral' | 'posterior' | 'left' | 'right' | 'main';
+type ViewType = 
+  | 'anterior' 
+  | 'lateral' 
+  | 'posterior' 
+  | 'left_anterior' 
+  | 'left_posterior' 
+  | 'right_anterior' 
+  | 'right_posterior';
 
 interface TestConfig {
   id: TestType;
@@ -80,20 +88,32 @@ const TEST_CONFIGS: Record<TestType, TestConfig> = {
       'Braços à frente para equilíbrio',
       'Flexionar o joelho de apoio o máximo possível',
       'Manter controle durante todo o movimento',
-      'Realizar 3-5 repetições em cada lado',
+      'Realizar 3-5 repetições em cada lado e cada vista',
     ],
     views: [
       {
-        id: 'left',
-        label: 'Perna Esquerda',
-        description: 'Aluno apoiado na perna esquerda',
-        compensations: slsCompensations,
+        id: 'left_anterior',
+        label: 'Esquerda - Anterior',
+        description: 'De frente, aluno apoiado na perna esquerda',
+        compensations: slsAnteriorCompensations,
       },
       {
-        id: 'right',
-        label: 'Perna Direita',
-        description: 'Aluno apoiado na perna direita',
-        compensations: slsCompensations,
+        id: 'left_posterior',
+        label: 'Esquerda - Posterior',
+        description: 'Por trás, aluno apoiado na perna esquerda',
+        compensations: slsPosteriorCompensations,
+      },
+      {
+        id: 'right_anterior',
+        label: 'Direita - Anterior',
+        description: 'De frente, aluno apoiado na perna direita',
+        compensations: slsAnteriorCompensations,
+      },
+      {
+        id: 'right_posterior',
+        label: 'Direita - Posterior',
+        description: 'Por trás, aluno apoiado na perna direita',
+        compensations: slsPosteriorCompensations,
       },
     ],
   },
@@ -106,15 +126,15 @@ const TEST_CONFIGS: Record<TestType, TestConfig> = {
       'Posição de prancha com mãos na largura dos ombros',
       'Corpo alinhado da cabeça aos calcanhares',
       'Descer controladamente até o peito próximo ao chão',
-      'Subir mantendo o alinhamento corporal',
+      'Capturar de trás (visão posterior) para avaliar escápulas',
       'Realizar 5 repetições para avaliação',
     ],
     views: [
       {
-        id: 'main',
-        label: 'Vista Lateral',
-        description: 'Posicione-se ao lado do aluno',
-        compensations: pushupCompensations,
+        id: 'posterior',
+        label: 'Vista Posterior',
+        description: 'Posicione-se atrás do aluno para observar escápulas e cotovelos',
+        compensations: pushupPosteriorCompensations,
       },
     ],
   },
@@ -135,6 +155,11 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const config = TEST_CONFIGS[testType];
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
   const [analysisResults, setAnalysisResults] = useState<Record<ViewType, AnalysisResult | null>>({} as any);
+
+  // Reset view index when test type changes
+  useEffect(() => {
+    setCurrentViewIndex(0);
+  }, [testType]);
 
   // Derive current view safely (may be undefined if config doesn't exist)
   const currentView = config?.views?.[currentViewIndex];
@@ -270,7 +295,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
 
       {/* View Navigation */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {config.views.map((view, index) => (
             <button
               key={view.id}

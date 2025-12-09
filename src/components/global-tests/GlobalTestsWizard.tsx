@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -11,7 +11,14 @@ import { cn } from '@/lib/utils';
 import { AutoGlobalTest } from './AutoGlobalTest';
 import { TestSummary, LegacyTestData } from './TestSummary';
 
-type ViewType = 'anterior' | 'lateral' | 'posterior' | 'left' | 'right' | 'main';
+type ViewType = 
+  | 'anterior' 
+  | 'lateral' 
+  | 'posterior' 
+  | 'left_anterior' 
+  | 'left_posterior' 
+  | 'right_anterior' 
+  | 'right_posterior';
 
 interface AutoTestData {
   compensations: Record<ViewType, string[]>;
@@ -51,6 +58,16 @@ interface GlobalTestsWizardProps {
 
 // Convert new format to legacy format for TestSummary
 function toLegacyFormat(data: GlobalTestData): LegacyTestData {
+  // Aggregate SLS compensations by side (left = left_anterior + left_posterior, right = right_anterior + right_posterior)
+  const leftSideComps = [
+    ...(data.sls.compensations.left_anterior || []),
+    ...(data.sls.compensations.left_posterior || []),
+  ];
+  const rightSideComps = [
+    ...(data.sls.compensations.right_anterior || []),
+    ...(data.sls.compensations.right_posterior || []),
+  ];
+
   return {
     ohs: {
       anteriorView: data.ohs.compensations.anterior || [],
@@ -59,18 +76,20 @@ function toLegacyFormat(data: GlobalTestData): LegacyTestData {
       notes: data.ohs.notes,
     },
     sls: {
-      leftSide: data.sls.compensations.left || [],
-      rightSide: data.sls.compensations.right || [],
+      leftSide: leftSideComps,
+      rightSide: rightSideComps,
       notes: data.sls.notes,
     },
     pushup: {
-      compensations: data.pushup.compensations.main || [],
+      compensations: data.pushup.compensations.posterior || [],
       notes: data.pushup.notes,
     },
   };
 }
 
 export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizardProps) {
+  const prevAssessmentIdRef = useRef<string | null>(null);
+  
   const {
     data,
     updateData,
@@ -86,6 +105,21 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Detect new assessment and reset wizard
+  useEffect(() => {
+    const savedAssessmentId = localStorage.getItem('globalTests_assessmentId');
+    
+    if (savedAssessmentId && savedAssessmentId !== assessmentId) {
+      // New assessment detected, clear old data
+      clearPersistedData();
+      setCurrentStep(1);
+    }
+    
+    // Update stored assessment ID
+    localStorage.setItem('globalTests_assessmentId', assessmentId);
+    prevAssessmentIdRef.current = assessmentId;
+  }, [assessmentId, clearPersistedData, setCurrentStep]);
 
   const handleNext = () => {
     if (currentStep < 4) {
@@ -126,21 +160,29 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         media_urls: collectMediaUrls(data.ohs),
       });
 
-      // Save SLS results
+      // Save SLS results with detailed view data
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'sls',
-        left_side: { compensations: legacyData.sls.leftSide },
-        right_side: { compensations: legacyData.sls.rightSide },
+        left_side: { 
+          compensations: legacyData.sls.leftSide,
+          anterior: data.sls.compensations.left_anterior || [],
+          posterior: data.sls.compensations.left_posterior || [],
+        },
+        right_side: { 
+          compensations: legacyData.sls.rightSide,
+          anterior: data.sls.compensations.right_anterior || [],
+          posterior: data.sls.compensations.right_posterior || [],
+        },
         notes: legacyData.sls.notes || null,
         media_urls: collectMediaUrls(data.sls),
       });
 
-      // Save Push-up results
+      // Save Push-up results (posterior view)
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'pushup',
-        anterior_view: { compensations: legacyData.pushup.compensations },
+        posterior_view: { compensations: legacyData.pushup.compensations },
         notes: legacyData.pushup.notes || null,
         media_urls: collectMediaUrls(data.pushup),
       });
@@ -153,6 +195,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
 
       // Clear persisted data after successful save
       clearPersistedData();
+      localStorage.removeItem('globalTests_assessmentId');
 
       toast({
         title: 'Testes globais salvos!',

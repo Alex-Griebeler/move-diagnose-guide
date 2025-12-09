@@ -118,9 +118,11 @@ export const ohsPosteriorCompensations: CompensationMapping[] = [
 
 // ============================================
 // Single-Leg Squat (SLS) Compensations
+// Separado por vista: Anterior e Posterior
 // ============================================
 
-export const slsCompensations: CompensationMapping[] = [
+// SLS - Vista Anterior (observar de frente)
+export const slsAnteriorCompensations: CompensationMapping[] = [
   {
     id: 'knee_valgus',
     label: 'Valgismo de joelho',
@@ -128,6 +130,38 @@ export const slsCompensations: CompensationMapping[] = [
     hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'Vasto medial oblíquo (VMO)', 'Rotadores laterais do quadril'],
     associatedInjuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA'],
   },
+  {
+    id: 'foot_collapse',
+    label: 'Pé colapsa (arco cai)',
+    hyperactiveMuscles: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
+    hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
+    associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],
+  },
+  {
+    id: 'instability',
+    label: 'Instabilidade geral',
+    hyperactiveMuscles: ['TFL', 'Quadríceps (superficial)', 'Fibulares'],
+    hypoactiveMuscles: ['Glúteo médio', 'Core estabilizador', 'Estabilizadores do tornozelo', 'Tibial posterior'],
+    associatedInjuries: ['Entorses de tornozelo recorrentes', 'Risco lesão LCA', 'Instabilidade patelar'],
+  },
+  {
+    id: 'tremor',
+    label: 'Tremor durante o movimento',
+    hyperactiveMuscles: ['Musculatura superficial em fadiga', 'Quadríceps', 'TFL'],
+    hypoactiveMuscles: ['Estabilizadores profundos', 'Core', 'Glúteo médio', 'Multífidos'],
+    associatedInjuries: ['Risco elevado de lesão por instabilidade', 'Fadiga muscular precoce'],
+  },
+  {
+    id: 'balance_loss',
+    label: 'Perda de equilíbrio',
+    hyperactiveMuscles: ['Flexores dos dedos', 'Musculatura superficial', 'Gastrocnêmio'],
+    hypoactiveMuscles: ['Glúteo médio', 'Core', 'Proprioceptores do tornozelo', 'Estabilizadores profundos'],
+    associatedInjuries: ['Entorses recorrentes', 'Risco elevado de quedas', 'Instabilidade crônica'],
+  },
+];
+
+// SLS - Vista Posterior (observar por trás)
+export const slsPosteriorCompensations: CompensationMapping[] = [
   {
     id: 'hip_drop',
     label: 'Queda do quadril contralateral (Trendelenburg)',
@@ -170,68 +204,27 @@ export const slsCompensations: CompensationMapping[] = [
     hypoactiveMuscles: ['Glúteo máximo', 'Controle excêntrico de quadríceps'],
     associatedInjuries: ['Compensação por dor ou restrição', 'Déficit de controle motor'],
   },
-  {
-    id: 'instability',
-    label: 'Instabilidade geral',
-    hyperactiveMuscles: ['TFL', 'Quadríceps (superficial)', 'Fibulares'],
-    hypoactiveMuscles: ['Glúteo médio', 'Core estabilizador', 'Estabilizadores do tornozelo', 'Tibial posterior'],
-    associatedInjuries: ['Entorses de tornozelo recorrentes', 'Risco lesão LCA', 'Instabilidade patelar'],
-  },
-  {
-    id: 'tremor',
-    label: 'Tremor durante o movimento',
-    hyperactiveMuscles: ['Musculatura superficial em fadiga', 'Quadríceps', 'TFL'],
-    hypoactiveMuscles: ['Estabilizadores profundos', 'Core', 'Glúteo médio', 'Multífidos'],
-    associatedInjuries: ['Risco elevado de lesão por instabilidade', 'Fadiga muscular precoce'],
-  },
-  {
-    id: 'foot_collapse',
-    label: 'Pé colapsa (arco cai)',
-    hyperactiveMuscles: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
-    hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
-    associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],
-  },
-  {
-    id: 'balance_loss',
-    label: 'Perda de equilíbrio',
-    hyperactiveMuscles: ['Flexores dos dedos', 'Musculatura superficial', 'Gastrocnêmio'],
-    hypoactiveMuscles: ['Glúteo médio', 'Core', 'Proprioceptores do tornozelo', 'Estabilizadores profundos'],
-    associatedInjuries: ['Entorses recorrentes', 'Risco elevado de quedas', 'Instabilidade crônica'],
-  },
+];
+
+// SLS - Todas as compensações (para backward compatibility)
+export const slsCompensations: CompensationMapping[] = [
+  ...slsAnteriorCompensations,
+  ...slsPosteriorCompensations,
 ];
 
 // ============================================
 // Push-up Test Compensations
+// Vista única: Posterior (para escápulas e cotovelos)
 // ============================================
 
-export const pushupCompensations: CompensationMapping[] = [
+// Push-up - Vista Posterior (compensações únicas, não cobertas pelo OHS)
+export const pushupPosteriorCompensations: CompensationMapping[] = [
   {
     id: 'scapular_winging',
     label: 'Escápula alada (scapular winging)',
     hyperactiveMuscles: ['Peitoral menor', 'Romboides (em excesso)', 'Levantador da escápula', 'Trapézio superior'],
     hypoactiveMuscles: ['Serrátil anterior', 'Trapézio inferior', 'Trapézio médio'],
     associatedInjuries: ['Discinese escapular', 'Impacto do ombro', 'Tendinopatia do manguito rotador'],
-  },
-  {
-    id: 'hips_drop',
-    label: 'Quadril cai (hips drop)',
-    hyperactiveMuscles: ['Eretores da espinha lombar', 'Flexores do quadril', 'Latíssimo do dorso'],
-    hypoactiveMuscles: ['Transverso abdominal', 'Oblíquos', 'Glúteo máximo', 'Reto abdominal'],
-    associatedInjuries: ['Dor lombar', 'Espondilolistese', 'Hiperlordose funcional'],
-  },
-  {
-    id: 'hip_elevation',
-    label: 'Elevação da pelve (hip pike)',
-    hyperactiveMuscles: ['Reto abdominal', 'Oblíquo externo', 'Flexores do quadril'],
-    hypoactiveMuscles: ['Glúteo máximo', 'Core posterior', 'Eretores da espinha'],
-    associatedInjuries: ['Perda de eficiência do movimento', 'Compensação por fraqueza de core'],
-  },
-  {
-    id: 'lumbar_extension',
-    label: 'Lombar estende (hiperlordose)',
-    hyperactiveMuscles: ['Eretores da espinha lombar', 'Latíssimo do dorso', 'Psoas'],
-    hypoactiveMuscles: ['Core anterior', 'Reto abdominal', 'Oblíquos', 'Transverso abdominal'],
-    associatedInjuries: ['Dor lombar', 'Hérnia discal', 'Espondilolistese'],
   },
   {
     id: 'elbow_flare',
@@ -254,20 +247,17 @@ export const pushupCompensations: CompensationMapping[] = [
     hypoactiveMuscles: ['Romboides', 'Trapézio médio', 'Trapézio inferior'],
     associatedInjuries: ['Discinese escapular', 'Impacto do ombro'],
   },
-  {
-    id: 'head_forward',
-    label: 'Cabeça projetada / hiperextensão cervical',
-    hyperactiveMuscles: ['Trapézio superior', 'Esternocleidomastóideo', 'Elevador da escápula', 'Suboccipitais'],
-    hypoactiveMuscles: ['Flexores cervicais profundos', 'Longo do pescoço', 'Longo da cabeça'],
-    associatedInjuries: ['Cefaleia cervicogênica', 'Tensão cervical', 'Dor cervical'],
-  },
-  {
-    id: 'misalignment',
-    label: 'Desalinhamento corporal (assimetria)',
-    hyperactiveMuscles: ['Musculatura dominante unilateral', 'Quadrado lombar', 'Oblíquo externo'],
-    hypoactiveMuscles: ['Core estabilizador', 'Oblíquos', 'Estabilizadores escapulares', 'Multífidos'],
-    associatedInjuries: ['Disfunção postural', 'Desequilíbrios musculares', 'Dor lombar assimétrica'],
-  },
+];
+
+// Push-up - Todas as compensações (para backward compatibility)
+export const pushupCompensations: CompensationMapping[] = [
+  ...pushupPosteriorCompensations,
+  // Compensações removidas (redundantes com OHS):
+  // hips_drop → coberto por spine_flexion no OHS
+  // hip_elevation → coberto por lumbar_hyperextension no OHS
+  // lumbar_extension → coberto por lumbar_hyperextension no OHS
+  // head_forward → pode ser inferido
+  // misalignment → coberto por asymmetric_shift e trunk_rotation no OHS
 ];
 
 // ============================================
@@ -298,6 +288,11 @@ export function getAggregatedMuscles(compensations: CompensationMapping[], selec
 // Get all OHS compensations combined
 export function getAllOHSCompensations(): CompensationMapping[] {
   return [...ohsAnteriorCompensations, ...ohsLateralCompensations, ...ohsPosteriorCompensations];
+}
+
+// Get all SLS compensations combined
+export function getAllSLSCompensations(): CompensationMapping[] {
+  return [...slsAnteriorCompensations, ...slsPosteriorCompensations];
 }
 
 // Get all compensations for a specific test

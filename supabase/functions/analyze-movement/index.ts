@@ -309,6 +309,8 @@ serve(async (req) => {
         testName,
         viewType,
         analysis: analysisResult,
+        // Include prompt for debugging/transparency
+        promptUsed: prompt,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

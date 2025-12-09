@@ -10,8 +10,10 @@ export interface AnalysisResult {
   right_result?: 'pass' | 'partial' | 'fail';
   left_value?: number;
   right_value?: number;
+  value?: number;
   confidence: number;
   notes?: string;
+  promptUsed?: string;
 }
 
 interface UseMovementAnalysisOptions {
@@ -52,6 +54,10 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
       }
 
       const result = data.analysis as AnalysisResult;
+      // Include prompt in result for transparency
+      if (data.promptUsed) {
+        result.promptUsed = data.promptUsed;
+      }
       setLastResult(result);
       
       if (options.onAnalysisComplete) {

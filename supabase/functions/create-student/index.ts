@@ -121,9 +121,57 @@ serve(async (req: Request) => {
         );
       }
 
+      // User exists but not linked to this professional - link them
+      console.log("Linking existing user to professional:", existingProfile.id);
+      
+      const { error: linkError } = await supabaseAdmin
+        .from("professional_students")
+        .insert({
+          professional_id: professionalId,
+          student_id: existingProfile.id,
+        });
+
+      if (linkError) {
+        console.error("Error linking existing student:", linkError);
+        return new Response(
+          JSON.stringify({ error: "Erro ao vincular aluno existente" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // For in-person mode with existing user, create assessment
+      let assessmentId = null;
+      if (mode === "inperson") {
+        const { data: assessment, error: assessmentError } = await supabaseAdmin
+          .from("assessments")
+          .insert({
+            professional_id: professionalId,
+            student_id: existingProfile.id,
+            status: "draft",
+          })
+          .select("id")
+          .single();
+
+        if (!assessmentError) {
+          assessmentId = assessment.id;
+        }
+      }
+
+      const response = {
+        success: true,
+        studentId: existingProfile.id,
+        studentName: fullName,
+        studentEmail: email.toLowerCase(),
+        mode,
+        existingUser: true,
+        ...(assessmentId && { assessmentId }),
+        message: "Aluno vinculado com sucesso!",
+      };
+
+      console.log("Linked existing user:", response);
       return new Response(
-        JSON.stringify({ error: "Este email já está cadastrado no sistema" }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify(response),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

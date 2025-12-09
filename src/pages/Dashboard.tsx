@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Activity, Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2 } from 'lucide-react';
+import { Activity, Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AddStudentModal } from '@/components/students/AddStudentModal';
 import { StudentsList } from '@/components/students/StudentsList';
 import { supabase } from '@/integrations/supabase/client';
@@ -105,7 +115,31 @@ function ProfessionalDashboard() {
   const [assessmentStats, setAssessmentStats] = useState<AssessmentStats>({ pending: 0, completed: 0 });
   const [recentAssessments, setRecentAssessments] = useState<RecentAssessment[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assessmentToDelete, setAssessmentToDelete] = useState<RecentAssessment | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { user } = useAuth();
+
+  const handleDeleteAssessment = async () => {
+    if (!assessmentToDelete) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('assessments')
+        .delete()
+        .eq('id', assessmentToDelete.id);
+
+      if (error) throw error;
+      
+      await fetchData();
+      setDeleteDialogOpen(false);
+      setAssessmentToDelete(null);
+    } catch (error) {
+      console.error('Error deleting assessment:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!user) return;
@@ -304,6 +338,30 @@ function ProfessionalDashboard() {
       {/* Students List */}
       <StudentsList onStudentRemoved={fetchData} />
 
+      {/* Delete Assessment Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir avaliação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a avaliação de{' '}
+              <span className="font-medium text-foreground">{assessmentToDelete?.student_name}</span>?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAssessment}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Recent Activity */}
       <div>
         <h2 className="text-base font-semibold text-foreground mb-4">Atividade Recente</h2>
@@ -332,9 +390,22 @@ function ProfessionalDashboard() {
                       </p>
                     </div>
                   </div>
-                  <span className={`text-xs font-medium ${getStatusColor(assessment.status)}`}>
-                    {getStatusLabel(assessment.status)}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-medium ${getStatusColor(assessment.status)}`}>
+                      {getStatusLabel(assessment.status)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        setAssessmentToDelete(assessment);
+                        setDeleteDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </CardContent>

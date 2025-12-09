@@ -79,29 +79,72 @@ Responda APENAS em JSON válido com este formato:
   "detected_compensations": ["compensation_id_1", "compensation_id_2"],
   "confidence": 0.85,
   "notes": "Observações adicionais relevantes"
-}`,
+}`
+};
 
-  // Segmental Tests - generic prompt
-  segmental: `Você é um especialista em avaliação funcional. Analise esta imagem/vídeo de um teste segmentado.
+// Build dynamic prompt for segmental tests based on test parameters
+function buildSegmentalPrompt(params: {
+  testName: string;
+  cutoffValue?: number;
+  unit?: string;
+  resultType?: 'quantitative' | 'qualitative';
+  isBilateral?: boolean;
+  instructions?: string;
+}): string {
+  const { testName, cutoffValue, unit, resultType, isBilateral, instructions } = params;
 
-Determine o resultado do teste baseado na execução observada:
-- PASS: Execução correta, sem compensações significativas
-- PARTIAL: Execução com compensações leves ou amplitude parcial
-- FAIL: Incapacidade de executar ou compensações significativas
+  if (resultType === 'quantitative') {
+    return `Você é um especialista em avaliação funcional e biomecânica.
+Analise esta imagem/vídeo do teste: "${testName}"
 
-Se for um teste bilateral, avalie cada lado separadamente.
+${instructions ? `INSTRUÇÕES DO TESTE:
+${instructions}
+
+` : ''}CRITÉRIOS DE AVALIAÇÃO:
+- Unidade de medida: ${unit || 'não especificada'}
+- Valor de corte para PASS: ${cutoffValue !== undefined ? `≥ ${cutoffValue} ${unit}` : 'não definido'}
+- Teste bilateral: ${isBilateral ? 'SIM - avalie AMBOS os lados separadamente' : 'NÃO - avalie apenas o lado visível'}
+
+MEDIÇÃO:
+Estime o valor numérico observado na imagem com base na execução do movimento.
+${cutoffValue !== undefined ? `- Se valor ≥ ${cutoffValue}: resultado = "pass"
+- Se valor próximo ao corte (dentro de 15%): resultado = "partial"
+- Se valor < ${cutoffValue}: resultado = "fail"` : '- Determine pass/partial/fail baseado na qualidade da execução'}
 
 Responda APENAS em JSON válido com este formato:
 {
-  "result": "pass" | "partial" | "fail",
-  "left_result": "pass" | "partial" | "fail" (se aplicável),
-  "right_result": "pass" | "partial" | "fail" (se aplicável),
-  "left_value": número (se aplicável, ex: graus de amplitude),
-  "right_value": número (se aplicável),
-  "confidence": 0.85,
-  "notes": "Observações adicionais relevantes"
-}`
-};
+  ${isBilateral ? `"left_value": número_estimado,
+  "right_value": número_estimado,
+  "left_result": "pass" | "partial" | "fail",
+  "right_result": "pass" | "partial" | "fail",` : `"value": número_estimado,
+  "result": "pass" | "partial" | "fail",`}
+  "confidence": 0.0-1.0,
+  "notes": "Observações relevantes sobre a execução e medição"
+}`;
+  } else {
+    // Qualitative test
+    return `Você é um especialista em avaliação funcional e biomecânica.
+Analise esta imagem/vídeo do teste: "${testName}"
+
+${instructions ? `INSTRUÇÕES DO TESTE:
+${instructions}
+
+` : ''}CRITÉRIOS QUALITATIVOS DE AVALIAÇÃO:
+- PASS: Execução correta, padrão motor adequado, sem compensações significativas
+- PARTIAL: Execução com compensações leves, controle inconsistente ou amplitude parcial
+- FAIL: Incapacidade de executar corretamente ou presença de compensações significativas
+
+${isBilateral ? 'IMPORTANTE: Este é um teste BILATERAL. Avalie AMBOS os lados separadamente.' : 'Avalie o movimento observado.'}
+
+Responda APENAS em JSON válido com este formato:
+{
+  ${isBilateral ? `"left_result": "pass" | "partial" | "fail",
+  "right_result": "pass" | "partial" | "fail",` : `"result": "pass" | "partial" | "fail",`}
+  "confidence": 0.0-1.0,
+  "notes": "Descrição das compensações observadas ou qualidade do movimento"
+}`;
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -110,7 +153,19 @@ serve(async (req) => {
   }
 
   try {
-    const { testType, testName, imageUrl, videoUrl, viewType } = await req.json();
+    const { 
+      testType, 
+      testName, 
+      imageUrl, 
+      videoUrl, 
+      viewType,
+      // New segmental test parameters
+      cutoffValue,
+      unit,
+      resultType,
+      isBilateral,
+      instructions
+    } = await req.json();
 
     if (!testType || !imageUrl) {
       return new Response(
@@ -129,16 +184,34 @@ serve(async (req) => {
     }
 
     // Select appropriate prompt
-    let prompt = TEST_PROMPTS[testType] || TEST_PROMPTS.segmental;
+    let prompt: string;
     
-    // Add context about view type if provided
-    if (viewType) {
-      prompt = `${prompt}\n\nEsta imagem é da VISTA ${viewType.toUpperCase()}.`;
+    if (testType === 'segmental') {
+      // Use dynamic prompt builder for segmental tests
+      prompt = buildSegmentalPrompt({
+        testName: testName || 'Teste Segmentado',
+        cutoffValue,
+        unit,
+        resultType,
+        isBilateral,
+        instructions
+      });
+      console.log(`Built dynamic prompt for segmental test: ${testName}, resultType: ${resultType}, bilateral: ${isBilateral}, cutoff: ${cutoffValue} ${unit}`);
+    } else {
+      // Use predefined prompts for global tests
+      prompt = TEST_PROMPTS[testType];
+      
+      // Add context about view type if provided
+      if (viewType) {
+        prompt = `${prompt}\n\nEsta imagem é da VISTA ${viewType.toUpperCase()}.`;
+      }
     }
 
-    // Add test name context for segmental tests
-    if (testType === 'segmental' && testName) {
-      prompt = `${prompt}\n\nTeste sendo avaliado: ${testName}`;
+    if (!prompt) {
+      return new Response(
+        JSON.stringify({ error: 'Unknown test type' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Analyzing ${testType} test${testName ? ` (${testName})` : ''}${viewType ? ` - ${viewType} view` : ''}`);

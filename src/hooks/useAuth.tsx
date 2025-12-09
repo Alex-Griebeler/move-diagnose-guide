@@ -77,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
+      // Note: Role selection during signup is informational only
+      // All users start as 'student' by default (via database trigger)
+      // Professional role upgrade requires admin approval or separate verification flow
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -84,19 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
+            requested_role: role, // Store in metadata for admin review, not for automatic upgrade
           },
         },
       });
 
       if (signUpError) throw signUpError;
-
-      // If role is professional, we need to update it after signup
-      // The trigger creates 'student' by default
-      if (role === 'professional') {
-        // This will be handled after the user confirms their email
-        // For now, we store the intent in localStorage
-        localStorage.setItem('fabrik_intended_role', 'professional');
-      }
 
       return { error: null };
     } catch (error) {
@@ -112,17 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
-
-      // Check if there's a pending role upgrade
-      const intendedRole = localStorage.getItem('fabrik_intended_role');
-      if (intendedRole === 'professional' && user) {
-        // Upgrade role to professional
-        await supabase
-          .from('user_roles')
-          .update({ role: 'professional' })
-          .eq('user_id', user.id);
-        localStorage.removeItem('fabrik_intended_role');
-      }
 
       return { error: null };
     } catch (error) {

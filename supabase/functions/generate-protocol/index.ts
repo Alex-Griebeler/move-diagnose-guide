@@ -1,9 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const allowedOrigins = [
+  'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com',
+  'https://fabrik.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const isAllowed = origin && allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')));
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 interface CompensationFinding {
   id: string;
@@ -56,6 +67,9 @@ interface ProtocolRequest {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -269,6 +283,8 @@ IMPORTANTE: Priorize exercícios para as Issues Primárias listadas acima. Organ
     });
 
   } catch (error: unknown) {
+    const origin = req.headers.get('origin');
+    const corsHeaders = getCorsHeaders(origin);
     console.error("Error in generate-protocol function:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: errorMessage }), {

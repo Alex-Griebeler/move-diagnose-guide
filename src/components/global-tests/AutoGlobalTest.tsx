@@ -135,10 +135,32 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const config = TEST_CONFIGS[testType];
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
   const [analysisResults, setAnalysisResults] = useState<Record<ViewType, AnalysisResult | null>>({} as any);
+
+  // Early return if config is not found
+  if (!config) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Tipo de teste não encontrado: {testType}
+      </div>
+    );
+  }
+
+  const currentView = config.views[currentViewIndex];
+  
+  // Safety check for current view
+  if (!currentView) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Vista não encontrada
+      </div>
+    );
+  }
+
+  const currentCompensations = data.compensations[currentView.id] || [];
+  const currentMedia = data.mediaUrls[currentView.id] || {};
   
   const { analyzeMovement, isAnalyzing } = useMovementAnalysis({
     onAnalysisComplete: (result) => {
-      const currentView = config.views[currentViewIndex];
       setAnalysisResults(prev => ({ ...prev, [currentView.id]: result }));
       
       // Auto-apply detected compensations
@@ -150,10 +172,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       }
     },
   });
-
-  const currentView = config.views[currentViewIndex];
-  const currentCompensations = data.compensations[currentView.id] || [];
-  const currentMedia = data.mediaUrls[currentView.id] || {};
 
   const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string }) => {
     onUpdate({

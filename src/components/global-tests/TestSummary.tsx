@@ -1,11 +1,8 @@
-import { TrendingUp, TrendingDown, AlertTriangle, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { TrendingUp, TrendingDown, AlertTriangle, ChevronDown, ChevronUp, Activity } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   ohsAnteriorCompensations,
   ohsLateralCompensations,
@@ -39,6 +36,8 @@ interface TestSummaryProps {
 }
 
 export function TestSummary({ data }: TestSummaryProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   // Get all selected compensations
   const ohsSelected = [
     ...data.ohs.anteriorView,
@@ -107,85 +106,117 @@ export function TestSummary({ data }: TestSummaryProps) {
   const totalCompensations =
     ohsSelected.length + data.sls.leftSide.length + data.sls.rightSide.length + pushupSelected.length;
 
+  const totalFindings = allHyperactive.size + allHypoactive.size + allInjuries.size;
+
   if (totalCompensations === 0) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <h3 className="text-lg font-medium flex items-center gap-2">
-            📊 Resumo dos Testes Globais
+      <Card className="border-success/30 bg-success/5">
+        <CardContent className="py-8 text-center">
+          <Activity className="w-12 h-12 mx-auto text-success mb-4" />
+          <h3 className="text-lg font-semibold text-success mb-2">
+            Nenhuma compensação identificada
           </h3>
-        </div>
-        <div className="py-8 text-center border border-success/30 rounded-lg bg-success/5">
-          <p className="text-success font-medium">✅ Nenhuma compensação identificada</p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             O aluno apresenta bons padrões de movimento nos testes globais.
           </p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with total findings */}
-      <div className="space-y-2">
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          📊 Resumo dos Testes Globais
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{totalCompensations} achados</span> identificados nos 3 testes
-        </p>
-      </div>
+    <Card className="border-primary/20 bg-card">
+      <CardContent className="p-6 space-y-4">
+        {/* Prominent Header */}
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <Activity className="w-6 h-6 text-primary" />
+            <h3 className="text-xl font-semibold">Resumo dos Testes Globais</h3>
+          </div>
+          <p className="text-muted-foreground">
+            <span className="text-2xl font-bold text-foreground">{totalCompensations}</span>
+            {' '}compensações detectadas nos 3 testes
+          </p>
+        </div>
 
-      {/* Collapsible Accordions */}
-      <Accordion type="multiple" className="space-y-3">
-        {/* Hyperactive Muscles */}
-        <AccordionItem value="hyperactive" className="border border-destructive/30 rounded-lg overflow-hidden">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-destructive/5">
-            <div className="flex items-center gap-3">
-              <TrendingUp className="w-4 h-4 text-destructive" />
-              <span className="text-sm font-medium">Músculos Hiperativos</span>
-              <Badge variant="outline" className="ml-2 text-destructive border-destructive/30">
-                {allHyperactive.size}
-              </Badge>
+        {/* Summary Stats (always visible) */}
+        <div className="flex justify-center gap-4 py-3 border-y border-border/50">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-destructive" />
+            <span className="text-sm">
+              <span className="font-semibold text-destructive">{allHyperactive.size}</span> hiperativos
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <TrendingDown className="w-4 h-4 text-success" />
+            <span className="text-sm">
+              <span className="font-semibold text-success">{allHypoactive.size}</span> hipoativos
+            </span>
+          </div>
+          {allInjuries.size > 0 && (
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning" />
+              <span className="text-sm">
+                <span className="font-semibold text-warning">{allInjuries.size}</span> riscos
+              </span>
             </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <p className="text-xs text-muted-foreground mb-3">Prioridade de inibição/relaxamento</p>
-            <div className="flex flex-wrap gap-2">
-              {hyperactiveWithFreq.map(({ muscle, count }) => (
-                <Badge
-                  key={muscle}
-                  variant="outline"
-                  className={`${
-                    count >= 2
-                      ? 'bg-destructive/20 border-destructive text-destructive'
-                      : 'bg-muted'
-                  }`}
-                >
-                  {muscle}
-                  {count >= 2 && <span className="ml-1 text-xs opacity-70">({count}x)</span>}
-                </Badge>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+          )}
+        </div>
 
-        {/* Hypoactive Muscles + Injury Risks */}
-        <AccordionItem value="hypoactive" className="border border-success/30 rounded-lg overflow-hidden">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-success/5">
-            <div className="flex items-center gap-3">
-              <TrendingDown className="w-4 h-4 text-success" />
-              <span className="text-sm font-medium">Músculos Hipoativos e Riscos de Lesão</span>
-              <Badge variant="outline" className="ml-2 text-success border-success/30">
-                {allHypoactive.size + allInjuries.size}
-              </Badge>
+        {/* Expansion Button */}
+        <Button
+          variant="outline"
+          className="w-full flex items-center justify-center gap-2 py-5"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-4 h-4" />
+              Ocultar Detalhes
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4" />
+              Ver Detalhes dos Achados
+            </>
+          )}
+        </Button>
+
+        {/* Expandable Content */}
+        {isExpanded && (
+          <div className="space-y-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Hyperactive Muscles */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-destructive" />
+                <h4 className="font-medium text-sm">Músculos Hiperativos</h4>
+                <span className="text-xs text-muted-foreground">(Prioridade: inibição/relaxamento)</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {hyperactiveWithFreq.map(({ muscle, count }) => (
+                  <Badge
+                    key={muscle}
+                    variant="outline"
+                    className={`${
+                      count >= 2
+                        ? 'bg-destructive/20 border-destructive text-destructive'
+                        : 'bg-muted border-muted-foreground/30'
+                    }`}
+                  >
+                    {muscle}
+                    {count >= 2 && <span className="ml-1 text-xs opacity-70">({count}x)</span>}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 space-y-4">
-            {/* Hypoactive */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Prioridade de ativação/fortalecimento</p>
+
+            {/* Hypoactive Muscles */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-success" />
+                <h4 className="font-medium text-sm">Músculos Hipoativos</h4>
+                <span className="text-xs text-muted-foreground">(Prioridade: ativação/fortalecimento)</span>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {hypoactiveWithFreq.map(({ muscle, count }) => (
                   <Badge
@@ -194,7 +225,7 @@ export function TestSummary({ data }: TestSummaryProps) {
                     className={`${
                       count >= 2
                         ? 'bg-success/20 border-success text-success'
-                        : 'bg-muted'
+                        : 'bg-muted border-muted-foreground/30'
                     }`}
                   >
                     {muscle}
@@ -206,23 +237,27 @@ export function TestSummary({ data }: TestSummaryProps) {
 
             {/* Injury Risks */}
             {allInjuries.size > 0 && (
-              <div className="pt-3 border-t border-border/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-3 h-3 text-warning" />
-                  <p className="text-xs text-muted-foreground">Riscos de Lesão</p>
+              <div className="space-y-3 pt-3 border-t border-border/50">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning" />
+                  <h4 className="font-medium text-sm">Riscos de Lesão</h4>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {Array.from(allInjuries).map((injury) => (
-                    <Badge key={injury} variant="outline" className="bg-warning/10 border-warning/30">
+                    <Badge 
+                      key={injury} 
+                      variant="outline" 
+                      className="bg-warning/10 border-warning/30 text-warning"
+                    >
                       {injury}
                     </Badge>
                   ))}
                 </div>
               </div>
             )}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

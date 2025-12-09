@@ -96,6 +96,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     currentStep,
     setCurrentStep,
     clearPersistedData,
+    isLoading: isLoadingPersistence,
   } = useWizardPersistence<GlobalTestData>({
     key: 'global_tests_wizard',
     initialData,
@@ -264,6 +265,16 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         return null;
     }
   };
+
+  if (isLoadingPersistence) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-pulse text-muted-foreground">Carregando dados salvos...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">

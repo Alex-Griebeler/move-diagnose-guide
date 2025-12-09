@@ -137,6 +137,7 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
     currentStep,
     setCurrentStep,
     clearPersistedData,
+    isLoading: isLoadingPersistence,
   } = useWizardPersistence<AnamnesisData>({
     key: 'anamnesis_wizard',
     initialData,
@@ -267,6 +268,16 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
         return null;
     }
   };
+
+  if (isLoadingPersistence) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-pulse text-muted-foreground">Carregando dados salvos...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">

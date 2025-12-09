@@ -51,6 +51,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     currentStep,
     setCurrentStep,
     clearPersistedData,
+    isLoading: isLoadingPersistence,
   } = useWizardPersistence<WizardData>({
     key: 'segmental_tests_wizard',
     initialData: initialWizardData,
@@ -197,12 +198,14 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     onComplete();
   };
 
-  if (loading) {
+  if (loading || isLoadingPersistence) {
     return (
       <Card>
         <CardContent className="py-12 flex flex-col items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Analisando compensações detectadas...</p>
+          <p className="text-muted-foreground">
+            {isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações detectadas...'}
+          </p>
         </CardContent>
       </Card>
     );

@@ -16,105 +16,102 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
   };
 }
 
-// Test-specific prompts for movement analysis
+// Test-specific prompts for movement analysis with clinical severity thresholds
 const TEST_PROMPTS: Record<string, string> = {
   // Global Tests
-  overhead_squat: `Você é um especialista em análise biomecânica com formação em fisioterapia e movimento funcional. Analise CUIDADOSAMENTE esta imagem/vídeo de um Overhead Squat (agachamento com braços elevados).
+  overhead_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Overhead Squat.
 
-IMPORTANTE: Seja METICULOSO na análise. Observe cada detalhe do movimento antes de responder.
+IMPORTANTE: Só reporte compensações CLINICAMENTE SIGNIFICATIVAS. Variações leves dentro da normalidade NÃO devem ser reportadas.
 
-Identifique TODAS as compensações presentes. Compensações possíveis por vista:
+CRITÉRIOS DE SEVERIDADE (só reporte se ultrapassar esses limiares):
 
-VISTA ANTERIOR (de frente):
-- feet_abduction: Pés abduzidos (giram para fora excessivamente, >30°)
-- feet_eversion: Eversão dos pés (pronação, arco plantar colapsando)
-- knee_valgus: Joelhos valgos (cavam para dentro, especialmente na descida)
-- knee_varus: Joelhos varos (arqueados para fora excessivamente)
+VISTA ANTERIOR:
+- feet_abduction: Pés giram >30° para fora (15-30° é normal)
+- feet_eversion: Arco plantar CLARAMENTE colapsado, calcanhar inclinado >10°
+- knee_valgus: Joelhos CLARAMENTE passam da linha do hálux durante descida
+- knee_varus: Joelhos se afastam >15° da vertical
 
-VISTA LATERAL (de lado):
-- trunk_forward_lean: Inclinação excessiva do tronco para frente (>45° com a vertical)
-- lumbar_hyperextension: Hiperextensão lombar (arco excessivo na região lombar)
-- spine_flexion: Flexão da coluna/butt wink (arredondamento da lombar no fundo do agachamento)
-- heels_rise: Calcanhares sobem do chão durante a descida
-- arms_fall_forward: Braços caem para frente (não mantém alinhados com o tronco)
+VISTA LATERAL:
+- trunk_forward_lean: Tronco inclina >45° com a vertical (até 30° é aceitável)
+- lumbar_hyperextension: Lordose EXAGERADA, hiperlordose visível
+- spine_flexion: Arredondamento EVIDENTE da lombar no fundo (butt wink pronunciado)
+- heels_rise: Calcanhares sobem CLARAMENTE do chão
+- arms_fall_forward: Braços caem abaixo da linha da cabeça
 
-VISTA POSTERIOR (de trás):
-- asymmetric_shift: Shift pélvico (quadril desvia para um lado durante o movimento)
-- trunk_rotation: Rotação do tronco (ombros ou pelve rotam durante o movimento)
-- feet_eversion_posterior: Eversão dos pés visível por trás (calcanhares inclinam para fora)
-- heels_rise_posterior: Elevação de calcanhar visível por trás
+VISTA POSTERIOR:
+- asymmetric_shift: Pelve desvia >2cm para um lado (shift EVIDENTE)
+- trunk_rotation: Ombros ou pelve rotam >10° (assimetria CLARA)
+- feet_eversion_posterior: Calcanhares inclinam VISIVELMENTE para fora
 
-DICAS DE ANÁLISE:
-- Compare simetria entre lado direito e esquerdo
-- Observe o alinhamento vertical: orelha-ombro-quadril-joelho-tornozelo
-- Verifique se há compensações diferentes na descida vs. subida
-- Note a posição mais baixa alcançada (profundidade do agachamento)
+REGRAS:
+1. NA DÚVIDA, NÃO REPORTE - melhor subnotificar que supernotificar
+2. Compensações SUTIS não são clinicamente relevantes
+3. Avalie se a compensação é CONSISTENTE (padrão) ou MOMENTÂNEA (não reportar)
+4. Considere que variação biomecânica individual é NORMAL
 
-Responda APENAS em JSON válido com este formato:
+Responda em JSON:
 {
-  "detected_compensations": ["compensation_id_1", "compensation_id_2"],
+  "detected_compensations": ["apenas_ids_significativos"],
   "confidence": 0.85,
-  "notes": "Observações detalhadas sobre as compensações identificadas e qualidade geral do movimento"
+  "notes": "Breve descrição das compensações significativas encontradas (ou 'Movimento dentro dos padrões normais' se nenhuma)"
 }`,
 
-  single_leg_squat: `Você é um especialista em análise biomecânica. Analise CUIDADOSAMENTE esta imagem/vídeo de um Single-Leg Squat (agachamento unipodal).
+  single_leg_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Single-Leg Squat.
 
-IMPORTANTE: Observe atentamente a estabilidade, alinhamento e controle durante todo o movimento.
+IMPORTANTE: Só reporte compensações CLINICAMENTE SIGNIFICATIVAS.
 
-Compensações possíveis:
+CRITÉRIOS DE SEVERIDADE:
 
-VISTA ANTERIOR (de frente):
-- knee_valgus: Joelho de apoio colapsa para dentro (valgo dinâmico)
-- foot_collapse: Arco plantar desaba (pronação excessiva)
-- instability: Instabilidade geral, oscilações no apoio
-- tremor: Tremor muscular visível
-- balance_loss: Perda de equilíbrio, toca o chão com a outra perna
+VISTA ANTERIOR:
+- knee_valgus: Joelho CLARAMENTE colapsa medialmente, passando linha do hálux
+- foot_collapse: Arco plantar desaba COMPLETAMENTE
+- instability: Oscilações GRANDES e repetidas (não micromovimentos normais)
+- tremor: Tremor VISÍVEL e persistente
+- balance_loss: TOCA o chão ou perde apoio completamente
 
-VISTA POSTERIOR (de trás):
-- hip_drop: Queda da pelve do lado da perna elevada (sinal de Trendelenburg)
-- hip_hike: Elevação excessiva da pelve do lado da perna elevada
-- trunk_rotation_medial: Rotação do tronco para o lado da perna de apoio
-- trunk_rotation_lateral: Rotação do tronco para o lado da perna elevada
-- trunk_forward_lean_sls: Inclinação excessiva do tronco para frente
-- knee_flexion_insufficient: Amplitude de flexão do joelho insuficiente (<45°)
+VISTA POSTERIOR:
+- hip_drop: Pelve cai >5° do lado contralateral (Trendelenburg POSITIVO)
+- hip_hike: Elevação EXAGERADA da pelve contralateral
+- trunk_rotation_medial/lateral: Rotação >15° do tronco
+- trunk_forward_lean_sls: Inclinação >30° para frente
+- knee_flexion_insufficient: Joelho flexiona <30° (amplitude MUITO limitada)
 
-CRITÉRIOS DE QUALIDADE:
-- Joelho deve alinhar com 2º dedo do pé
-- Pelve deve manter-se nivelada
-- Tronco deve permanecer relativamente vertical
-- Movimento deve ser controlado, sem oscilações
+REGRAS:
+1. Pequenas oscilações são NORMAIS em teste unipodal
+2. Só reporte hip_drop se for EVIDENTE (teste Trendelenburg positivo)
+3. NA DÚVIDA, NÃO REPORTE
 
-Responda APENAS em JSON válido com este formato:
+Responda em JSON:
 {
-  "detected_compensations": ["compensation_id_1", "compensation_id_2"],
-  "side": "left" ou "right" (identifique qual perna está em apoio),
+  "detected_compensations": ["apenas_ids_significativos"],
+  "side": "left" ou "right",
   "confidence": 0.85,
-  "notes": "Observações sobre estabilidade, controle e compensações identificadas"
+  "notes": "Descrição breve ou 'Controle adequado para teste unipodal'"
 }`,
 
-  pushup: `Você é um especialista em análise biomecânica. Analise CUIDADOSAMENTE esta imagem/vídeo de um Push-up (flexão de braços).
+  pushup: `Você é um especialista em análise biomecânica. Analise esta imagem de Push-up.
 
-IMPORTANTE: Foque especialmente na posição escapular e alinhamento da coluna.
+IMPORTANTE: Só reporte compensações CLINICAMENTE SIGNIFICATIVAS.
 
-Compensações possíveis (vista posterior - de trás):
-- scapular_winging: Escápulas aladas (bordas mediais se projetam para fora do tórax)
-- elbow_flare: Cotovelos abrem excessivamente (>60° do tronco)
-- shoulder_protraction: Protração excessiva dos ombros (ombros muito arredondados para frente)
-- shoulder_retraction_insufficient: Falta de estabilidade escapular na fase excêntrica
-- hip_elevation: Quadril sobe excessivamente (pike)
-- hip_drop: Quadril afunda (lordose excessiva)
+CRITÉRIOS DE SEVERIDADE:
 
-CRITÉRIOS DE QUALIDADE:
-- Corpo deve formar linha reta da cabeça aos calcanhares
-- Escápulas devem permanecer planas contra as costelas
-- Cotovelos devem formar ~45° com o tronco
-- Core deve permanecer ativado (sem movimento do quadril)
+- scapular_winging: Borda medial da escápula CLARAMENTE se projeta >2cm do tórax
+- elbow_flare: Cotovelos abrem >60° do tronco (até 45° é aceitável)
+- shoulder_protraction: Protração EXAGERADA, ombros muito arredondados
+- shoulder_retraction_insufficient: Escápulas NÃO se aproximam na descida
+- hip_elevation: Quadril sobe formando "pirâmide" (pike EVIDENTE)
+- hip_drop: Quadril afunda criando lordose EXAGERADA
 
-Responda APENAS em JSON válido com este formato:
+REGRAS:
+1. Variações leves na técnica são NORMAIS
+2. Foque em compensações que indicam DÉFICIT FUNCIONAL
+3. NA DÚVIDA, NÃO REPORTE
+
+Responda em JSON:
 {
-  "detected_compensations": ["compensation_id_1", "compensation_id_2"],
+  "detected_compensations": ["apenas_ids_significativos"],
   "confidence": 0.85,
-  "notes": "Observações sobre estabilidade escapular, alinhamento corporal e controle"
+  "notes": "Descrição breve ou 'Execução dentro dos padrões adequados'"
 }`
 };
 

@@ -136,29 +136,56 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
     currentStatus, 
     onClick,
     label,
+    tooltip,
     icon: Icon,
-    color 
   }: { 
     status: ResultStatus; 
     currentStatus: ResultStatus;
     onClick: () => void;
     label: string;
+    tooltip: string;
     icon: React.ElementType;
-    color: string;
-  }) => (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all',
-        status === currentStatus
-          ? `${color} border-current`
-          : 'border-muted text-muted-foreground hover:border-muted-foreground/50'
-      )}
-    >
-      <Icon className="h-5 w-5" />
-      <span className="font-medium">{label}</span>
-    </button>
-  );
+  }) => {
+    const isSelected = status === currentStatus;
+    
+    const getStyles = () => {
+      if (!isSelected) {
+        return 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground';
+      }
+      switch (status) {
+        case 'pass':
+          return 'bg-success/10 border-success/30 text-success';
+        case 'partial':
+          return 'bg-warning/10 border-warning/30 text-warning';
+        case 'fail':
+          return 'bg-destructive/10 border-destructive/30 text-destructive';
+        default:
+          return '';
+      }
+    };
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onClick}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center gap-1.5 py-4 px-3 rounded-xl border transition-all duration-200',
+                getStyles()
+              )}
+            >
+              <Icon className={cn("h-6 w-6", isSelected && "scale-110")} strokeWidth={1.5} />
+              <span className="text-sm font-medium">{label}</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[200px] text-center">
+            <p className="text-xs">{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   const renderResultInput = (side: 'left' | 'right') => {
     const value = side === 'left' ? result.leftValue : result.rightValue;
@@ -199,30 +226,30 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
     }
 
     return (
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <StatusButton
           status="pass"
           currentStatus={currentStatus}
           onClick={() => handleStatusChange(side, 'pass')}
           label="Passa"
+          tooltip="Movimento executado corretamente, sem compensações visíveis"
           icon={CheckCircle2}
-          color="text-success"
         />
         <StatusButton
           status="partial"
           currentStatus={currentStatus}
           onClick={() => handleStatusChange(side, 'partial')}
           label="Parcial"
+          tooltip="Movimento com pequenas compensações ou execução inconsistente"
           icon={AlertCircle}
-          color="text-warning"
         />
         <StatusButton
           status="fail"
           currentStatus={currentStatus}
           onClick={() => handleStatusChange(side, 'fail')}
           label="Falha"
+          tooltip="Incapaz de executar ou compensação significativa presente"
           icon={XCircle}
-          color="text-destructive"
         />
       </div>
     );

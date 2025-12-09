@@ -398,18 +398,12 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
             <button className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 rounded-lg transition-colors group">
               <div className="flex items-center gap-3">
                 <span className="text-base">📊</span>
-                <span className="text-sm font-medium">Resumo do {config.title}</span>
+                <span className="text-sm text-muted-foreground">Resumo do {config.title}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
-                  {aggregated.hyperactiveMuscles.length} hiper
-                </Badge>
-                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">
-                  {aggregated.hypoactiveMuscles.length} hipo
-                </Badge>
-                <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30">
-                  {aggregated.associatedInjuries.length} lesões
-                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {aggregated.hyperactiveMuscles.length + aggregated.hypoactiveMuscles.length + aggregated.associatedInjuries.length} achados
+                </span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
               </div>
             </button>
@@ -443,7 +437,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                 </div>
                 <div>
                   <p className="text-xs font-medium text-warning mb-1">
-                    Lesões Associadas ({aggregated.associatedInjuries.length})
+                    Riscos de Lesão ({aggregated.associatedInjuries.length})
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {aggregated.associatedInjuries.map((i) => (

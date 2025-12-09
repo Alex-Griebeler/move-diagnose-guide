@@ -1,7 +1,6 @@
 import { AlertTriangle, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { GlobalTestData } from './GlobalTestsWizard';
 import {
   ohsAnteriorCompensations,
   ohsLateralCompensations,
@@ -11,8 +10,27 @@ import {
   getAggregatedMuscles,
 } from '@/data/compensationMappings';
 
+// Legacy format for TestSummary (display-only)
+export interface LegacyTestData {
+  ohs: {
+    anteriorView: string[];
+    lateralView: string[];
+    posteriorView: string[];
+    notes: string;
+  };
+  sls: {
+    leftSide: string[];
+    rightSide: string[];
+    notes: string;
+  };
+  pushup: {
+    compensations: string[];
+    notes: string;
+  };
+}
+
 interface TestSummaryProps {
-  data: GlobalTestData;
+  data: LegacyTestData;
 }
 
 export function TestSummary({ data }: TestSummaryProps) {

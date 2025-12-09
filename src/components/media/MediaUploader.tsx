@@ -368,7 +368,7 @@ export function MediaUploader({
         {onAnalyze && hasMedia && (
           <Button
             onClick={handleAnalyze}
-            disabled={isAnalyzing || !photoUrl}
+            disabled={isAnalyzing}
             className="w-full min-h-[48px]"
             variant="default"
           >

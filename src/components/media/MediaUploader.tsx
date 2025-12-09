@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Camera, Video, X, Upload, Loader2, CheckCircle, Lightbulb } from 'lucide-react';
+import { Camera, Video, X, Upload, Loader2, CheckCircle, Lightbulb, Gauge } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { MediaSourceModal } from './MediaSourceModal';
 import { FramingGuide } from './FramingGuide';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -19,9 +21,11 @@ interface MediaUploaderProps {
   viewType?: string;
   initialPhotoUrl?: string;
   initialVideoUrl?: string;
-  onUploadComplete: (urls: { photoUrl?: string; videoUrl?: string }) => void;
+  onUploadComplete: (urls: { photoUrl?: string; videoUrl?: string; isSlowMotion?: boolean }) => void;
   onAnalyze?: () => void;
   isAnalyzing?: boolean;
+  isSlowMotion?: boolean;
+  onSlowMotionChange?: (value: boolean) => void;
   className?: string;
 }
 
@@ -34,6 +38,8 @@ export function MediaUploader({
   onUploadComplete,
   onAnalyze,
   isAnalyzing = false,
+  isSlowMotion = false,
+  onSlowMotionChange,
   className,
 }: MediaUploaderProps) {
   // Use controlled state - sync with parent's data
@@ -398,6 +404,26 @@ export function MediaUploader({
               </>
             )}
           </Button>
+        )}
+
+        {/* Slow Motion Toggle */}
+        {hasMedia && onSlowMotionChange && (
+          <div className="flex items-center justify-between py-2 px-1 border-t border-border/50">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="slow-motion" className="text-sm text-muted-foreground cursor-pointer">
+                Vídeo em Slow Motion
+              </Label>
+            </div>
+            <Switch
+              id="slow-motion"
+              checked={isSlowMotion}
+              onCheckedChange={(checked) => {
+                triggerHaptic('tap');
+                onSlowMotionChange(checked);
+              }}
+            />
+          </div>
         )}
 
         {!hasMedia && (

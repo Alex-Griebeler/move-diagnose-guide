@@ -183,6 +183,7 @@ serve(async (req) => {
       imageUrl, 
       videoUrl, 
       viewType,
+      isSlowMotion,
       // New segmental test parameters
       cutoffValue,
       unit,
@@ -228,6 +229,19 @@ serve(async (req) => {
       // Add context about view type if provided
       if (viewType) {
         prompt = `${prompt}\n\nEsta imagem é da VISTA ${viewType.toUpperCase()}.`;
+      }
+      
+      // Add slow motion context for enhanced analysis
+      if (isSlowMotion) {
+        prompt = `${prompt}\n\nIMPORTANTE: Este vídeo/imagem foi capturado em SLOW MOTION (120fps ou superior).
+Isso permite análise mais detalhada de:
+- Micro-movimentos e tremores sutis
+- Momento exato de transição (descida ↔ subida)
+- Padrões de compensação que ocorrem em frações de segundo
+- Sequência temporal das compensações (qual acontece primeiro)
+
+Aproveite a qualidade superior para identificar compensações que seriam invisíveis em velocidade normal.
+Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais evidentes.`;
       }
     }
 

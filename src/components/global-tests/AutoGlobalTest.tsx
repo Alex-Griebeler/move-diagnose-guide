@@ -146,7 +146,7 @@ interface AutoGlobalTestProps {
   assessmentId: string;
   data: {
     compensations: Record<ViewType, string[]>;
-    mediaUrls: Record<ViewType, { photoUrl?: string; videoUrl?: string }>;
+    mediaUrls: Record<ViewType, { photoUrl?: string; videoUrl?: string; isSlowMotion?: boolean }>;
     notes: string;
   };
   onUpdate: (data: AutoGlobalTestProps['data']) => void;
@@ -166,10 +166,17 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const currentView = config?.views?.[currentViewIndex];
   const currentViewId = currentView?.id;
 
-  const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string }) => {
+  const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string; isSlowMotion?: boolean }) => {
     onUpdate({
       ...data,
-      mediaUrls: { ...data.mediaUrls, [viewId]: urls },
+      mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], ...urls } },
+    });
+  }, [data, onUpdate]);
+
+  const handleSlowMotionChange = useCallback((viewId: ViewType, isSlowMotion: boolean) => {
+    onUpdate({
+      ...data,
+      mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], isSlowMotion } },
     });
   }, [data, onUpdate]);
 
@@ -270,6 +277,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       imageUrl,
       videoUrl: currentMedia.videoUrl,
       viewType: currentView.id,
+      isSlowMotion: currentMedia.isSlowMotion,
     });
   };
 
@@ -395,6 +403,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
             onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
             onAnalyze={handleAnalyze}
             isAnalyzing={isAnalyzing}
+            isSlowMotion={currentMedia.isSlowMotion || false}
+            onSlowMotionChange={(value) => handleSlowMotionChange(currentView.id, value)}
           />
 
           {/* AI Analysis Result */}

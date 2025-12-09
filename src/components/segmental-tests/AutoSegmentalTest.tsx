@@ -302,7 +302,20 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
                 <div className="flex items-start gap-2">
                   <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-sm">Sugestão da IA</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">Sugestão da IA</p>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-[10px] px-1.5 py-0",
+                          test.resultType === 'quantitative' 
+                            ? "border-blue-500/50 text-blue-600 bg-blue-500/10" 
+                            : "border-purple-500/50 text-purple-600 bg-purple-500/10"
+                        )}
+                      >
+                        {test.resultType === 'quantitative' ? '📊 Quantitativo' : '✓ Qualitativo'}
+                      </Badge>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       Confiança: {Math.round((analysisResult.confidence || 0) * 100)}%
                     </p>

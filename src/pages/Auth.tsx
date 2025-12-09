@@ -103,12 +103,12 @@ export default function Auth() {
 
   return (
     <AuthLayout>
-      <Card className="border-0 shadow-elevated">
+      <Card className="border-border shadow-elevated">
         <Tabs defaultValue="login" className="w-full">
           <CardHeader className="pb-4">
             <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="login" className="text-sm">Entrar</TabsTrigger>
-              <TabsTrigger value="signup" className="text-sm">Cadastrar</TabsTrigger>
+              <TabsTrigger value="login">Entrar</TabsTrigger>
+              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
             </TabsList>
           </CardHeader>
 
@@ -116,15 +116,15 @@ export default function Auth() {
             {/* Login Tab */}
             <TabsContent value="login" className="mt-0">
               <div className="space-y-1 mb-6">
-                <CardTitle className="text-2xl">Bem-vindo de volta</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-xl font-semibold">Bem-vindo de volta</CardTitle>
+                <CardDescription className="text-sm">
                   Entre com suas credenciais para acessar o sistema
                 </CardDescription>
               </div>
 
               <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+                  <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="login-email"
                     type="email"
@@ -133,14 +133,14 @@ export default function Auth() {
                     className="h-11"
                   />
                   {loginForm.formState.errors.email && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-xs text-destructive">
                       {loginForm.formState.errors.email.message}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
+                  <Label htmlFor="login-password" className="text-sm font-medium">Senha</Label>
                   <div className="relative">
                     <Input
                       id="login-password"
@@ -158,7 +158,7 @@ export default function Auth() {
                     </button>
                   </div>
                   {loginForm.formState.errors.password && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-xs text-destructive">
                       {loginForm.formState.errors.password.message}
                     </p>
                   )}
@@ -166,7 +166,7 @@ export default function Auth() {
 
                 <Button type="submit" className="w-full h-11" disabled={isLoading}>
                   {isLoading ? (
-                    <span className="animate-pulse-soft">Entrando...</span>
+                    <span className="animate-pulse-subtle">Entrando...</span>
                   ) : (
                     <>
                       Entrar
@@ -180,8 +180,8 @@ export default function Auth() {
             {/* Signup Tab */}
             <TabsContent value="signup" className="mt-0">
               <div className="space-y-1 mb-6">
-                <CardTitle className="text-2xl">Criar conta</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-xl font-semibold">Criar conta</CardTitle>
+                <CardDescription className="text-sm">
                   Preencha os dados para começar a usar o FABRIK
                 </CardDescription>
               </div>
@@ -189,21 +189,21 @@ export default function Auth() {
               <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
                 {/* Role Selection */}
                 <div className="space-y-2">
-                  <Label>Tipo de conta</Label>
+                  <Label className="text-sm font-medium">Tipo de conta</Label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setSelectedRole('professional')}
                       className={cn(
-                        "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
+                        "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all duration-200",
                         selectedRole === 'professional'
-                          ? "border-accent bg-accent/5"
+                          ? "border-primary bg-primary/10"
                           : "border-border hover:border-muted-foreground/30"
                       )}
                     >
                       <UserCog className={cn(
                         "w-6 h-6",
-                        selectedRole === 'professional' ? "text-accent" : "text-muted-foreground"
+                        selectedRole === 'professional' ? "text-primary" : "text-muted-foreground"
                       )} />
                       <span className={cn(
                         "text-sm font-medium",
@@ -217,15 +217,15 @@ export default function Auth() {
                       type="button"
                       onClick={() => setSelectedRole('student')}
                       className={cn(
-                        "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
+                        "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all duration-200",
                         selectedRole === 'student'
-                          ? "border-accent bg-accent/5"
+                          ? "border-primary bg-primary/10"
                           : "border-border hover:border-muted-foreground/30"
                       )}
                     >
                       <GraduationCap className={cn(
                         "w-6 h-6",
-                        selectedRole === 'student' ? "text-accent" : "text-muted-foreground"
+                        selectedRole === 'student' ? "text-primary" : "text-muted-foreground"
                       )} />
                       <span className={cn(
                         "text-sm font-medium",
@@ -238,7 +238,7 @@ export default function Auth() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome completo</Label>
+                  <Label htmlFor="signup-name" className="text-sm font-medium">Nome completo</Label>
                   <Input
                     id="signup-name"
                     type="text"
@@ -247,14 +247,14 @@ export default function Auth() {
                     className="h-11"
                   />
                   {signupForm.formState.errors.fullName && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-xs text-destructive">
                       {signupForm.formState.errors.fullName.message}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="signup-email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -263,14 +263,14 @@ export default function Auth() {
                     className="h-11"
                   />
                   {signupForm.formState.errors.email && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-xs text-destructive">
                       {signupForm.formState.errors.email.message}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
+                  <Label htmlFor="signup-password" className="text-sm font-medium">Senha</Label>
                   <div className="relative">
                     <Input
                       id="signup-password"
@@ -288,14 +288,14 @@ export default function Auth() {
                     </button>
                   </div>
                   {signupForm.formState.errors.password && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-xs text-destructive">
                       {signupForm.formState.errors.password.message}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-confirm-password">Confirmar senha</Label>
+                  <Label htmlFor="signup-confirm-password" className="text-sm font-medium">Confirmar senha</Label>
                   <Input
                     id="signup-confirm-password"
                     type={showPassword ? 'text' : 'password'}
@@ -304,7 +304,7 @@ export default function Auth() {
                     className="h-11"
                   />
                   {signupForm.formState.errors.confirmPassword && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-xs text-destructive">
                       {signupForm.formState.errors.confirmPassword.message}
                     </p>
                   )}
@@ -312,7 +312,7 @@ export default function Auth() {
 
                 <Button type="submit" className="w-full h-11" disabled={isLoading}>
                   {isLoading ? (
-                    <span className="animate-pulse-soft">Criando conta...</span>
+                    <span className="animate-pulse-subtle">Criando conta...</span>
                   ) : (
                     <>
                       Criar conta

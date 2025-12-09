@@ -45,7 +45,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -53,7 +53,7 @@ export default function Dashboard() {
                 <Activity className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold tracking-tight">FABRIK</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">FABRIK</h1>
                 <p className="text-xs text-muted-foreground">
                   {role === 'professional' ? 'Área Profissional' : 'Área do Aluno'}
                 </p>
@@ -106,7 +106,7 @@ function ProfessionalDashboard() {
   return (
     <div className="space-y-8">
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <Card className="card-hover">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -115,7 +115,7 @@ function ProfessionalDashboard() {
             <Users className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{studentCount}</div>
+            <div className="text-3xl font-semibold text-foreground">{studentCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {studentCount === 0 ? 'Nenhum aluno cadastrado' : 'Alunos vinculados'}
             </p>
@@ -130,7 +130,7 @@ function ProfessionalDashboard() {
             <Clock className="w-4 h-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-semibold text-foreground">0</div>
             <p className="text-xs text-muted-foreground mt-1">
               Nenhuma avaliação em andamento
             </p>
@@ -145,7 +145,7 @@ function ProfessionalDashboard() {
             <CheckCircle2 className="w-4 h-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-semibold text-foreground">0</div>
             <p className="text-xs text-muted-foreground mt-1">
               Este mês
             </p>
@@ -155,33 +155,33 @@ function ProfessionalDashboard() {
 
       {/* Quick Actions */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Ações Rápidas</h2>
+        <h2 className="text-base font-semibold text-foreground mb-4">Ações Rápidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link to="/assessment/new">
-            <Card className="card-hover cursor-pointer border-dashed border-2">
-              <CardContent className="flex items-center gap-4 py-6">
-                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-accent" />
+            <Card className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40">
+              <CardContent className="flex items-center gap-4 py-5">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">Nova Avaliação</CardTitle>
-                  <CardDescription>Iniciar uma nova avaliação de movimento</CardDescription>
+                  <CardTitle className="text-base font-medium">Nova Avaliação</CardTitle>
+                  <CardDescription className="text-sm">Iniciar uma nova avaliação de movimento</CardDescription>
                 </div>
               </CardContent>
             </Card>
           </Link>
 
           <Card 
-            className="card-hover cursor-pointer border-dashed border-2"
+            className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40"
             onClick={() => setShowAddStudent(true)}
           >
-            <CardContent className="flex items-center gap-4 py-6">
-              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                <Users className="w-6 h-6 text-accent" />
+            <CardContent className="flex items-center gap-4 py-5">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Users className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-base">Adicionar Aluno</CardTitle>
-                <CardDescription>Vincular um aluno por email</CardDescription>
+                <CardTitle className="text-base font-medium">Adicionar Aluno</CardTitle>
+                <CardDescription className="text-sm">Vincular um aluno por email</CardDescription>
               </div>
             </CardContent>
           </Card>
@@ -199,14 +199,14 @@ function ProfessionalDashboard() {
 
       {/* Recent Activity */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Atividade Recente</h2>
+        <h2 className="text-base font-semibold text-foreground mb-4">Atividade Recente</h2>
         <Card>
           <CardContent className="py-8 text-center">
-            <ClipboardList className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-            <p className="text-muted-foreground">
+            <ClipboardList className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">
               Nenhuma atividade recente
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Suas avaliações aparecerão aqui
             </p>
           </CardContent>
@@ -220,15 +220,15 @@ function StudentDashboard() {
   return (
     <div className="space-y-8">
       {/* Welcome Card */}
-      <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-        <CardContent className="py-8">
+      <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+        <CardContent className="py-6">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl gradient-accent flex items-center justify-center shrink-0">
-              <Activity className="w-7 h-7 text-accent-foreground" />
+            <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shrink-0">
+              <Activity className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-1">Bem-vindo ao FABRIK</h2>
-              <p className="text-muted-foreground">
+              <h2 className="text-lg font-semibold text-foreground mb-1">Bem-vindo ao FABRIK</h2>
+              <p className="text-sm text-muted-foreground">
                 Você ainda não possui avaliações. Aguarde seu profissional iniciar uma avaliação de movimento.
               </p>
             </div>
@@ -238,14 +238,14 @@ function StudentDashboard() {
 
       {/* Current Protocol */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Seu Protocolo</h2>
+        <h2 className="text-base font-semibold text-foreground mb-4">Seu Protocolo</h2>
         <Card>
           <CardContent className="py-8 text-center">
-            <ClipboardList className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-            <p className="text-muted-foreground">
+            <ClipboardList className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">
               Nenhum protocolo ativo
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Após sua avaliação, seus exercícios aparecerão aqui
             </p>
           </CardContent>
@@ -254,7 +254,7 @@ function StudentDashboard() {
 
       {/* Progress */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Seu Progresso</h2>
+        <h2 className="text-base font-semibold text-foreground mb-4">Seu Progresso</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="card-hover">
             <CardHeader className="pb-2">
@@ -263,7 +263,7 @@ function StudentDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">0</div>
+              <div className="text-3xl font-semibold text-foreground">0</div>
               <p className="text-xs text-muted-foreground mt-1">Esta semana</p>
             </CardContent>
           </Card>
@@ -275,7 +275,7 @@ function StudentDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-semibold text-muted-foreground">--</div>
+              <div className="text-lg font-medium text-muted-foreground">--</div>
               <p className="text-xs text-muted-foreground mt-1">Não agendada</p>
             </CardContent>
           </Card>

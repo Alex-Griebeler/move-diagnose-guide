@@ -33,8 +33,8 @@ export default function Index() {
   ];
 
   return (
-    <div className="min-h-screen gradient-hero">
-      <header className="w-full py-6 px-4 sm:px-8">
+    <div className="min-h-screen bg-background">
+      <header className="w-full py-6 px-4 sm:px-8 border-b border-border">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
@@ -50,10 +50,10 @@ export default function Index() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-16 sm:py-24">
         <div className="text-center max-w-3xl mx-auto animate-fade-in">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-6 text-balance">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-6 text-balance font-display">
             Movement & Performance Screen
           </h1>
-          <p className="text-lg sm:text-xl text-muted-foreground mb-8 text-balance">
+          <p className="text-base sm:text-lg text-muted-foreground mb-8 text-balance leading-relaxed">
             Sistema de avaliação de movimento para profissionais da saúde e performance.
           </p>
           <Link to="/auth">
@@ -64,25 +64,25 @@ export default function Index() {
           </Link>
         </div>
 
-        <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-5">
           {features.map((feature, index) => (
             <div 
               key={feature.title} 
-              className="bg-card rounded-2xl p-6 shadow-card card-hover animate-fade-in" 
+              className="bg-card rounded-xl p-5 shadow-card card-hover border border-border animate-fade-in" 
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center mb-4">
-                <feature.icon className="w-6 h-6 text-accent" />
+              <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                <feature.icon className="w-5 h-5 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-muted-foreground text-sm">{feature.description}</p>
+              <h3 className="text-base font-semibold text-foreground mb-2">{feature.title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-24 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-12">Por que usar o FABRIK?</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mx-auto">
+        <div className="mt-20 text-center">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-foreground mb-10 font-display">Por que usar o FABRIK?</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-4xl mx-auto">
             {[
               'Anamnese completa em 9 blocos',
               '3 testes globais (OHS, SLS, Push-up)',
@@ -91,19 +91,19 @@ export default function Index() {
             ].map((benefit, index) => (
               <div 
                 key={benefit} 
-                className="flex items-start gap-3 text-left animate-fade-in" 
+                className="flex items-start gap-3 text-left animate-fade-in p-3 rounded-lg bg-card/50" 
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
-                <span className="text-sm text-foreground">{benefit}</span>
+                <span className="text-sm text-foreground leading-relaxed">{benefit}</span>
               </div>
             ))}
           </div>
         </div>
       </main>
 
-      <footer className="py-8 px-4 text-center border-t">
-        <p className="text-sm text-muted-foreground">FABRIK Movement & Performance Screen</p>
+      <footer className="py-8 px-4 text-center border-t border-border">
+        <p className="text-xs text-muted-foreground">FABRIK Movement & Performance Screen</p>
       </footer>
     </div>
   );

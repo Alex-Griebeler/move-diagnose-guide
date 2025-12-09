@@ -7,9 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddStudentModal } from '@/components/students/AddStudentModal';
 import { StudentsList } from '@/components/students/StudentsList';
-import { RecentActivity } from '@/components/dashboard/RecentActivity';
-import { ActiveProtocol } from '@/components/student/ActiveProtocol';
-import { ProgressStats } from '@/components/student/ProgressStats';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Dashboard() {
@@ -91,44 +88,19 @@ export default function Dashboard() {
 function ProfessionalDashboard() {
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [completedCount, setCompletedCount] = useState(0);
   const { user } = useAuth();
 
-  const fetchStats = async () => {
+  const fetchStudentCount = async () => {
     if (!user) return;
-
-    // Student count
-    const { count: students } = await supabase
+    const { count } = await supabase
       .from('professional_students')
       .select('*', { count: 'exact', head: true })
       .eq('professional_id', user.id);
-    setStudentCount(students || 0);
-
-    // Pending assessments (draft or in_progress)
-    const { count: pending } = await supabase
-      .from('assessments')
-      .select('*', { count: 'exact', head: true })
-      .eq('professional_id', user.id)
-      .in('status', ['draft', 'in_progress']);
-    setPendingCount(pending || 0);
-
-    // Completed this month
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    const { count: completed } = await supabase
-      .from('assessments')
-      .select('*', { count: 'exact', head: true })
-      .eq('professional_id', user.id)
-      .eq('status', 'completed')
-      .gte('completed_at', startOfMonth.toISOString());
-    setCompletedCount(completed || 0);
+    setStudentCount(count || 0);
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchStudentCount();
   }, [user]);
 
   return (
@@ -158,9 +130,9 @@ function ProfessionalDashboard() {
             <Clock className="w-4 h-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{pendingCount}</div>
+            <div className="text-3xl font-bold">0</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {pendingCount === 0 ? 'Nenhuma em andamento' : 'Em andamento'}
+              Nenhuma avaliação em andamento
             </p>
           </CardContent>
         </Card>
@@ -173,7 +145,7 @@ function ProfessionalDashboard() {
             <CheckCircle2 className="w-4 h-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{completedCount}</div>
+            <div className="text-3xl font-bold">0</div>
             <p className="text-xs text-muted-foreground mt-1">
               Este mês
             </p>
@@ -188,8 +160,8 @@ function ProfessionalDashboard() {
           <Link to="/assessment/new">
             <Card className="card-hover cursor-pointer border-dashed border-2">
               <CardContent className="flex items-center gap-4 py-6">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-primary" />
+                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-accent" />
                 </div>
                 <div>
                   <CardTitle className="text-base">Nova Avaliação</CardTitle>
@@ -204,8 +176,8 @@ function ProfessionalDashboard() {
             onClick={() => setShowAddStudent(true)}
           >
             <CardContent className="flex items-center gap-4 py-6">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Users className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                <Users className="w-6 h-6 text-accent" />
               </div>
               <div>
                 <CardTitle className="text-base">Adicionar Aluno</CardTitle>
@@ -218,105 +190,96 @@ function ProfessionalDashboard() {
         <AddStudentModal 
           open={showAddStudent} 
           onOpenChange={setShowAddStudent}
-          onStudentAdded={fetchStats}
+          onStudentAdded={fetchStudentCount}
         />
       </div>
 
       {/* Students List */}
-      <StudentsList onStudentRemoved={fetchStats} />
+      <StudentsList onStudentRemoved={fetchStudentCount} />
 
       {/* Recent Activity */}
-      <RecentActivity />
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Atividade Recente</h2>
+        <Card>
+          <CardContent className="py-8 text-center">
+            <ClipboardList className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-muted-foreground">
+              Nenhuma atividade recente
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Suas avaliações aparecerão aqui
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
 
 function StudentDashboard() {
-  const [hasProtocol, setHasProtocol] = useState<boolean | null>(null);
-  const { user } = useAuth();
-
-  useEffect(() => {
-    const checkProtocol = async () => {
-      if (!user) return;
-
-      const { count } = await supabase
-        .from('protocols')
-        .select(`
-          id,
-          assessments!inner(student_id, status)
-        `, { count: 'exact', head: true })
-        .eq('assessments.student_id', user.id)
-        .eq('assessments.status', 'completed');
-
-      setHasProtocol((count || 0) > 0);
-    };
-
-    checkProtocol();
-  }, [user]);
-
-  if (hasProtocol === null) {
-    return (
-      <div className="space-y-8">
-        <Card>
-          <CardContent className="py-8">
-            <div className="animate-pulse space-y-4">
-              <div className="h-6 bg-muted rounded w-1/3" />
-              <div className="h-4 bg-muted rounded w-2/3" />
+  return (
+    <div className="space-y-8">
+      {/* Welcome Card */}
+      <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
+        <CardContent className="py-8">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl gradient-accent flex items-center justify-center shrink-0">
+              <Activity className="w-7 h-7 text-accent-foreground" />
             </div>
+            <div>
+              <h2 className="text-xl font-semibold mb-1">Bem-vindo ao FABRIK</h2>
+              <p className="text-muted-foreground">
+                Você ainda não possui avaliações. Aguarde seu profissional iniciar uma avaliação de movimento.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Current Protocol */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Seu Protocolo</h2>
+        <Card>
+          <CardContent className="py-8 text-center">
+            <ClipboardList className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-muted-foreground">
+              Nenhum protocolo ativo
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Após sua avaliação, seus exercícios aparecerão aqui
+            </p>
           </CardContent>
         </Card>
       </div>
-    );
-  }
 
-  if (!hasProtocol) {
-    return (
-      <div className="space-y-8">
-        {/* Welcome Card */}
-        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="py-8">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center shrink-0">
-                <Activity className="w-7 h-7 text-primary-foreground" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold mb-1">Bem-vindo ao FABRIK</h2>
-                <p className="text-muted-foreground">
-                  Você ainda não possui avaliações. Aguarde seu profissional iniciar uma avaliação de movimento.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Progress */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Seu Progresso</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="card-hover">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Exercícios Concluídos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground mt-1">Esta semana</p>
+            </CardContent>
+          </Card>
 
-        {/* Empty Protocol */}
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Seu Protocolo</h2>
-          <Card>
-            <CardContent className="py-8 text-center">
-              <ClipboardList className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-              <p className="text-muted-foreground">
-                Nenhum protocolo ativo
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Após sua avaliação, seus exercícios aparecerão aqui
-              </p>
+          <Card className="card-hover">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Próxima Reavaliação
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-semibold text-muted-foreground">--</div>
+              <p className="text-xs text-muted-foreground mt-1">Não agendada</p>
             </CardContent>
           </Card>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* Progress Stats */}
-      <ProgressStats />
-
-      {/* Active Protocol */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4">Seus Exercícios</h2>
-        <ActiveProtocol />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Sparkles, Loader2, Check, X, Minus, Camera, ChevronDown, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, Check, X, AlertTriangle, Camera, ChevronDown, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -241,7 +241,7 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
           currentStatus={currentStatus}
           onClick={() => handleStatusChange(side, 'partial')}
           tooltip="Compensações leves ou inconsistência"
-          icon={Minus}
+          icon={AlertTriangle}
         />
         <StatusButton
           status="fail"

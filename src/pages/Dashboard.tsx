@@ -375,8 +375,14 @@ function ProfessionalDashboard() {
           ) : recentAssessments.length > 0 ? (
             <CardContent className="py-4 divide-y divide-border">
               {recentAssessments.map((assessment) => (
-                <div key={assessment.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3">
+                <div 
+                  key={assessment.id} 
+                  className="flex items-center justify-between py-3 first:pt-0 last:pb-0 group"
+                >
+                  <Link 
+                    to={`/assessment/continue?assessmentId=${assessment.id}&studentName=${encodeURIComponent(assessment.student_name)}`}
+                    className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity"
+                  >
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                       <ClipboardList className="w-4 h-4 text-primary" />
                     </div>
@@ -389,7 +395,7 @@ function ProfessionalDashboard() {
                         })}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs font-medium ${getStatusColor(assessment.status)}`}>
                       {getStatusLabel(assessment.status)}
@@ -398,7 +404,9 @@ function ProfessionalDashboard() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         setAssessmentToDelete(assessment);
                         setDeleteDialogOpen(true);
                       }}

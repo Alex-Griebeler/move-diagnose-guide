@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Info, Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera } from 'lucide-react';
+import { Info, Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown, ChevronUp, Code } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { MediaUploader } from '@/components/media/MediaUploader';
 import { useMovementAnalysis, AnalysisResult } from '@/hooks/useMovementAnalysis';
 import { SegmentalTest } from '@/data/segmentalTestMappings';
 import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 type ResultStatus = 'pass' | 'partial' | 'fail' | null;
 
@@ -53,6 +54,7 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [mediaUrls, setMediaUrls] = useState<{ photoUrl?: string; videoUrl?: string }>({});
+  const [showPrompt, setShowPrompt] = useState(false);
   
   const { analyzeMovement } = useMovementAnalysis({
     onAnalysisComplete: (aiResult) => {
@@ -295,20 +297,60 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
 
         {analysisResult && !isAnalyzing && (
           <Card className="border-accent/50 bg-accent/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-2 mb-2">
-                <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-sm">Sugestão da IA</p>
-                  <p className="text-xs text-muted-foreground">
-                    Confiança: {Math.round((analysisResult.confidence || 0) * 100)}%
-                  </p>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm">Sugestão da IA</p>
+                    <p className="text-xs text-muted-foreground">
+                      Confiança: {Math.round((analysisResult.confidence || 0) * 100)}%
+                    </p>
+                  </div>
                 </div>
+                {/* Show values if quantitative */}
+                {(analysisResult.left_value !== undefined || analysisResult.right_value !== undefined || analysisResult.value !== undefined) && (
+                  <div className="text-right">
+                    {test.isBilateral ? (
+                      <div className="text-xs space-y-1">
+                        {analysisResult.left_value !== undefined && (
+                          <p><span className="text-muted-foreground">E:</span> <span className="font-semibold">{analysisResult.left_value} {test.unit}</span></p>
+                        )}
+                        {analysisResult.right_value !== undefined && (
+                          <p><span className="text-muted-foreground">D:</span> <span className="font-semibold">{analysisResult.right_value} {test.unit}</span></p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-semibold">{analysisResult.value} {test.unit}</p>
+                    )}
+                  </div>
+                )}
               </div>
+              
               {analysisResult.notes && (
                 <p className="text-sm text-muted-foreground italic">
                   "{analysisResult.notes}"
                 </p>
+              )}
+
+              {/* Debug: Show prompt used */}
+              {analysisResult.promptUsed && (
+                <Collapsible open={showPrompt} onOpenChange={setShowPrompt}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground hover:text-foreground">
+                      <span className="flex items-center gap-1">
+                        <Code className="h-3 w-3" />
+                        Ver prompt utilizado
+                      </span>
+                      {showPrompt ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <pre className="mt-2 p-3 rounded-md bg-muted/50 text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
+                      {analysisResult.promptUsed}
+                    </pre>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
             </CardContent>
           </Card>

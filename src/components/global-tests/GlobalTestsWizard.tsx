@@ -8,45 +8,33 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
-import { OverheadSquatTest } from './tests/OverheadSquatTest';
-import { SingleLegSquatTest } from './tests/SingleLegSquatTest';
-import { PushupTest } from './tests/PushupTest';
-import { TestSummary } from './TestSummary';
+import { AutoGlobalTest } from './AutoGlobalTest';
+import { TestSummary, LegacyTestData } from './TestSummary';
 
-export interface GlobalTestData {
-  ohs: {
-    anteriorView: string[];
-    lateralView: string[];
-    posteriorView: string[];
-    notes: string;
-  };
-  sls: {
-    leftSide: string[];
-    rightSide: string[];
-    notes: string;
-  };
-  pushup: {
-    compensations: string[];
-    notes: string;
-  };
+type ViewType = 'anterior' | 'lateral' | 'posterior' | 'left' | 'right' | 'main';
+
+interface AutoTestData {
+  compensations: Record<ViewType, string[]>;
+  mediaUrls: Record<ViewType, { photoUrl?: string; videoUrl?: string }>;
+  notes: string;
 }
 
+export interface GlobalTestData {
+  ohs: AutoTestData;
+  sls: AutoTestData;
+  pushup: AutoTestData;
+}
+
+const createEmptyAutoTestData = (): AutoTestData => ({
+  compensations: {} as Record<ViewType, string[]>,
+  mediaUrls: {} as Record<ViewType, { photoUrl?: string; videoUrl?: string }>,
+  notes: '',
+});
+
 const initialData: GlobalTestData = {
-  ohs: {
-    anteriorView: [],
-    lateralView: [],
-    posteriorView: [],
-    notes: '',
-  },
-  sls: {
-    leftSide: [],
-    rightSide: [],
-    notes: '',
-  },
-  pushup: {
-    compensations: [],
-    notes: '',
-  },
+  ohs: createEmptyAutoTestData(),
+  sls: createEmptyAutoTestData(),
+  pushup: createEmptyAutoTestData(),
 };
 
 const steps = [
@@ -59,6 +47,27 @@ const steps = [
 interface GlobalTestsWizardProps {
   assessmentId: string;
   onComplete: () => void;
+}
+
+// Convert new format to legacy format for TestSummary
+function toLegacyFormat(data: GlobalTestData): LegacyTestData {
+  return {
+    ohs: {
+      anteriorView: data.ohs.compensations.anterior || [],
+      lateralView: data.ohs.compensations.lateral || [],
+      posteriorView: data.ohs.compensations.posterior || [],
+      notes: data.ohs.notes,
+    },
+    sls: {
+      leftSide: data.sls.compensations.left || [],
+      rightSide: data.sls.compensations.right || [],
+      notes: data.sls.notes,
+    },
+    pushup: {
+      compensations: data.pushup.compensations.main || [],
+      notes: data.pushup.notes,
+    },
+  };
 }
 
 export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizardProps) {
@@ -90,35 +99,50 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     }
   };
 
+  // Collect all media URLs for a test
+  const collectMediaUrls = (testData: AutoTestData): string[] => {
+    const urls: string[] = [];
+    Object.values(testData.mediaUrls).forEach(media => {
+      if (media.photoUrl) urls.push(media.photoUrl);
+      if (media.videoUrl) urls.push(media.videoUrl);
+    });
+    return urls;
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
     try {
+      const legacyData = toLegacyFormat(data);
+
       // Save OHS results
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'ohs',
-        anterior_view: { compensations: data.ohs.anteriorView },
-        lateral_view: { compensations: data.ohs.lateralView },
-        posterior_view: { compensations: data.ohs.posteriorView },
-        notes: data.ohs.notes || null,
+        anterior_view: { compensations: legacyData.ohs.anteriorView },
+        lateral_view: { compensations: legacyData.ohs.lateralView },
+        posterior_view: { compensations: legacyData.ohs.posteriorView },
+        notes: legacyData.ohs.notes || null,
+        media_urls: collectMediaUrls(data.ohs),
       });
 
       // Save SLS results
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'sls',
-        left_side: { compensations: data.sls.leftSide },
-        right_side: { compensations: data.sls.rightSide },
-        notes: data.sls.notes || null,
+        left_side: { compensations: legacyData.sls.leftSide },
+        right_side: { compensations: legacyData.sls.rightSide },
+        notes: legacyData.sls.notes || null,
+        media_urls: collectMediaUrls(data.sls),
       });
 
       // Save Push-up results
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'pushup',
-        anterior_view: { compensations: data.pushup.compensations },
-        notes: data.pushup.notes || null,
+        anterior_view: { compensations: legacyData.pushup.compensations },
+        notes: legacyData.pushup.notes || null,
+        media_urls: collectMediaUrls(data.pushup),
       });
 
       // Update assessment status
@@ -151,26 +175,48 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
   const progress = (currentStep / 4) * 100;
 
   const getTotalCompensations = () => {
+    const legacyData = toLegacyFormat(data);
     return (
-      data.ohs.anteriorView.length +
-      data.ohs.lateralView.length +
-      data.ohs.posteriorView.length +
-      data.sls.leftSide.length +
-      data.sls.rightSide.length +
-      data.pushup.compensations.length
+      legacyData.ohs.anteriorView.length +
+      legacyData.ohs.lateralView.length +
+      legacyData.ohs.posteriorView.length +
+      legacyData.sls.leftSide.length +
+      legacyData.sls.rightSide.length +
+      legacyData.pushup.compensations.length
     );
   };
 
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <OverheadSquatTest data={data.ohs} updateData={(ohs) => updateData({ ohs })} />;
+        return (
+          <AutoGlobalTest
+            testType="ohs"
+            assessmentId={assessmentId}
+            data={data.ohs}
+            onUpdate={(ohs) => updateData({ ohs })}
+          />
+        );
       case 2:
-        return <SingleLegSquatTest data={data.sls} updateData={(sls) => updateData({ sls })} />;
+        return (
+          <AutoGlobalTest
+            testType="sls"
+            assessmentId={assessmentId}
+            data={data.sls}
+            onUpdate={(sls) => updateData({ sls })}
+          />
+        );
       case 3:
-        return <PushupTest data={data.pushup} updateData={(pushup) => updateData({ pushup })} />;
+        return (
+          <AutoGlobalTest
+            testType="pushup"
+            assessmentId={assessmentId}
+            data={data.pushup}
+            onUpdate={(pushup) => updateData({ pushup })}
+          />
+        );
       case 4:
-        return <TestSummary data={data} />;
+        return <TestSummary data={toLegacyFormat(data)} />;
       default:
         return null;
     }

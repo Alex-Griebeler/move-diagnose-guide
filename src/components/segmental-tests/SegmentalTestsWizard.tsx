@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { getSuggestedTests, groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
-import { SegmentalTestForm } from './SegmentalTestForm';
+import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
 
 interface SegmentalTestsWizardProps {
@@ -25,6 +25,7 @@ interface TestResult {
   notes: string;
   unit: string;
   cutoffValue?: number;
+  mediaUrls?: { photoUrl?: string; videoUrl?: string };
 }
 
 const STORAGE_KEY_PREFIX = 'segmental_tests_wizard';
@@ -173,6 +174,14 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     }
   };
 
+  // Collect all media URLs for saving
+  const collectMediaUrls = (result: TestResult): string[] => {
+    const urls: string[] = [];
+    if (result.mediaUrls?.photoUrl) urls.push(result.mediaUrls.photoUrl);
+    if (result.mediaUrls?.videoUrl) urls.push(result.mediaUrls.videoUrl);
+    return urls;
+  };
+
   const handleSave = async () => {
     setSaving(true);
 
@@ -189,6 +198,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         cutoff_value: result.cutoffValue || null,
         unit: result.unit,
         notes: result.notes || null,
+        media_urls: collectMediaUrls(result),
       }));
 
       const { error } = await supabase
@@ -249,6 +259,11 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const groupedTests = groupTestsByRegion(suggestedTests);
   const currentTest = suggestedTests[currentTestIndex];
 
+  // Count completed tests
+  const completedCount = Object.values(testResults).filter(r => 
+    r.passFailLeft !== null || r.passFailRight !== null || r.leftValue !== null || r.rightValue !== null
+  ).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -257,10 +272,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           <div className="flex items-start gap-3">
             <Sparkles className="w-5 h-5 text-primary mt-0.5" />
             <div>
-              <h3 className="font-medium">Testes Segmentados Sugeridos</h3>
+              <h3 className="font-medium">Testes Segmentados Automatizados</h3>
               <p className="text-sm text-muted-foreground">
-                {suggestedTests.length} teste(s) sugerido(s) com base nas {' '}
-                compensações detectadas nos testes globais.
+                {suggestedTests.length} teste(s) sugerido(s) • {completedCount} completo(s) • 
+                Capture fotos para análise por IA
               </p>
             </div>
           </div>
@@ -286,8 +301,9 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           groupedTests={groupedTests}
         />
       ) : (
-        <SegmentalTestForm
+        <AutoSegmentalTest
           test={currentTest}
+          assessmentId={assessmentId}
           result={testResults[currentTest.id]}
           onUpdate={(result) => handleTestResult(currentTest.id, result)}
         />

@@ -1,5 +1,10 @@
-// Segmental tests suggested based on global test compensations
-// Updated to sync triggeredBy with actual compensation IDs
+// ============================================
+// Segmental Tests - Testes Segmentados
+// Refatorado para usar fluxo: Compensação → Causa → Teste
+// ============================================
+
+import { compensacaoCausas } from './weightEngine';
+import { causaToTests } from './causaTestMappings';
 
 export interface SegmentalTest {
   id: string;
@@ -10,8 +15,8 @@ export interface SegmentalTest {
   cutoffValue?: number;
   isBilateral: boolean;
   instructions: string;
-  // Which compensation IDs trigger this test suggestion
-  triggeredBy: string[];
+  // Resultado aceito: 'quantitative' (valor numérico) ou 'qualitative' (pass/partial/fail)
+  resultType?: 'quantitative' | 'qualitative';
 }
 
 export const segmentalTests: SegmentalTest[] = [
@@ -27,12 +32,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 10,
     isBilateral: true,
     instructions: 'Posicione o pé paralelo à parede. Avance o joelho em direção à parede mantendo o calcanhar no solo. Meça a distância do hálux até a parede.',
-    triggeredBy: [
-      // OHS Lateral/Posterior
-      'heels_rise', 'heels_rise_posterior', 'feet_eversion', 'feet_eversion_posterior',
-      // SLS
-      'foot_collapse',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'calf_flexibility',
@@ -43,10 +43,18 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 20,
     isBilateral: true,
     instructions: 'Em decúbito dorsal, com joelho estendido, realize dorsiflexão passiva máxima. Meça o ângulo em relação à posição neutra.',
-    triggeredBy: [
-      // OHS
-      'heels_rise', 'heels_rise_posterior', 'feet_abduction',
-    ],
+    resultType: 'quantitative',
+  },
+  // NEW: Short-foot Test (Superprompt Tabela C)
+  {
+    id: 'short_foot',
+    name: 'Short-foot Test',
+    bodyRegion: 'Pé',
+    description: 'Avalia a capacidade de ativação do arco plantar e intrínsecos do pé',
+    unit: 'qualitativo',
+    isBilateral: true,
+    instructions: 'Em pé, tente encurtar o pé contraindo os músculos intrínsecos, elevando o arco sem flexionar os dedos. Observe se consegue ativar e manter a posição.',
+    resultType: 'qualitative',
   },
 
   // ============================================
@@ -61,14 +69,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 0,
     isBilateral: true,
     instructions: 'Paciente em decúbito dorsal na borda da maca. Flexione um quadril ao máximo e observe a posição da coxa contralateral. Avalie extensão do quadril e flexão do joelho.',
-    triggeredBy: [
-      // OHS Lateral
-      'lumbar_hyperextension', 'trunk_forward_lean', 'spine_flexion',
-      // SLS
-      'trunk_forward_lean_sls', 'hip_hike',
-      // Push-up
-      'lumbar_extension', 'hips_drop', 'hip_elevation',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'hip_rotation',
@@ -79,12 +80,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 45,
     isBilateral: true,
     instructions: 'Em decúbito ventral com joelho flexionado a 90°. Realize rotação interna e externa passivamente. Meça os ângulos de cada movimento.',
-    triggeredBy: [
-      // OHS Anterior/Posterior
-      'knee_valgus', 'knee_varus', 'asymmetric_shift', 'trunk_rotation',
-      // SLS
-      'trunk_rotation_medial', 'trunk_rotation_lateral',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'ober_test',
@@ -95,12 +91,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 0,
     isBilateral: true,
     instructions: 'Decúbito lateral. Estabilize a pelve e realize abdução + extensão do quadril, depois solte. A coxa deve cair abaixo da horizontal.',
-    triggeredBy: [
-      // OHS Anterior
-      'knee_valgus', 'knee_varus',
-      // SLS
-      'hip_drop', 'hip_hike',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'hip_abduction_strength',
@@ -111,12 +102,18 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 4,
     isBilateral: true,
     instructions: 'Em decúbito lateral, realize abdução isométrica contra resistência manual. Gradue de 0 a 5 conforme escala de Oxford.',
-    triggeredBy: [
-      // OHS Anterior/Posterior
-      'knee_valgus', 'asymmetric_shift',
-      // SLS
-      'hip_drop', 'hip_hike', 'instability', 'balance_loss',
-    ],
+    resultType: 'quantitative',
+  },
+  // NEW: Trendelenburg (Superprompt Tabela C)
+  {
+    id: 'trendelenburg',
+    name: 'Teste de Trendelenburg',
+    bodyRegion: 'Quadril',
+    description: 'Avalia a função do glúteo médio e estabilidade pélvica frontal durante apoio unipodal',
+    unit: 'qualitativo',
+    isBilateral: true,
+    instructions: 'Paciente em pé, apoio unipodal. Observe se a pelve do lado contralateral desce (positivo) ou se mantém nivelada (negativo). Sustente por 30 segundos cada lado.',
+    resultType: 'qualitative',
   },
 
   // ============================================
@@ -130,12 +127,7 @@ export const segmentalTests: SegmentalTest[] = [
     unit: 'positivo/negativo',
     isBilateral: false,
     instructions: 'Paciente em prono sobre a maca com pernas para fora. Realize pressão sobre processos espinhosos com e sem ativação de extensores. Dor que alivia com ativação muscular indica instabilidade.',
-    triggeredBy: [
-      // OHS Lateral/Posterior
-      'lumbar_hyperextension', 'asymmetric_shift', 'spine_flexion',
-      // Push-up
-      'lumbar_extension', 'hips_drop', 'hip_elevation',
-    ],
+    resultType: 'qualitative',
   },
   {
     id: 'trunk_endurance_flexor',
@@ -146,12 +138,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 60,
     isBilateral: false,
     instructions: 'Posição de flexão parcial do tronco (60°) com joelhos e quadris flexionados a 90°. Mantenha a posição o máximo possível.',
-    triggeredBy: [
-      // OHS Lateral
-      'lumbar_hyperextension',
-      // Push-up
-      'lumbar_extension', 'hips_drop', 'hip_elevation',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'trunk_endurance_lateral',
@@ -162,14 +149,30 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 45,
     isBilateral: true,
     instructions: 'Apoie-se no cotovelo e pés, mantendo o corpo alinhado. Sustente a posição o máximo possível de cada lado.',
-    triggeredBy: [
-      // OHS Posterior
-      'asymmetric_shift', 'trunk_rotation',
-      // SLS
-      'hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral',
-      // Push-up
-      'misalignment',
-    ],
+    resultType: 'quantitative',
+  },
+  // NEW: Dead Bug Test (Superprompt Tabela C)
+  {
+    id: 'dead_bug',
+    name: 'Dead Bug Test',
+    bodyRegion: 'Core',
+    description: 'Avalia controle motor do core profundo e capacidade de dissociação lombo-pélvica',
+    unit: 'qualitativo',
+    isBilateral: false,
+    instructions: 'Decúbito dorsal, quadris e joelhos a 90°, braços estendidos para o teto. Estenda alternadamente braço e perna opostos mantendo a lombar estável. Observe perda de controle, arqueamento lombar ou tremor.',
+    resultType: 'qualitative',
+  },
+  // NEW: Tspine Extension (Superprompt Tabela C)
+  {
+    id: 'tspine_extension',
+    name: 'Extensão Torácica',
+    bodyRegion: 'Torácica',
+    description: 'Avalia a mobilidade de extensão da coluna torácica',
+    unit: 'graus',
+    cutoffValue: 25,
+    isBilateral: false,
+    instructions: 'Sentado ou em quadrupedia, mãos na nuca. Realize extensão torácica máxima observando o movimento da coluna. Pode-se medir com inclinômetro ou observar qualitativamente.',
+    resultType: 'quantitative',
   },
 
   // ============================================
@@ -184,12 +187,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 170,
     isBilateral: true,
     instructions: 'Em pé ou sentado, eleve os braços ativamente acima da cabeça. Observe compensações e meça a amplitude máxima.',
-    triggeredBy: [
-      // OHS Lateral
-      'arms_fall_forward',
-      // Push-up
-      'scapular_winging', 'shoulder_protraction', 'shoulder_retraction_insufficient',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'pec_minor_length',
@@ -200,12 +198,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 2.5,
     isBilateral: true,
     instructions: 'Em decúbito dorsal relaxado, meça a distância do acrômio até a maca. Compare bilateralmente.',
-    triggeredBy: [
-      // OHS Lateral
-      'arms_fall_forward',
-      // Push-up
-      'scapular_winging', 'shoulder_protraction', 'elbow_flare',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'scapular_dyskinesis',
@@ -215,12 +208,7 @@ export const segmentalTests: SegmentalTest[] = [
     unit: 'tipo (I-IV)',
     isBilateral: true,
     instructions: 'Observe a escápula durante flexão e abdução ativa de ombro com peso leve (1-2kg). Classifique o padrão de discinese.',
-    triggeredBy: [
-      // OHS Lateral
-      'arms_fall_forward',
-      // Push-up
-      'scapular_winging', 'shoulder_protraction', 'shoulder_retraction_insufficient',
-    ],
+    resultType: 'qualitative',
   },
   {
     id: 'serratus_strength',
@@ -231,10 +219,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 4,
     isBilateral: true,
     instructions: 'Em posição de push-up plus ou em pé empurrando parede. Realize protração máxima contra resistência. Grade de 0-5.',
-    triggeredBy: [
-      // Push-up
-      'scapular_winging', 'shoulder_retraction_insufficient',
-    ],
+    resultType: 'quantitative',
   },
 
   // ============================================
@@ -249,10 +234,7 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 30,
     isBilateral: false,
     instructions: 'Em decúbito dorsal, realize flexão craniocervical (queixo no peito) e eleve levemente a cabeça da maca. Mantenha o máximo possível.',
-    triggeredBy: [
-      // Push-up
-      'head_forward',
-    ],
+    resultType: 'quantitative',
   },
   {
     id: 'upper_trap_length',
@@ -263,16 +245,11 @@ export const segmentalTests: SegmentalTest[] = [
     cutoffValue: 45,
     isBilateral: true,
     instructions: 'Em sentado, estabilize o ombro e realize flexão lateral cervical contralateral passiva. Meça a amplitude.',
-    triggeredBy: [
-      // OHS Lateral
-      'arms_fall_forward',
-      // Push-up
-      'head_forward', 'scapular_winging', 'shoulder_protraction',
-    ],
+    resultType: 'quantitative',
   },
 
   // ============================================
-  // Knee Tests (NEW)
+  // Knee/Control Tests
   // ============================================
   {
     id: 'single_leg_squat_control',
@@ -282,27 +259,43 @@ export const segmentalTests: SegmentalTest[] = [
     unit: 'qualitativo',
     isBilateral: true,
     instructions: 'Realize agachamento unilateral lento observando tremor, controle e profundidade alcançada.',
-    triggeredBy: [
-      // SLS
-      'knee_flexion_insufficient', 'tremor', 'instability',
-    ],
+    resultType: 'qualitative',
   },
 ];
 
-// Get suggested tests based on detected compensations
+// ============================================
+// getSuggestedTests - Fluxo Compensação → Causa → Teste
+// ============================================
+
 export function getSuggestedTests(compensationIds: string[]): SegmentalTest[] {
   if (!compensationIds || compensationIds.length === 0) return [];
 
-  const suggested = segmentalTests.filter(test =>
-    test.triggeredBy.some(trigger => compensationIds.includes(trigger))
+  // 1. Compensações → Causas (via Tabela A / weightEngine)
+  const allCausaIds = new Set<string>();
+  compensationIds.forEach(compId => {
+    const causas = compensacaoCausas[compId] || [];
+    causas.forEach(causa => allCausaIds.add(causa.id));
+  });
+
+  // 2. Causas → Testes (via Tabela B / causaToTests)
+  const suggestedTestIds = new Set<string>();
+  allCausaIds.forEach(causaId => {
+    const tests = causaToTests[causaId] || [];
+    tests.forEach(testId => suggestedTestIds.add(testId));
+  });
+
+  // 3. Retornar testes correspondentes, ordenados por região
+  const suggested = segmentalTests.filter(test => 
+    suggestedTestIds.has(test.id)
   );
 
-  // Remove duplicates and sort by body region
-  const uniqueTests = Array.from(new Map(suggested.map(t => [t.id, t])).values());
-  return uniqueTests.sort((a, b) => a.bodyRegion.localeCompare(b.bodyRegion));
+  return suggested.sort((a, b) => a.bodyRegion.localeCompare(b.bodyRegion));
 }
 
-// Group tests by body region
+// ============================================
+// Funções Auxiliares
+// ============================================
+
 export function groupTestsByRegion(tests: SegmentalTest[]): Record<string, SegmentalTest[]> {
   return tests.reduce((acc, test) => {
     if (!acc[test.bodyRegion]) {
@@ -311,4 +304,31 @@ export function groupTestsByRegion(tests: SegmentalTest[]): Record<string, Segme
     acc[test.bodyRegion].push(test);
     return acc;
   }, {} as Record<string, SegmentalTest[]>);
+}
+
+export function getTestById(testId: string): SegmentalTest | undefined {
+  return segmentalTests.find(test => test.id === testId);
+}
+
+// Validação de IDs de teste referenciados em causaToTests
+export function validateTestIdsInCausaToTests(): { valid: boolean; missingTests: string[] } {
+  const allTestIds = new Set(segmentalTests.map(t => t.id));
+  const referencedTestIds = new Set<string>();
+  
+  Object.values(causaToTests).forEach(tests => {
+    tests.forEach(testId => referencedTestIds.add(testId));
+  });
+
+  const missingTests = Array.from(referencedTestIds).filter(id => !allTestIds.has(id));
+  
+  if (missingTests.length > 0) {
+    console.warn('[FABRIK] Testes referenciados em causaToTests mas não definidos:', missingTests);
+  }
+
+  return { valid: missingTests.length === 0, missingTests };
+}
+
+// Executar validação em desenvolvimento
+if (import.meta.env.DEV) {
+  validateTestIdsInCausaToTests();
 }

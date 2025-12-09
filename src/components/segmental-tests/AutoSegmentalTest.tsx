@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Info, Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown, ChevronUp, Code } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Info, Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown, ChevronUp, Code, Video } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -285,6 +285,17 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
             onAnalyze={handleAnalyze}
             isAnalyzing={isAnalyzing}
           />
+          
+          {/* Video recommendation warning */}
+          {test.preferredMedia === 'video' && mediaUrls.photoUrl && !mediaUrls.videoUrl && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30">
+              <Video className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+              <p className="text-xs text-warning-foreground">
+                <span className="font-medium">Vídeo recomendado:</span> Este teste é melhor avaliado por vídeo. 
+                A análise por foto pode ter precisão reduzida.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* AI Analysis Result */}

@@ -17,6 +17,8 @@ export interface SegmentalTest {
   instructions: string;
   // Resultado aceito: 'quantitative' (valor numérico) ou 'qualitative' (pass/partial/fail)
   resultType?: 'quantitative' | 'qualitative';
+  // Mídia preferida para análise por IA
+  preferredMedia?: 'photo' | 'video';
 }
 
 export const segmentalTests: SegmentalTest[] = [
@@ -45,16 +47,32 @@ export const segmentalTests: SegmentalTest[] = [
     instructions: 'Em decúbito dorsal, com joelho estendido, realize dorsiflexão passiva máxima. Meça o ângulo em relação à posição neutra.',
     resultType: 'quantitative',
   },
-  // NEW: Short-foot Test (Superprompt Tabela C)
+  // Short-foot Test - Convertido para quantitativo (Superprompt Tabela C)
   {
     id: 'short_foot',
     name: 'Short-foot Test',
     bodyRegion: 'Pé',
     description: 'Avalia a capacidade de ativação do arco plantar e intrínsecos do pé',
-    unit: 'qualitativo',
+    unit: 'mm',
+    cutoffValue: 5,
     isBilateral: true,
-    instructions: 'Em pé, tente encurtar o pé contraindo os músculos intrínsecos, elevando o arco sem flexionar os dedos. Observe se consegue ativar e manter a posição.',
-    resultType: 'qualitative',
+    instructions: `Análise quantitativa do Short-foot Test:
+MEDIÇÃO PRINCIPAL: Elevação do arco navicular em milímetros
+- Identifique o osso navicular (proeminência medial do pé)
+- Compare a altura do arco em repouso vs durante ativação
+- Meça a diferença de elevação em mm
+
+CRITÉRIOS:
+- ≥5mm de elevação: PASS (boa ativação dos intrínsecos)
+- 2-5mm: PARTIAL (ativação fraca)
+- <2mm: FAIL (incapacidade de ativar arco)
+
+OBSERVAR TAMBÉM:
+- Flexão compensatória dos dedos (invalida o teste)
+- Inversão excessiva do retropé
+- Tremor durante sustentação`,
+    resultType: 'quantitative',
+    preferredMedia: 'video',
   },
 
   // ============================================
@@ -104,21 +122,39 @@ export const segmentalTests: SegmentalTest[] = [
     instructions: 'Em decúbito lateral, realize abdução isométrica contra resistência manual. Gradue de 0 a 5 conforme escala de Oxford.',
     resultType: 'quantitative',
   },
-  // NEW: Trendelenburg (Superprompt Tabela C)
+  // Trendelenburg - Convertido para quantitativo (Superprompt Tabela C)
   {
     id: 'trendelenburg',
     name: 'Teste de Trendelenburg',
     bodyRegion: 'Quadril',
     description: 'Avalia a função do glúteo médio e estabilidade pélvica frontal durante apoio unipodal',
-    unit: 'qualitativo',
+    unit: 'graus',
+    cutoffValue: 5,
     isBilateral: true,
-    instructions: 'Paciente em pé, apoio unipodal. Observe se a pelve do lado contralateral desce (positivo) ou se mantém nivelada (negativo). Sustente por 30 segundos cada lado.',
-    resultType: 'qualitative',
+    instructions: `Análise quantitativa do Teste de Trendelenburg:
+MEDIÇÃO PRINCIPAL: Ângulo de queda pélvica em graus
+- Identifique as EIAS (cristas ilíacas anteriores) bilateralmente
+- Trace uma linha horizontal conectando as EIAS
+- Compare com linha horizontal de referência (solo/fundo)
+- Calcule o ângulo de inclinação da pelve
+
+CRITÉRIOS:
+- 0-5° de queda: PASS (pelve nivelada ou queda mínima)
+- 5-10°: PARTIAL (queda moderada - fraqueza leve)
+- >10°: FAIL (Trendelenburg positivo - fraqueza significativa)
+
+OBSERVAR TAMBÉM:
+- Inclinação lateral do tronco (compensação)
+- Tempo até falha (se <30s = instabilidade)
+- Tremor durante sustentação`,
+    resultType: 'quantitative',
+    preferredMedia: 'video',
   },
 
   // ============================================
   // Core/Spine Tests
   // ============================================
+  // Instabilidade em Prono - Mantido qualitativo (depende de feedback de dor do paciente)
   {
     id: 'prone_instability',
     name: 'Teste de Instabilidade em Prono',
@@ -126,8 +162,20 @@ export const segmentalTests: SegmentalTest[] = [
     description: 'Avalia a estabilidade segmentar lombar',
     unit: 'positivo/negativo',
     isBilateral: false,
-    instructions: 'Paciente em prono sobre a maca com pernas para fora. Realize pressão sobre processos espinhosos com e sem ativação de extensores. Dor que alivia com ativação muscular indica instabilidade.',
+    instructions: `Teste de Instabilidade em Prono:
+PROCEDIMENTO:
+1. Paciente em prono sobre a maca com pernas para fora
+2. Realize pressão sobre processos espinhosos lombares
+3. Peça ativação dos extensores (elevação das pernas)
+4. Repita a pressão com extensores ativados
+
+INTERPRETAÇÃO (baseada em relato do paciente):
+- POSITIVO: Dor que alivia com ativação muscular = instabilidade
+- NEGATIVO: Sem diferença na dor = estabilidade preservada
+
+NOTA: Este teste requer feedback verbal do paciente sobre dor.`,
     resultType: 'qualitative',
+    preferredMedia: 'video',
   },
   {
     id: 'trunk_endurance_flexor',
@@ -151,16 +199,33 @@ export const segmentalTests: SegmentalTest[] = [
     instructions: 'Apoie-se no cotovelo e pés, mantendo o corpo alinhado. Sustente a posição o máximo possível de cada lado.',
     resultType: 'quantitative',
   },
-  // NEW: Dead Bug Test (Superprompt Tabela C)
+  // Dead Bug Test - Convertido para quantitativo (Superprompt Tabela C)
   {
     id: 'dead_bug',
     name: 'Dead Bug Test',
     bodyRegion: 'Core',
     description: 'Avalia controle motor do core profundo e capacidade de dissociação lombo-pélvica',
-    unit: 'qualitativo',
+    unit: 'segundos',
+    cutoffValue: 30,
     isBilateral: false,
-    instructions: 'Decúbito dorsal, quadris e joelhos a 90°, braços estendidos para o teto. Estenda alternadamente braço e perna opostos mantendo a lombar estável. Observe perda de controle, arqueamento lombar ou tremor.',
-    resultType: 'qualitative',
+    instructions: `Análise quantitativa do Dead Bug Test:
+MEDIÇÃO PRINCIPAL: Tempo em segundos até perda de controle
+- Posição inicial: decúbito dorsal, quadris/joelhos a 90°, braços para o teto
+- Movimento: extensão alternada de braço e perna opostos
+- Cronometre até primeira falha de controle
+
+CRITÉRIOS DE TEMPO:
+- ≥30 segundos sem compensação: PASS
+- 15-30 segundos: PARTIAL
+- <15 segundos: FAIL
+
+SINAIS DE FALHA (encerrar cronômetro):
+- Arqueamento lombar (perda de contato com solo)
+- Tremor significativo
+- Rotação pélvica
+- Assimetria de movimento E/D`,
+    resultType: 'quantitative',
+    preferredMedia: 'video',
   },
   // NEW: Tspine Extension (Superprompt Tabela C)
   {
@@ -200,15 +265,35 @@ export const segmentalTests: SegmentalTest[] = [
     instructions: 'Em decúbito dorsal relaxado, meça a distância do acrômio até a maca. Compare bilateralmente.',
     resultType: 'quantitative',
   },
+  // Discinese Escapular - Convertido para quantitativo
   {
     id: 'scapular_dyskinesis',
     name: 'Avaliação de Discinese Escapular',
     bodyRegion: 'Escápula',
     description: 'Observação dinâmica do movimento escapular',
-    unit: 'tipo (I-IV)',
+    unit: 'cm',
+    cutoffValue: 2,
     isBilateral: true,
-    instructions: 'Observe a escápula durante flexão e abdução ativa de ombro com peso leve (1-2kg). Classifique o padrão de discinese.',
-    resultType: 'qualitative',
+    instructions: `Análise quantitativa de Discinese Escapular:
+MEDIÇÃO PRINCIPAL: Distância borda medial da escápula até coluna vertebral (cm)
+- Posição: paciente de costas, braços em abdução 90° com peso leve
+- Meça a distância da borda medial da escápula até a linha dos processos espinhosos
+- Compare bilateralmente
+
+CRITÉRIOS:
+- ≤2cm de diferença bilateral: PASS (simétrico)
+- 2-3cm de diferença: PARTIAL (assimetria leve)
+- >3cm de diferença: FAIL (discinese significativa)
+
+OBSERVAR PADRÃO:
+- Tipo I: Proeminência do ângulo inferior
+- Tipo II: Proeminência da borda medial inteira
+- Tipo III: Elevação excessiva do ombro
+- Tipo IV: Ritmo assimétrico bilateral
+
+REGISTRAR: distância E/D e tipo de padrão observado`,
+    resultType: 'quantitative',
+    preferredMedia: 'video',
   },
   {
     id: 'serratus_strength',
@@ -251,15 +336,34 @@ export const segmentalTests: SegmentalTest[] = [
   // ============================================
   // Knee/Control Tests
   // ============================================
+  // Controle de Joelho - Convertido para quantitativo
   {
     id: 'single_leg_squat_control',
     name: 'Controle de Flexão de Joelho',
     bodyRegion: 'Joelho',
     description: 'Avalia controle excêntrico do quadríceps e estabilidade do joelho',
-    unit: 'qualitativo',
+    unit: 'graus',
+    cutoffValue: 15,
     isBilateral: true,
-    instructions: 'Realize agachamento unilateral lento observando tremor, controle e profundidade alcançada.',
-    resultType: 'qualitative',
+    instructions: `Análise quantitativa do Controle de Joelho:
+MEDIÇÃO PRINCIPAL: Ângulo de valgo dinâmico em graus
+- Posição: vista frontal durante agachamento unilateral
+- Trace linha do centro do quadril ao centro do joelho
+- Trace linha do centro do joelho ao centro do tornozelo
+- Meça o ângulo entre as linhas (desvio medial = valgo)
+
+CRITÉRIOS:
+- <15° de valgo dinâmico: PASS (bom controle)
+- 15-25°: PARTIAL (valgo moderado)
+- >25°: FAIL (valgo excessivo - risco de lesão)
+
+OBSERVAR TAMBÉM:
+- Profundidade alcançada (ideal: 60° de flexão)
+- Tremor durante descida excêntrica
+- Inclinação lateral do tronco
+- Rotação medial do fêmur`,
+    resultType: 'quantitative',
+    preferredMedia: 'video',
   },
 ];
 

@@ -1,13 +1,11 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Camera, Video, X, Upload, Loader2, CheckCircle, Lightbulb } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
-import { compressVideo, isCompressionSupported } from '@/lib/videoCompression';
 import { MediaSourceModal } from './MediaSourceModal';
 import { FramingGuide } from './FramingGuide';
 import {
@@ -38,8 +36,6 @@ export function MediaUploader({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [compressionProgress, setCompressionProgress] = useState(0);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showFramingGuide, setShowFramingGuide] = useState(false);
@@ -121,52 +117,18 @@ export function MediaUploader({
       return;
     }
 
-    // Increased limit since we'll compress
-    if (file.size > 200 * 1024 * 1024) {
+    // Limit to 100MB - no compression (it corrupts videos)
+    if (file.size > 100 * 1024 * 1024) {
       triggerHaptic('error');
-      toast.error('O vídeo deve ter no máximo 200MB');
+      toast.error('O vídeo deve ter no máximo 100MB. Grave em qualidade mais baixa.');
       return;
     }
 
     triggerHaptic('tap');
-    
-    let videoToUpload = file;
-    
-    // Compress video if it's large and compression is supported
-    if (file.size > 10 * 1024 * 1024 && isCompressionSupported()) {
-      setIsCompressing(true);
-      setCompressionProgress(0);
-      
-      try {
-        toast.info('Comprimindo vídeo para upload...');
-        videoToUpload = await compressVideo(file, {
-          onProgress: setCompressionProgress,
-        });
-        
-        const savedMB = ((file.size - videoToUpload.size) / (1024 * 1024)).toFixed(1);
-        if (Number(savedMB) > 0) {
-          toast.success(`Vídeo comprimido! Economizou ${savedMB}MB`);
-        }
-      } catch (error) {
-        console.warn('Compression failed, using original file:', error);
-        videoToUpload = file;
-      } finally {
-        setIsCompressing(false);
-        setCompressionProgress(0);
-      }
-    }
-
-    // Check final size
-    if (videoToUpload.size > 50 * 1024 * 1024) {
-      triggerHaptic('error');
-      toast.error('O vídeo ainda é muito grande após compressão. Tente gravar em menor qualidade.');
-      return;
-    }
-
     setIsUploadingVideo(true);
     
     try {
-      const url = await uploadFile(videoToUpload, 'video');
+      const url = await uploadFile(file, 'video');
       setVideoUrl(url);
       onUploadComplete({ photoUrl: photoUrl || undefined, videoUrl: url });
       triggerHaptic('success');
@@ -333,13 +295,6 @@ export function MediaUploader({
                 >
                   <X className="h-4 w-4" />
                 </button>
-              </div>
-            ) : isCompressing ? (
-              <div className="flex flex-col items-center justify-center w-full aspect-video rounded-lg border-2 border-dashed border-primary/50 bg-muted/50 p-4">
-                <Loader2 className="h-6 w-6 text-primary animate-spin mb-2" />
-                <span className="text-xs text-muted-foreground mb-2">Comprimindo vídeo...</span>
-                <Progress value={compressionProgress} className="w-full h-2" />
-                <span className="text-xs text-muted-foreground mt-1">{compressionProgress}%</span>
               </div>
             ) : (
               <button

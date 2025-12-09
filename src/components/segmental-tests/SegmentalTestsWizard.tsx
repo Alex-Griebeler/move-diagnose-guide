@@ -8,6 +8,7 @@ import { ArrowRight, ArrowLeft, CheckCircle2, Loader2, Sparkles } from 'lucide-r
 import { getSuggestedTests, groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
+import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 
 interface SegmentalTestsWizardProps {
   assessmentId: string;
@@ -28,54 +29,35 @@ interface TestResult {
   mediaUrls?: { photoUrl?: string; videoUrl?: string };
 }
 
-const STORAGE_KEY_PREFIX = 'segmental_tests_wizard';
+interface WizardData {
+  testResults: Record<string, TestResult>;
+  showSummary: boolean;
+}
+
+const initialWizardData: WizardData = {
+  testResults: {},
+  showSummary: false,
+};
 
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [suggestedTests, setSuggestedTests] = useState<SegmentalTest[]>([]);
-  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
-  const [showSummary, setShowSummary] = useState(false);
 
-  // Persist and restore step
-  const [currentTestIndex, setCurrentTestIndex] = useState(() => {
-    try {
-      const stored = localStorage.getItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_step`);
-      return stored ? parseInt(stored, 10) : 0;
-    } catch {
-      return 0;
-    }
+  // Use unified wizard persistence hook
+  const {
+    data: wizardData,
+    updateData,
+    currentStep,
+    setCurrentStep,
+    clearPersistedData,
+  } = useWizardPersistence<WizardData>({
+    key: 'segmental_tests_wizard',
+    initialData: initialWizardData,
+    assessmentId,
   });
 
-  // Save step to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_step`, currentTestIndex.toString());
-    } catch (e) {
-      console.error('Error saving step:', e);
-    }
-  }, [currentTestIndex, assessmentId]);
-
-  // Save results to localStorage whenever they change
-  useEffect(() => {
-    if (Object.keys(testResults).length > 0) {
-      try {
-        localStorage.setItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_results`, JSON.stringify(testResults));
-      } catch (e) {
-        console.error('Error saving results:', e);
-      }
-    }
-  }, [testResults, assessmentId]);
-
-  // Clear persisted data
-  const clearPersistedData = useCallback(() => {
-    try {
-      localStorage.removeItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_step`);
-      localStorage.removeItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_results`);
-    } catch (e) {
-      console.error('Error clearing persisted data:', e);
-    }
-  }, [assessmentId]);
+  const { testResults, showSummary } = wizardData;
 
   useEffect(() => {
     fetchGlobalTestResults();
@@ -94,7 +76,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       const allCompensations: string[] = [];
       
       globalResults?.forEach(result => {
-        // Extract from different views/sides
         const views = ['anterior_view', 'lateral_view', 'posterior_view', 'left_side', 'right_side'];
         views.forEach(view => {
           const viewData = result[view as keyof typeof result] as Record<string, unknown> | null;
@@ -112,16 +93,8 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       const tests = getSuggestedTests(uniqueCompensations);
       setSuggestedTests(tests);
 
-      // Try to restore saved results, otherwise initialize
-      const savedResults = localStorage.getItem(`${STORAGE_KEY_PREFIX}_${assessmentId}_results`);
-      if (savedResults) {
-        try {
-          const parsed = JSON.parse(savedResults);
-          setTestResults(parsed);
-        } catch {
-          initializeResults(tests);
-        }
-      } else {
+      // Initialize results if empty
+      if (Object.keys(testResults).length === 0) {
         initializeResults(tests);
       }
     } catch (error) {
@@ -148,33 +121,34 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         cutoffValue: test.cutoffValue,
       };
     });
-    setTestResults(initialResults);
+    updateData({ testResults: initialResults });
   };
 
   const handleTestResult = (testId: string, result: Partial<TestResult>) => {
-    setTestResults(prev => ({
-      ...prev,
-      [testId]: { ...prev[testId], ...result },
-    }));
+    updateData({
+      testResults: {
+        ...testResults,
+        [testId]: { ...testResults[testId], ...result },
+      },
+    });
   };
 
   const handleNext = () => {
-    if (currentTestIndex < suggestedTests.length - 1) {
-      setCurrentTestIndex(prev => prev + 1);
+    if (currentStep < suggestedTests.length) {
+      setCurrentStep(currentStep + 1);
     } else {
-      setShowSummary(true);
+      updateData({ showSummary: true });
     }
   };
 
   const handlePrevious = () => {
     if (showSummary) {
-      setShowSummary(false);
-    } else if (currentTestIndex > 0) {
-      setCurrentTestIndex(prev => prev - 1);
+      updateData({ showSummary: false });
+    } else if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
     }
   };
 
-  // Collect all media URLs for saving
   const collectMediaUrls = (result: TestResult): string[] => {
     const urls: string[] = [];
     if (result.mediaUrls?.photoUrl) urls.push(result.mediaUrls.photoUrl);
@@ -186,7 +160,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     setSaving(true);
 
     try {
-      // Prepare data for insertion
       const resultsToInsert = Object.values(testResults).map(result => ({
         assessment_id: assessmentId,
         test_name: result.testName,
@@ -252,14 +225,15 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     );
   }
 
+  // currentStep is 1-indexed, array is 0-indexed
+  const currentTestIndex = currentStep - 1;
   const progress = showSummary 
     ? 100 
-    : ((currentTestIndex + 1) / suggestedTests.length) * 100;
+    : (currentStep / suggestedTests.length) * 100;
 
   const groupedTests = groupTestsByRegion(suggestedTests);
   const currentTest = suggestedTests[currentTestIndex];
 
-  // Count completed tests
   const completedCount = Object.values(testResults).filter(r => 
     r.passFailLeft !== null || r.passFailRight !== null || r.leftValue !== null || r.rightValue !== null
   ).length;
@@ -286,7 +260,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">
-            {showSummary ? 'Resumo' : `Teste ${currentTestIndex + 1} de ${suggestedTests.length}`}
+            {showSummary ? 'Resumo' : `Teste ${currentStep} de ${suggestedTests.length}`}
           </span>
           <span className="font-medium">{Math.round(progress)}%</span>
         </div>
@@ -300,21 +274,21 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           tests={suggestedTests}
           groupedTests={groupedTests}
         />
-      ) : (
+      ) : currentTest ? (
         <AutoSegmentalTest
           test={currentTest}
           assessmentId={assessmentId}
           result={testResults[currentTest.id]}
           onUpdate={(result) => handleTestResult(currentTest.id, result)}
         />
-      )}
+      ) : null}
 
       {/* Navigation */}
       <div className="flex justify-between gap-4">
         <Button
           variant="outline"
           onClick={handlePrevious}
-          disabled={currentTestIndex === 0 && !showSummary}
+          disabled={currentStep === 1 && !showSummary}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Anterior

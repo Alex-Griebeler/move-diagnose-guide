@@ -29,6 +29,12 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
     imageUrl: string;
     videoUrl?: string;
     viewType?: string;
+    // Segmental test specific parameters
+    cutoffValue?: number;
+    unit?: string;
+    resultType?: 'quantitative' | 'qualitative';
+    isBilateral?: boolean;
+    instructions?: string;
   }): Promise<AnalysisResult | null> => {
     setIsAnalyzing(true);
     

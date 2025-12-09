@@ -100,6 +100,12 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
         testName: test.name,
         imageUrl: mediaUrls.photoUrl,
         videoUrl: mediaUrls.videoUrl,
+        // Pass test-specific parameters for dynamic prompt
+        cutoffValue: test.cutoffValue,
+        unit: test.unit,
+        resultType: test.resultType || 'qualitative',
+        isBilateral: test.isBilateral,
+        instructions: test.instructions,
       });
     } finally {
       setIsAnalyzing(false);

@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Info, Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown, ChevronUp, Code } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -35,15 +34,13 @@ interface AutoSegmentalTestProps {
   onUpdate: (result: Partial<TestResult>) => void;
 }
 
-// Helper to convert analysis result to pass/fail
 function resultToBoolean(result: ResultStatus): boolean | null {
   if (result === 'pass') return true;
   if (result === 'fail') return false;
-  if (result === 'partial') return false; // Partial counts as fail for now
+  if (result === 'partial') return false;
   return null;
 }
 
-// Helper to convert pass/fail to status
 function booleanToResult(value: boolean | null): ResultStatus {
   if (value === true) return 'pass';
   if (value === false) return 'fail';
@@ -54,13 +51,12 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [mediaUrls, setMediaUrls] = useState<{ photoUrl?: string; videoUrl?: string }>({});
-  const [showPrompt, setShowPrompt] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
   
   const { analyzeMovement } = useMovementAnalysis({
     onAnalysisComplete: (aiResult) => {
       setAnalysisResult(aiResult);
       
-      // Auto-apply AI results
       if (test.resultType === 'qualitative') {
         const leftResult = aiResult.left_result || aiResult.result;
         const rightResult = aiResult.right_result || aiResult.result;
@@ -70,7 +66,6 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
           passFailRight: test.isBilateral ? resultToBoolean(rightResult as ResultStatus) : null,
         });
       } else {
-        // Quantitative results
         if (aiResult.left_value !== undefined) {
           onUpdate({
             leftValue: aiResult.left_value,
@@ -102,7 +97,6 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
         testName: test.name,
         imageUrl: mediaUrls.photoUrl,
         videoUrl: mediaUrls.videoUrl,
-        // Pass test-specific parameters for dynamic prompt
         cutoffValue: test.cutoffValue,
         unit: test.unit,
         resultType: test.resultType || 'qualitative',
@@ -119,7 +113,6 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
     const valueKey = side === 'left' ? 'leftValue' : 'rightValue';
     const passKey = side === 'left' ? 'passFailLeft' : 'passFailRight';
     
-    // Auto-calculate pass/fail if cutoff exists
     let passFail: boolean | null = null;
     if (numValue !== null && test.cutoffValue !== undefined) {
       passFail = numValue >= test.cutoffValue;
@@ -137,7 +130,6 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   };
 
   const isNumericTest = test.resultType === 'quantitative';
-  const hasMedia = mediaUrls.photoUrl || mediaUrls.videoUrl;
 
   const StatusButton = ({ 
     status, 
@@ -183,7 +175,7 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
               placeholder="0"
               value={value ?? ''}
               onChange={(e) => handleValueChange(side, e.target.value)}
-              className="pr-16"
+              className="pr-16 h-12 text-lg"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
               {test.unit}
@@ -199,14 +191,13 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
               ) : (
                 <XCircle className="h-4 w-4" />
               )}
-              {value >= test.cutoffValue ? 'Passa' : 'Falha'} (corte: {test.cutoffValue})
+              {value >= test.cutoffValue ? 'Passa' : 'Falha'}
             </div>
           )}
         </div>
       );
     }
 
-    // Qualitative test - show Pass/Partial/Fail buttons
     return (
       <div className="flex gap-2">
         <StatusButton
@@ -238,45 +229,31 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant="outline">{test.bodyRegion}</Badge>
-              {test.isBilateral && <Badge variant="secondary">Bilateral</Badge>}
-              {test.resultType === 'qualitative' && (
-                <Badge variant="secondary" className="bg-accent/20 text-accent">Qualitativo</Badge>
-              )}
-            </div>
-            <CardTitle className="text-lg">{test.name}</CardTitle>
-            <CardDescription className="mt-1">{test.description}</CardDescription>
-          </div>
-          {test.cutoffValue !== undefined && (
-            <div className="text-right shrink-0">
-              <p className="text-xs text-muted-foreground">Valor de corte</p>
-              <p className="font-semibold">{test.cutoffValue} {test.unit}</p>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Instructions */}
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium mb-1">Instruções</p>
-              <p className="text-sm text-muted-foreground">{test.instructions}</p>
-            </div>
-          </div>
-        </div>
+    <Card className="border-0 shadow-none bg-transparent">
+      <CardContent className="p-0 space-y-6">
+        {/* Description */}
+        <p className="text-muted-foreground">{test.description}</p>
 
-        {/* Media Upload for AI Analysis */}
+        {/* Collapsible Instructions */}
+        <Collapsible open={instructionsOpen} onOpenChange={setInstructionsOpen}>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronDown className={cn("h-4 w-4 transition-transform", instructionsOpen && "rotate-180")} />
+              Instruções
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <p className="text-sm text-muted-foreground mt-2 pl-6">
+              {test.instructions}
+            </p>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Media Upload */}
         <div className="space-y-3">
-          <Label className="flex items-center gap-2">
+          <Label className="flex items-center gap-2 text-sm">
             <Camera className="h-4 w-4" />
-            Captura para Análise por IA (opcional)
+            Capturar (opcional)
           </Label>
           <MediaUploader
             assessmentId={assessmentId}
@@ -287,121 +264,46 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
           />
         </div>
 
-        {/* AI Analysis Result */}
+        {/* AI Analysis Loading */}
         {isAnalyzing && (
           <div className="flex items-center justify-center py-4 gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Analisando com IA...</span>
+            <span>Analisando...</span>
           </div>
         )}
 
+        {/* AI Result - Simplified */}
         {analysisResult && !isAnalyzing && (
-          <Card className="border-accent/50 bg-accent/5">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2">
-                  <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">Sugestão da IA</p>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-[10px] px-1.5 py-0",
-                          test.resultType === 'quantitative' 
-                            ? "border-blue-500/50 text-blue-600 bg-blue-500/10" 
-                            : "border-purple-500/50 text-purple-600 bg-purple-500/10"
-                        )}
-                      >
-                        {test.resultType === 'quantitative' ? '📊 Quantitativo' : '✓ Qualitativo'}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Confiança: {Math.round((analysisResult.confidence || 0) * 100)}%
-                    </p>
-                  </div>
+          <div className="p-4 rounded-lg bg-accent/5 border border-accent/20">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-sm">Sugestão da IA</p>
+                  <span className="text-xs text-muted-foreground">
+                    {Math.round((analysisResult.confidence || 0) * 100)}%
+                  </span>
                 </div>
-                {/* Show values if quantitative */}
-                {(analysisResult.left_value !== undefined || analysisResult.right_value !== undefined || analysisResult.value !== undefined) && (
-                  <div className="text-right">
-                    {test.isBilateral ? (
-                      <div className="text-xs space-y-1">
-                        {analysisResult.left_value !== undefined && (
-                          <p><span className="text-muted-foreground">E:</span> <span className="font-semibold">{analysisResult.left_value} {test.unit}</span></p>
-                        )}
-                        {analysisResult.right_value !== undefined && (
-                          <p><span className="text-muted-foreground">D:</span> <span className="font-semibold">{analysisResult.right_value} {test.unit}</span></p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm font-semibold">{analysisResult.value} {test.unit}</p>
-                    )}
-                  </div>
+                {analysisResult.notes && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {analysisResult.notes}
+                  </p>
                 )}
               </div>
-              
-              {analysisResult.notes && (
-                <p className="text-sm text-muted-foreground italic">
-                  "{analysisResult.notes}"
-                </p>
-              )}
-
-              {/* Debug: Show prompt used */}
-              {analysisResult.promptUsed && (
-                <Collapsible open={showPrompt} onOpenChange={setShowPrompt}>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground hover:text-foreground">
-                      <span className="flex items-center gap-1">
-                        <Code className="h-3 w-3" />
-                        Ver prompt utilizado
-                      </span>
-                      {showPrompt ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <pre className="mt-2 p-3 rounded-md bg-muted/50 text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
-                      {analysisResult.promptUsed}
-                    </pre>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Result Inputs */}
         <div className="space-y-4">
-          <Label className="text-base font-medium">Resultado do Teste</Label>
-          
           {test.isBilateral ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Side */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium">Lado Esquerdo</Label>
-                  {result.passFailLeft !== null && (
-                    result.passFailLeft ? (
-                      <CheckCircle2 className="h-5 w-5 text-success" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-destructive" />
-                    )
-                  )}
-                </div>
+                <Label className="font-medium">Esquerdo</Label>
                 {renderResultInput('left')}
               </div>
-
-              {/* Right Side */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium">Lado Direito</Label>
-                  {result.passFailRight !== null && (
-                    result.passFailRight ? (
-                      <CheckCircle2 className="h-5 w-5 text-success" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-destructive" />
-                    )
-                  )}
-                </div>
+                <Label className="font-medium">Direito</Label>
                 {renderResultInput('right')}
               </div>
             </div>
@@ -417,25 +319,22 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
           result.leftValue !== null && 
           result.rightValue !== null && 
           Math.abs(result.leftValue - result.rightValue) > (test.cutoffValue ? test.cutoffValue * 0.15 : 2) && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 text-warning">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 text-warning text-sm">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span className="text-sm">
-              Assimetria detectada: diferença de {Math.abs(result.leftValue - result.rightValue).toFixed(1)} {test.unit}
+            <span>
+              Assimetria: {Math.abs(result.leftValue - result.rightValue).toFixed(1)} {test.unit}
             </span>
           </div>
         )}
 
         {/* Notes */}
-        <div className="space-y-2">
-          <Label htmlFor="notes">Observações</Label>
-          <Textarea
-            id="notes"
-            placeholder="Anotações adicionais sobre o teste..."
-            value={result.notes}
-            onChange={(e) => onUpdate({ notes: e.target.value })}
-            rows={3}
-          />
-        </div>
+        <Textarea
+          placeholder="Observações..."
+          value={result.notes}
+          onChange={(e) => onUpdate({ notes: e.target.value })}
+          rows={2}
+          className="resize-none"
+        />
       </CardContent>
     </Card>
   );

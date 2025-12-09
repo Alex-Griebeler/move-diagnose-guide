@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowRight, ArrowLeft, CheckCircle2, Loader2, Sparkles, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
@@ -19,7 +19,6 @@ import {
   getContextLabels,
 } from '@/lib/testPrioritization';
 import { Anamnese } from '@/lib/priorityEngine';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 interface SegmentalTestsWizardProps {
@@ -43,20 +42,18 @@ interface TestResult {
 
 interface WizardData {
   testResults: Record<string, TestResult>;
-  showSummary: boolean;
 }
 
 const initialWizardData: WizardData = {
   testResults: {},
-  showSummary: false,
 };
 
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
+  const prevAssessmentIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [prioritizationResult, setPrioritizationResult] = useState<TestPrioritizationResult | null>(null);
   const [detectedCompensations, setDetectedCompensations] = useState<string[]>([]);
-  const [showAdditionalTests, setShowAdditionalTests] = useState(false);
   
   // Use unified wizard persistence hook
   const {
@@ -72,13 +69,27 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     assessmentId,
   });
 
-  // Get prioritized tests
+  // Get prioritized tests - add 1 for summary step
   const suggestedTests = prioritizationResult?.prioritizedTests.map(p => p.test) || [];
+  const totalSteps = suggestedTests.length + 1; // +1 for summary
   const prioritizedTestsMap = new Map(
     prioritizationResult?.prioritizedTests.map(p => [p.test.id, p]) || []
   );
 
-  const { testResults, showSummary } = wizardData;
+  const { testResults } = wizardData;
+
+  // Detect new assessment and reset wizard
+  useEffect(() => {
+    const savedAssessmentId = localStorage.getItem('segmentalTests_assessmentId');
+    
+    if (savedAssessmentId && savedAssessmentId !== assessmentId) {
+      clearPersistedData();
+      setCurrentStep(1);
+    }
+    
+    localStorage.setItem('segmentalTests_assessmentId', assessmentId);
+    prevAssessmentIdRef.current = assessmentId;
+  }, [assessmentId, clearPersistedData, setCurrentStep]);
 
   useEffect(() => {
     fetchGlobalTestResults();
@@ -86,7 +97,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   const fetchGlobalTestResults = async () => {
     try {
-      // Fetch global test results and anamnesis in parallel
       const [globalResultsResponse, anamnesisResponse] = await Promise.all([
         supabase
           .from('global_test_results')
@@ -101,7 +111,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       if (globalResultsResponse.error) throw globalResultsResponse.error;
 
-      // Extract all compensation IDs from global tests
       const allCompensations: string[] = [];
       
       globalResultsResponse.data?.forEach(result => {
@@ -120,7 +129,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       const uniqueCompensations = [...new Set(allCompensations)];
       setDetectedCompensations(uniqueCompensations);
 
-      // Build anamnese object for priority engine
       const anamnesisData = anamnesisResponse.data;
       const anamnese: Anamnese = {
         painHistory: anamnesisData?.pain_history as Array<{ region: string; intensity: number }> || [],
@@ -131,11 +139,9 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         objectives: anamnesisData?.objectives || undefined,
       };
 
-      // Use prioritization engine instead of simple getSuggestedTests
       const result = getSuggestedTestsWithPriority(uniqueCompensations, anamnese);
       setPrioritizationResult(result);
 
-      // Initialize results if empty
       const allTests = [...result.prioritizedTests, ...result.additionalTests].map(p => p.test);
       if (Object.keys(testResults).length === 0) {
         initializeResults(allTests);
@@ -177,17 +183,13 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   };
 
   const handleNext = () => {
-    if (currentStep < suggestedTests.length) {
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
-    } else {
-      updateData({ showSummary: true });
     }
   };
 
   const handlePrevious = () => {
-    if (showSummary) {
-      updateData({ showSummary: false });
-    } else if (currentStep > 1) {
+    if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
@@ -199,7 +201,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     return urls;
   };
 
-  const handleSave = async () => {
+  const handleSubmit = async () => {
     setSaving(true);
 
     try {
@@ -224,6 +226,8 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       if (error) throw error;
 
       clearPersistedData();
+      localStorage.removeItem('segmentalTests_assessmentId');
+      
       toast.success('Testes segmentados salvos com sucesso!');
       onComplete();
     } catch (error) {
@@ -236,222 +240,241 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   const handleSkip = () => {
     clearPersistedData();
+    localStorage.removeItem('segmentalTests_assessmentId');
     toast.info('Testes segmentados pulados');
     onComplete();
   };
 
+  // Check if a test step is completed
+  const isTestCompleted = (testId: string): boolean => {
+    const result = testResults[testId];
+    if (!result) return false;
+    return result.passFailLeft !== null || result.passFailRight !== null || 
+           result.leftValue !== null || result.rightValue !== null;
+  };
+
   if (loading || isLoadingPersistence) {
     return (
-      <Card>
-        <CardContent className="py-12 flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mr-3" />
+          <span className="text-muted-foreground">
             {isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações detectadas...'}
-          </p>
-        </CardContent>
-      </Card>
+          </span>
+        </div>
+      </div>
     );
   }
 
   if (suggestedTests.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Nenhum teste segmentado sugerido</h3>
-          <p className="text-muted-foreground mb-6">
-            Não foram detectadas compensações que exijam testes segmentados adicionais.
-          </p>
-          <Button onClick={onComplete}>
-            Continuar <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Check className="w-12 h-12 text-success mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum teste segmentado sugerido</h3>
+            <p className="text-muted-foreground mb-6">
+              Não foram detectadas compensações que exijam testes segmentados adicionais.
+            </p>
+            <Button onClick={onComplete}>
+              Continuar <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  // currentStep is 1-indexed, array is 0-indexed
+  const isSummaryStep = currentStep === totalSteps;
   const currentTestIndex = currentStep - 1;
-  const progress = showSummary 
-    ? 100 
-    : (currentStep / suggestedTests.length) * 100;
-
-  const groupedTests = groupTestsByRegion(suggestedTests);
-  const currentTest = suggestedTests[currentTestIndex];
-
-  const completedCount = Object.values(testResults).filter(r => 
-    r.passFailLeft !== null || r.passFailRight !== null || r.leftValue !== null || r.rightValue !== null
-  ).length;
-
+  const currentTest = !isSummaryStep ? suggestedTests[currentTestIndex] : null;
   const currentTestPriority = currentTest ? prioritizedTestsMap.get(currentTest.id) : null;
   const contextLabels = prioritizationResult ? getContextLabels(prioritizationResult.contextosAplicados) : [];
 
+  const progress = (currentStep / totalSteps) * 100;
+  const groupedTests = groupTestsByRegion(suggestedTests);
+  
+  const completedCount = suggestedTests.filter(t => isTestCompleted(t.id)).length;
+
+  // Build steps array for visual indicators
+  const steps = [
+    ...prioritizationResult!.prioritizedTests.map((pt, i) => ({
+      id: i + 1,
+      title: pt.test.name,
+      shortTitle: pt.test.name.split(' ')[0],
+      icon: priorityConfig[pt.priority].emoji,
+      testId: pt.test.id,
+      priority: pt.priority,
+      score: pt.score,
+    })),
+    { id: totalSteps, title: 'Resumo', shortTitle: 'Resumo', icon: '📊', testId: null, priority: 'low' as const, score: 0 },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Header with Priority Info */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="py-4">
-          <div className="flex items-start gap-3">
-            <Zap className="w-5 h-5 text-primary mt-0.5" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-medium">Testes Priorizados</h3>
-                {prioritizationResult?.paretoApplied && (
-                  <Badge variant="outline" className="text-xs bg-primary/10">
-                    Pareto: {prioritizationResult.totalCausasAnalisadas} causas → {suggestedTests.length} testes
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Ordenados por impacto clínico (maior → menor)
-              </p>
-              
-              {/* Applied Contexts */}
-              {contextLabels.length > 0 && (
-                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground">Contextos que elevaram prioridade:</span>
-                  {contextLabels.map((label, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs bg-primary/10">
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* Priority Order Preview */}
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {prioritizationResult?.prioritizedTests.map((pt, i) => (
-                  <div 
-                    key={pt.test.id}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 rounded-full text-xs',
-                      currentStep === i + 1 ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : '',
-                      pt.priority === 'high' ? 'bg-destructive/10 text-destructive' :
-                      pt.priority === 'medium' ? 'bg-warning/10 text-warning' :
-                      'bg-muted text-muted-foreground'
-                    )}
-                  >
-                    <span className="font-bold">{i + 1}</span>
-                    <span className="truncate max-w-[100px]">{pt.test.name.split(' ')[0]}</span>
-                    <span className="opacity-70">({pt.score})</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Progress */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">
-            {showSummary ? 'Resumo' : `Teste ${currentStep} de ${suggestedTests.length}`}
+    <div className="max-w-4xl mx-auto">
+      {/* Progress Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            {isSummaryStep ? (
+              <>📊 Resumo dos Testes</>
+            ) : (
+              <>
+                <span>{steps[currentTestIndex].icon}</span>
+                {currentTest?.name}
+              </>
+            )}
+          </h2>
+          <span className="text-sm text-muted-foreground">
+            Etapa {currentStep} de {totalSteps}
           </span>
-          <span className="font-medium">{Math.round(progress)}%</span>
         </div>
         <Progress value={progress} className="h-2" />
+
+        {/* Step indicators */}
+        <div className="flex justify-between mt-4 overflow-x-auto pb-2">
+          {steps.map((step) => {
+            const isCompleted = step.testId ? isTestCompleted(step.testId) : completedCount === suggestedTests.length;
+            const isCurrent = step.id === currentStep;
+            
+            return (
+              <button
+                key={step.id}
+                onClick={() => setCurrentStep(step.id)}
+                className={cn(
+                  "flex flex-col items-center min-w-[60px] transition-colors",
+                  isCurrent
+                    ? "text-primary"
+                    : isCompleted
+                    ? "text-success"
+                    : "text-muted-foreground"
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
+                    isCurrent
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : isCompleted
+                      ? "border-success bg-success text-success-foreground"
+                      : step.testId ? cn(
+                          "border-muted-foreground/30",
+                          step.priority === 'high' ? 'bg-destructive/5' :
+                          step.priority === 'medium' ? 'bg-warning/5' : ''
+                        )
+                      : "border-muted-foreground/30"
+                  )}
+                >
+                  {isCompleted ? <Check className="w-5 h-5" /> : step.icon}
+                </div>
+                <span className="text-[10px] mt-1 hidden sm:block truncate max-w-[60px]">
+                  {step.shortTitle}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Content */}
-      {showSummary ? (
-        <div className="space-y-4">
+      {/* Context Banner */}
+      {contextLabels.length > 0 && !isSummaryStep && (
+        <div className="mb-6 p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-center gap-3 flex-wrap">
+          <Zap className="w-5 h-5 text-primary" />
+          <span className="text-sm">Contextos aplicados:</span>
+          {contextLabels.map((label, i) => (
+            <Badge key={i} variant="secondary" className="text-xs bg-primary/10">
+              {label}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Completion Counter */}
+      {!isSummaryStep && completedCount > 0 && (
+        <div className="mb-6 p-3 bg-success/10 border border-success/20 rounded-lg flex items-center gap-3">
+          <Check className="w-5 h-5 text-success" />
+          <span className="text-sm">
+            <strong>{completedCount}</strong> de {suggestedTests.length} testes completos
+          </span>
+        </div>
+      )}
+
+      {/* Step Content */}
+      <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
+        {isSummaryStep ? (
           <SegmentalTestsSummary 
             results={testResults} 
             tests={suggestedTests}
             groupedTests={groupedTests}
             prioritizedTests={prioritizationResult?.prioritizedTests}
           />
-          
-          {/* Additional Tests Section */}
-          {prioritizationResult?.additionalTests && prioritizationResult.additionalTests.length > 0 && (
-            <Collapsible open={showAdditionalTests} onOpenChange={setShowAdditionalTests}>
-              <CollapsibleTrigger asChild>
-                <button className="w-full flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <span className="text-sm font-medium">
-                    Testes Adicionais ({prioritizationResult.additionalTests.length})
-                  </span>
-                  {showAdditionalTests ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="mt-2 space-y-2 p-3 bg-muted/20 rounded-lg">
-                  {prioritizationResult.additionalTests.map((pt) => (
-                    <div key={pt.test.id} className="flex items-center justify-between text-sm">
-                      <span>{pt.test.name}</span>
-                      <Badge variant="outline" className={cn('text-xs', priorityConfig[pt.priority].className)}>
-                        Score: {pt.score}
-                      </Badge>
-                    </div>
-                  ))}
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Estes testes têm menor prioridade baseado na análise de compensações e anamnese.
-                  </p>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-        </div>
-      ) : currentTest && currentTestPriority ? (
-        <div className="space-y-4">
-          {/* Priority Badge */}
-          <div className="flex items-center gap-2">
-            <Badge className={cn('text-xs', priorityConfig[currentTestPriority.priority].className)}>
-              {priorityConfig[currentTestPriority.priority].emoji} Prioridade {priorityConfig[currentTestPriority.priority].label}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              Score: {currentTestPriority.score} • {currentTestPriority.coveredCausesCount} causa(s)
-            </span>
+        ) : currentTest && currentTestPriority ? (
+          <div className="space-y-4">
+            {/* Priority Badge */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={cn('text-xs', priorityConfig[currentTestPriority.priority].className)}>
+                {priorityConfig[currentTestPriority.priority].emoji} Prioridade {priorityConfig[currentTestPriority.priority].label}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                Score: {currentTestPriority.score} • {currentTestPriority.coveredCausesCount} causa(s)
+              </span>
+            </div>
+            
+            {/* Reasoning Chain */}
+            <TestReasoningChainWithPriority 
+              testId={currentTest.id}
+              prioritizedTest={currentTestPriority}
+              compensationIds={detectedCompensations}
+              contextosAplicados={prioritizationResult?.contextosAplicados || []}
+            />
+            
+            <AutoSegmentalTest
+              test={currentTest}
+              assessmentId={assessmentId}
+              result={testResults[currentTest.id]}
+              onUpdate={(result) => handleTestResult(currentTest.id, result)}
+            />
           </div>
-          
-          {/* Reasoning Chain - Why this test was suggested */}
-          <TestReasoningChainWithPriority 
-            testId={currentTest.id}
-            prioritizedTest={currentTestPriority}
-            compensationIds={detectedCompensations}
-            contextosAplicados={prioritizationResult?.contextosAplicados || []}
-          />
-          
-          <AutoSegmentalTest
-            test={currentTest}
-            assessmentId={assessmentId}
-            result={testResults[currentTest.id]}
-            onUpdate={(result) => handleTestResult(currentTest.id, result)}
-          />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {/* Navigation */}
-      <div className="flex justify-between gap-4">
+      <div className="flex justify-between">
         <Button
           variant="outline"
           onClick={handlePrevious}
-          disabled={currentStep === 1 && !showSummary}
+          disabled={currentStep === 1}
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ChevronLeft className="w-4 h-4 mr-2" />
           Anterior
         </Button>
 
         <div className="flex gap-2">
-          {!showSummary && (
+          {!isSummaryStep && (
             <Button variant="ghost" onClick={handleSkip}>
               Pular Testes
             </Button>
           )}
 
-          {showSummary ? (
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Salvar e Continuar
+          {isSummaryStep ? (
+            <Button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="bg-success hover:bg-success/90"
+            >
+              {saving ? (
+                <span className="animate-pulse-soft">Salvando...</span>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Concluir Testes Segmentados
+                </>
+              )}
             </Button>
           ) : (
             <Button onClick={handleNext}>
               Próximo
-              <ArrowRight className="w-4 h-4 ml-2" />
+              <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           )}
         </div>

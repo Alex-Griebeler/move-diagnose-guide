@@ -136,42 +136,9 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
   const [analysisResults, setAnalysisResults] = useState<Record<ViewType, AnalysisResult | null>>({} as any);
 
-  // Early return if config is not found
-  if (!config) {
-    return (
-      <div className="p-4 text-center text-muted-foreground">
-        Tipo de teste não encontrado: {testType}
-      </div>
-    );
-  }
-
-  const currentView = config.views[currentViewIndex];
-  
-  // Safety check for current view
-  if (!currentView) {
-    return (
-      <div className="p-4 text-center text-muted-foreground">
-        Vista não encontrada
-      </div>
-    );
-  }
-
-  const currentCompensations = data.compensations[currentView.id] || [];
-  const currentMedia = data.mediaUrls[currentView.id] || {};
-  
-  const { analyzeMovement, isAnalyzing } = useMovementAnalysis({
-    onAnalysisComplete: (result) => {
-      setAnalysisResults(prev => ({ ...prev, [currentView.id]: result }));
-      
-      // Auto-apply detected compensations
-      if (result.detected_compensations) {
-        const validCompensations = result.detected_compensations.filter(id =>
-          currentView.compensations.some(c => c.id === id)
-        );
-        handleUpdateCompensations(currentView.id, validCompensations);
-      }
-    },
-  });
+  // Derive current view safely (may be undefined if config doesn't exist)
+  const currentView = config?.views?.[currentViewIndex];
+  const currentViewId = currentView?.id;
 
   const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string }) => {
     onUpdate({
@@ -186,6 +153,41 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       compensations: { ...data.compensations, [viewId]: compensations },
     });
   }, [data, onUpdate]);
+  
+  const { analyzeMovement, isAnalyzing } = useMovementAnalysis({
+    onAnalysisComplete: (result) => {
+      if (!currentViewId || !currentView) return;
+      setAnalysisResults(prev => ({ ...prev, [currentViewId]: result }));
+      
+      // Auto-apply detected compensations
+      if (result.detected_compensations) {
+        const validCompensations = result.detected_compensations.filter(id =>
+          currentView.compensations.some(c => c.id === id)
+        );
+        handleUpdateCompensations(currentViewId, validCompensations);
+      }
+    },
+  });
+
+  // Early returns AFTER all hooks
+  if (!config) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Tipo de teste não encontrado: {testType}
+      </div>
+    );
+  }
+
+  if (!currentView) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Vista não encontrada
+      </div>
+    );
+  }
+
+  const currentCompensations = data.compensations[currentView.id] || [];
+  const currentMedia = data.mediaUrls[currentView.id] || {};
 
   const handleAnalyze = async () => {
     if (!currentMedia.photoUrl) return;

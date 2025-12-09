@@ -1,9 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const allowedOrigins = [
+  'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com',
+  'https://fabrik.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const isAllowed = origin && allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')));
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 // Test-specific prompts for movement analysis
 const TEST_PROMPTS: Record<string, string> = {
@@ -48,31 +59,26 @@ Identifique TODAS as compensações presentes para o lado visível. Compensaçõ
 - tremor: Tremor ou oscilação
 - foot_collapse: Desabamento do arco plantar
 - balance_loss: Perda de equilíbrio/toque no chão
-- trunk_rotation_medial: Rotação do tronco para medial
-- trunk_rotation_lateral: Rotação do tronco para lateral
-- trunk_forward_lean_sls: Inclinação anterior do tronco
-- knee_flexion_insufficient: Amplitude insuficiente de flexão de joelho
+- trunk_rotation_medial: Rotação do tronco para o lado da perna de apoio
+- trunk_rotation_lateral: Rotação do tronco para o lado da perna elevada
+- trunk_forward_lean_sls: Inclinação excessiva do tronco para frente
+- knee_flexion_insufficient: Amplitude de flexão do joelho insuficiente
 
 Responda APENAS em JSON válido com este formato:
 {
-  "side": "left" ou "right",
   "detected_compensations": ["compensation_id_1", "compensation_id_2"],
+  "side": "left" ou "right",
   "confidence": 0.85,
   "notes": "Observações adicionais relevantes"
 }`,
 
-  pushup: `Você é um especialista em análise biomecânica. Analise esta imagem/vídeo de uma Flexão de Braço (Push-up).
+  pushup: `Você é um especialista em análise biomecânica. Analise esta imagem/vídeo de um Push-up (flexão de braços).
 
-Identifique TODAS as compensações presentes. Compensações possíveis:
-- scapular_winging: Escapular alada (escápulas se projetando)
-- hips_drop: Queda excessiva do quadril
-- hip_elevation: Elevação excessiva do quadril
-- lumbar_extension: Hiperextensão lombar
-- elbow_flare: Cotovelos muito abertos (> 45°)
-- misalignment: Desalinhamento geral da coluna
+Identifique TODAS as compensações presentes. Compensações possíveis (vista posterior):
+- scapular_winging: Escápulas protraindo excessivamente (aladas)
+- elbow_flare: Cotovelos afastando excessivamente do corpo (>45°)
 - shoulder_protraction: Protração excessiva dos ombros
 - shoulder_retraction_insufficient: Retração escapular insuficiente
-- head_forward: Projeção anterior da cabeça
 
 Responda APENAS em JSON válido com este formato:
 {
@@ -82,71 +88,62 @@ Responda APENAS em JSON válido com este formato:
 }`
 };
 
-// Build dynamic prompt for segmental tests based on test parameters
-function buildSegmentalPrompt(params: {
+// Build dynamic prompt for segmental tests
+interface SegmentalTestParams {
   testName: string;
   cutoffValue?: number;
   unit?: string;
   resultType?: 'quantitative' | 'qualitative';
   isBilateral?: boolean;
   instructions?: string;
-}): string {
+}
+
+function buildSegmentalPrompt(params: SegmentalTestParams): string {
   const { testName, cutoffValue, unit, resultType, isBilateral, instructions } = params;
 
   if (resultType === 'quantitative') {
-    return `Você é um especialista em avaliação funcional e biomecânica.
-Analise esta imagem/vídeo do teste: "${testName}"
+    return `Você é um especialista em avaliação de movimento. Analise esta imagem/vídeo do teste "${testName}".
 
-${instructions ? `INSTRUÇÕES DO TESTE:
-${instructions}
+${instructions ? `Instruções do teste: ${instructions}\n` : ''}
+${isBilateral ? 'Este é um teste BILATERAL. Avalie ambos os lados separadamente.' : 'Avalie o lado visível.'}
 
-` : ''}CRITÉRIOS DE AVALIAÇÃO:
-- Unidade de medida: ${unit || 'não especificada'}
-- Valor de corte para PASS: ${cutoffValue !== undefined ? `≥ ${cutoffValue} ${unit}` : 'não definido'}
-- Teste bilateral: ${isBilateral ? 'SIM - avalie AMBOS os lados separadamente' : 'NÃO - avalie apenas o lado visível'}
+Valor de corte para normalidade: ${cutoffValue} ${unit || ''}
 
-MEDIÇÃO:
-Estime o valor numérico observado na imagem com base na execução do movimento.
-${cutoffValue !== undefined ? `- Se valor ≥ ${cutoffValue}: resultado = "pass"
-- Se valor próximo ao corte (dentro de 15%): resultado = "partial"
-- Se valor < ${cutoffValue}: resultado = "fail"` : '- Determine pass/partial/fail baseado na qualidade da execução'}
+Meça ou estime o valor numérico do teste baseado na imagem.
 
 Responda APENAS em JSON válido com este formato:
 {
-  ${isBilateral ? `"left_value": número_estimado,
-  "right_value": número_estimado,
+  ${isBilateral ? `"left_value": número_medido_esquerdo,
+  "right_value": número_medido_direito,
   "left_result": "pass" | "partial" | "fail",
-  "right_result": "pass" | "partial" | "fail",` : `"value": número_estimado,
+  "right_result": "pass" | "partial" | "fail",` : `"value": número_medido,
   "result": "pass" | "partial" | "fail",`}
-  "confidence": 0.0-1.0,
-  "notes": "Observações relevantes sobre a execução e medição"
+  "confidence": 0.85,
+  "notes": "Observações sobre a qualidade do movimento ou limitações observadas"
 }`;
-  } else {
-    // Qualitative test
-    return `Você é um especialista em avaliação funcional e biomecânica.
-Analise esta imagem/vídeo do teste: "${testName}"
+  }
 
-${instructions ? `INSTRUÇÕES DO TESTE:
-${instructions}
+  // Qualitative test
+  return `Você é um especialista em avaliação de movimento. Analise esta imagem/vídeo do teste "${testName}".
 
-` : ''}CRITÉRIOS QUALITATIVOS DE AVALIAÇÃO:
-- PASS: Execução correta, padrão motor adequado, sem compensações significativas
-- PARTIAL: Execução com compensações leves, controle inconsistente ou amplitude parcial
-- FAIL: Incapacidade de executar corretamente ou presença de compensações significativas
+${instructions ? `Instruções do teste: ${instructions}\n` : ''}
+${isBilateral ? 'Este é um teste BILATERAL. Avalie ambos os lados separadamente.' : 'Avalie o lado visível.'}
 
-${isBilateral ? 'IMPORTANTE: Este é um teste BILATERAL. Avalie AMBOS os lados separadamente.' : 'Avalie o movimento observado.'}
+Avalie a qualidade da execução do teste.
 
 Responda APENAS em JSON válido com este formato:
 {
   ${isBilateral ? `"left_result": "pass" | "partial" | "fail",
   "right_result": "pass" | "partial" | "fail",` : `"result": "pass" | "partial" | "fail",`}
-  "confidence": 0.0-1.0,
+  "confidence": 0.85,
   "notes": "Descrição das compensações observadas ou qualidade do movimento"
 }`;
-  }
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -316,6 +313,8 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const origin = req.headers.get('origin');
+    const corsHeaders = getCorsHeaders(origin);
     console.error('Error in analyze-movement function:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),

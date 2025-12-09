@@ -39,10 +39,21 @@ interface SuccessResponse {
 // CONSTANTS
 // ============================================================================
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const allowedOrigins = [
+  'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com',
+  'https://fabrik.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const isAllowed = origin && allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')));
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -50,19 +61,19 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // HELPER: Create JSON Response
 // ============================================================================
 
-function jsonResponse(data: object, status: number): Response {
+function jsonResponse(data: object, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
   });
 }
 
-function errorResponse(message: string, status: number): Response {
-  return jsonResponse({ error: message }, status);
+function errorResponse(message: string, status: number, origin: string | null): Response {
+  return jsonResponse({ error: message }, status, origin);
 }
 
-function successResponse(data: SuccessResponse): Response {
-  return jsonResponse(data, 200);
+function successResponse(data: SuccessResponse, origin: string | null): Response {
+  return jsonResponse(data, 200, origin);
 }
 
 // ============================================================================
@@ -306,6 +317,9 @@ async function createAssessment(
 // ============================================================================
 
 serve(async (req: Request) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -316,97 +330,108 @@ serve(async (req: Request) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       console.log("[AUTH] No authorization header");
-      return errorResponse("Não autorizado", 401);
+      return errorResponse("Não autorizado", 401, origin);
     }
 
     // 2. Validate request body
-    const validation = await validateRequest(req);
+    const validation = await validateRequest(req.clone());
     if (!validation.valid || !validation.data) {
       console.log("[VALIDATE] Failed:", validation.error);
-      return errorResponse(validation.error!, 400);
+      return errorResponse(validation.error || "Requisição inválida", 400, origin);
     }
 
     const request = validation.data;
     console.log("[REQUEST]", { email: request.email, mode: request.mode });
 
-    // 3. Create admin client
+    // 3. Setup admin client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 4. Verify caller is a professional
-    const professionalCheck = await verifyProfessional(authHeader, request.professionalId, supabaseAdmin);
-    if (!professionalCheck.valid) {
-      return errorResponse(professionalCheck.error!, professionalCheck.error === "Não autorizado" ? 401 : 403);
+    // 4. Verify caller is professional
+    const profVerification = await verifyProfessional(authHeader, request.professionalId, supabaseAdmin);
+    if (!profVerification.valid) {
+      return errorResponse(profVerification.error || "Não autorizado", 403, origin);
     }
 
     // 5. Check if student already exists
     const existingStudent = await findExistingStudent(request.email, supabaseAdmin);
-
-    let student: StudentInfo;
+    
+    let studentId: string;
+    let isExisting = false;
 
     if (existingStudent) {
-      // 5a. Check if already linked to this professional
-      const linked = await isAlreadyLinked(request.professionalId, existingStudent.id, supabaseAdmin);
-      if (linked) {
-        return errorResponse("Este aluno já está vinculado a você", 409);
+      // 6a. Student exists - check if already linked
+      const alreadyLinked = await isAlreadyLinked(request.professionalId, existingStudent.id, supabaseAdmin);
+      if (alreadyLinked) {
+        console.log("[FLOW] Student already linked");
+        return errorResponse("Este aluno já está vinculado a você", 409, origin);
       }
 
-      student = { id: existingStudent.id, isExisting: true };
+      // Link existing student
+      studentId = existingStudent.id;
+      isExisting = true;
+      console.log("[FLOW] Linking existing student:", studentId);
+
+      const linkResult = await linkStudentToProfessional(request.professionalId, studentId, supabaseAdmin);
+      if (!linkResult.success) {
+        return errorResponse(linkResult.error || "Erro ao vincular", 500, origin);
+      }
     } else {
-      // 5b. Create new student
-      const origin = req.headers.get("origin") || `${supabaseUrl.replace(".supabase.co", ".lovable.app")}`;
-      const createResult = await createNewStudent(request, origin, supabaseAdmin);
+      // 6b. Create new student
+      console.log("[FLOW] Creating new student");
+      const requestOrigin = origin || 'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com';
+      const createResult = await createNewStudent(request, requestOrigin, supabaseAdmin);
       
       if (!createResult.success || !createResult.userId) {
-        return errorResponse(createResult.error!, 500);
+        return errorResponse(createResult.error || "Erro ao criar usuário", 500, origin);
       }
 
-      // 5c. Update profile with full name and phone
-      await updateProfile(createResult.userId, request.fullName, request.phone, supabaseAdmin);
+      studentId = createResult.userId;
 
-      student = { id: createResult.userId, isExisting: false };
+      // Update profile with full name and phone
+      await updateProfile(studentId, request.fullName, request.phone, supabaseAdmin);
+
+      // Link new student to professional
+      const linkResult = await linkStudentToProfessional(request.professionalId, studentId, supabaseAdmin);
+      if (!linkResult.success) {
+        return errorResponse(linkResult.error || "Erro ao vincular", 500, origin);
+      }
     }
 
-    // 6. Link student to professional
-    const linkResult = await linkStudentToProfessional(request.professionalId, student.id, supabaseAdmin);
-    if (!linkResult.success) {
-      return errorResponse(linkResult.error!, 500);
-    }
-
-    // 7. Create assessment for in-person mode
+    // 7. Create assessment if in-person mode
     let assessmentId: string | undefined;
     if (request.mode === "inperson") {
-      const assessmentResult = await createAssessment(request.professionalId, student.id, supabaseAdmin);
+      const assessmentResult = await createAssessment(request.professionalId, studentId, supabaseAdmin);
       if (assessmentResult.error) {
-        return errorResponse(assessmentResult.error, 500);
+        return errorResponse(assessmentResult.error, 500, origin);
       }
       assessmentId = assessmentResult.assessmentId;
     }
 
-    // 8. Build and return success response
-    const message = student.isExisting
-      ? "Aluno vinculado com sucesso!"
+    // 8. Build success message
+    const message = isExisting
+      ? `Aluno ${request.fullName} vinculado com sucesso`
       : request.mode === "invite"
-        ? "Convite enviado! O aluno receberá um email para definir sua senha."
-        : "Aluno cadastrado com sucesso! Redirecionando para a avaliação...";
+        ? `Convite enviado para ${request.email}`
+        : `Aluno ${request.fullName} cadastrado com sucesso`;
 
-    const response: SuccessResponse = {
+    console.log("[SUCCESS]", { studentId, mode: request.mode, isExisting, assessmentId });
+
+    return successResponse({
       success: true,
-      studentId: student.id,
+      studentId,
       studentName: request.fullName,
       studentEmail: request.email,
       mode: request.mode,
-      existingUser: student.isExisting,
-      ...(assessmentId && { assessmentId }),
+      existingUser: isExisting,
+      assessmentId,
       message,
-    };
-
-    console.log("[SUCCESS]", response);
-    return successResponse(response);
+    }, origin);
 
   } catch (error) {
-    console.error("[ERROR] Unexpected:", error);
-    return errorResponse("Erro interno do servidor", 500);
+    console.error("[ERROR]", error);
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return errorResponse(message, 500, origin);
   }
 });

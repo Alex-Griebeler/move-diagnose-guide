@@ -11,6 +11,7 @@ import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
+import { AssessmentBreadcrumb } from '@/components/assessment/AssessmentBreadcrumb';
 
 type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests' | 'protocol';
 
@@ -173,21 +174,18 @@ export default function NewAssessment() {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mb-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div>
-              <h1 className="text-xl font-semibold">Nova Avaliação</h1>
-              <p className="text-sm text-muted-foreground">
-                {step === 'select-student' && 'Selecione o aluno'}
-                {step === 'anamnesis' && `Anamnese - ${selectedStudent?.full_name}`}
-                {step === 'global-tests' && `Testes Globais - ${selectedStudent?.full_name}`}
-                {step === 'segmental-tests' && `Testes Segmentados - ${selectedStudent?.full_name}`}
-                {step === 'protocol' && `Protocolo - ${selectedStudent?.full_name}`}
-              </p>
-            </div>
+            <h1 className="text-xl font-semibold">Nova Avaliação</h1>
           </div>
+          
+          {/* Breadcrumb Navigation */}
+          <AssessmentBreadcrumb 
+            currentStep={step} 
+            studentName={selectedStudent?.full_name}
+          />
         </div>
       </header>
 

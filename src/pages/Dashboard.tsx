@@ -8,6 +8,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AddStudentModal } from '@/components/students/AddStudentModal';
 import { StudentsList } from '@/components/students/StudentsList';
 import { supabase } from '@/integrations/supabase/client';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface AssessmentStats {
+  pending: number;
+  completed: number;
+}
+
+interface RecentAssessment {
+  id: string;
+  status: string;
+  created_at: string;
+  student_name: string;
+}
 
 export default function Dashboard() {
   const { user, role, loading, signOut } = useAuth();
@@ -88,20 +102,95 @@ export default function Dashboard() {
 function ProfessionalDashboard() {
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
+  const [assessmentStats, setAssessmentStats] = useState<AssessmentStats>({ pending: 0, completed: 0 });
+  const [recentAssessments, setRecentAssessments] = useState<RecentAssessment[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
   const { user } = useAuth();
 
-  const fetchStudentCount = async () => {
+  const fetchData = async () => {
     if (!user) return;
-    const { count } = await supabase
-      .from('professional_students')
-      .select('*', { count: 'exact', head: true })
-      .eq('professional_id', user.id);
-    setStudentCount(count || 0);
+    setLoadingStats(true);
+
+    try {
+      // Fetch student count
+      const { count: studentsCount } = await supabase
+        .from('professional_students')
+        .select('*', { count: 'exact', head: true })
+        .eq('professional_id', user.id);
+      
+      setStudentCount(studentsCount || 0);
+
+      // Fetch assessment stats
+      const { data: assessments } = await supabase
+        .from('assessments')
+        .select('id, status')
+        .eq('professional_id', user.id);
+
+      if (assessments) {
+        const pending = assessments.filter(a => 
+          a.status === 'draft' || a.status === 'in_progress'
+        ).length;
+        const completed = assessments.filter(a => a.status === 'completed').length;
+        setAssessmentStats({ pending, completed });
+      }
+
+      // Fetch recent assessments with student names
+      const { data: recentData } = await supabase
+        .from('assessments')
+        .select('id, status, created_at, student_id')
+        .eq('professional_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (recentData && recentData.length > 0) {
+        // Get student profiles
+        const studentIds = recentData.map(a => a.student_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', studentIds);
+
+        const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+        
+        const recent: RecentAssessment[] = recentData.map(a => ({
+          id: a.id,
+          status: a.status,
+          created_at: a.created_at,
+          student_name: profileMap.get(a.student_id) || 'Aluno',
+        }));
+        
+        setRecentAssessments(recent);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoadingStats(false);
+    }
   };
 
   useEffect(() => {
-    fetchStudentCount();
+    fetchData();
   }, [user]);
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      draft: 'Rascunho',
+      in_progress: 'Em andamento',
+      completed: 'Concluída',
+      archived: 'Arquivada',
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      draft: 'text-muted-foreground',
+      in_progress: 'text-warning',
+      completed: 'text-success',
+      archived: 'text-muted-foreground',
+    };
+    return colors[status] || 'text-muted-foreground';
+  };
 
   return (
     <div className="space-y-8">
@@ -115,10 +204,16 @@ function ProfessionalDashboard() {
             <Users className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{studentCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {studentCount === 0 ? 'Nenhum aluno cadastrado' : 'Alunos vinculados'}
-            </p>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <>
+                <div className="text-3xl font-semibold text-foreground">{studentCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {studentCount === 0 ? 'Nenhum aluno cadastrado' : 'Alunos vinculados'}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -130,10 +225,16 @@ function ProfessionalDashboard() {
             <Clock className="w-4 h-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">0</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Nenhuma avaliação em andamento
-            </p>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <>
+                <div className="text-3xl font-semibold text-foreground">{assessmentStats.pending}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {assessmentStats.pending === 0 ? 'Nenhuma avaliação pendente' : 'Em rascunho ou andamento'}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -145,10 +246,16 @@ function ProfessionalDashboard() {
             <CheckCircle2 className="w-4 h-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">0</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Este mês
-            </p>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <>
+                <div className="text-3xl font-semibold text-foreground">{assessmentStats.completed}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {assessmentStats.completed === 0 ? 'Nenhuma avaliação concluída' : 'Total de avaliações'}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -190,26 +297,58 @@ function ProfessionalDashboard() {
         <AddStudentModal 
           open={showAddStudent} 
           onOpenChange={setShowAddStudent}
-          onStudentAdded={fetchStudentCount}
+          onStudentAdded={fetchData}
         />
       </div>
 
       {/* Students List */}
-      <StudentsList onStudentRemoved={fetchStudentCount} />
+      <StudentsList onStudentRemoved={fetchData} />
 
       {/* Recent Activity */}
       <div>
         <h2 className="text-base font-semibold text-foreground mb-4">Atividade Recente</h2>
         <Card>
-          <CardContent className="py-8 text-center">
-            <ClipboardList className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
-              Nenhuma atividade recente
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Suas avaliações aparecerão aqui
-            </p>
-          </CardContent>
+          {loadingStats ? (
+            <CardContent className="py-6 space-y-3">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </CardContent>
+          ) : recentAssessments.length > 0 ? (
+            <CardContent className="py-4 divide-y divide-border">
+              {recentAssessments.map((assessment) => (
+                <div key={assessment.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <ClipboardList className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{assessment.student_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(assessment.created_at), { 
+                          addSuffix: true, 
+                          locale: ptBR 
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-medium ${getStatusColor(assessment.status)}`}>
+                    {getStatusLabel(assessment.status)}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          ) : (
+            <CardContent className="py-8 text-center">
+              <ClipboardList className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">
+                Nenhuma atividade recente
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Suas avaliações aparecerão aqui
+              </p>
+            </CardContent>
+          )}
         </Card>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { MediaUploader } from '@/components/media/MediaUploader';
 import { useMovementAnalysis, AnalysisResult } from '@/hooks/useMovementAnalysis';
+import { toast } from 'sonner';
 import {
   ohsAnteriorCompensations,
   ohsLateralCompensations,
@@ -214,12 +215,59 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const currentCompensations = data.compensations[currentView.id] || [];
   const currentMedia = data.mediaUrls[currentView.id] || {};
 
+  // Extract frame from video when no photo available
+  const extractFrameFromVideo = async (videoUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.src = videoUrl;
+      
+      video.onloadedmetadata = () => {
+        // Seek to middle of video for best frame
+        video.currentTime = video.duration / 2;
+      };
+      
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+        ctx.drawImage(video, 0, 0);
+        const frameUrl = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(frameUrl);
+      };
+      
+      video.onerror = () => reject(new Error('Failed to load video'));
+      video.load();
+    });
+  };
+
   const handleAnalyze = async () => {
-    if (!currentMedia.photoUrl) return;
+    let imageUrl = currentMedia.photoUrl;
+    
+    // If no photo but video exists, extract a frame
+    if (!imageUrl && currentMedia.videoUrl) {
+      try {
+        imageUrl = await extractFrameFromVideo(currentMedia.videoUrl);
+      } catch (error) {
+        console.error('Failed to extract frame from video:', error);
+        toast.error('Erro ao extrair frame do vídeo');
+        return;
+      }
+    }
+    
+    if (!imageUrl) {
+      toast.error('Capture uma foto ou vídeo primeiro');
+      return;
+    }
     
     await analyzeMovement({
       testType: config.aiTestType,
-      imageUrl: currentMedia.photoUrl,
+      imageUrl,
       videoUrl: currentMedia.videoUrl,
       viewType: currentView.id,
     });

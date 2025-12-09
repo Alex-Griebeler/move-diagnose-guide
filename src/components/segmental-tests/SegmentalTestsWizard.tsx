@@ -5,10 +5,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { ArrowRight, ArrowLeft, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
-import { getSuggestedTests, groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
+import { getSuggestedTests, groupTestsByRegion, SegmentalTest, getTestById } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
+import { compensacaoCausas } from '@/data/weightEngine';
+import { causaToTests } from '@/data/causaTestMappings';
 
 interface SegmentalTestsWizardProps {
   assessmentId: string;
@@ -93,6 +95,45 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       const uniqueCompensations = [...new Set(allCompensations)];
       const tests = getSuggestedTests(uniqueCompensations);
       setSuggestedTests(tests);
+
+      // ============================================
+      // LOGGING DETALHADO: Cadeia de Raciocínio
+      // Compensação → Causas → Testes Sugeridos
+      // ============================================
+      console.group('[FABRIK] Cadeia de Raciocínio - Testes Segmentados');
+      console.log('📊 Compensações detectadas:', uniqueCompensations);
+      
+      // Build detailed reasoning chain
+      const reasoningChain: Record<string, { causas: string[]; testes: string[] }> = {};
+      
+      uniqueCompensations.forEach(compId => {
+        const causas = compensacaoCausas[compId] || [];
+        const causaIds = causas.map(c => c.id);
+        
+        // Find tests triggered by these causes
+        const testesFromCausas = new Set<string>();
+        causaIds.forEach(causaId => {
+          const testsForCausa = causaToTests[causaId] || [];
+          testsForCausa.forEach(t => testesFromCausas.add(t));
+        });
+        
+        reasoningChain[compId] = {
+          causas: causas.map(c => `${c.label} (${c.id})`),
+          testes: Array.from(testesFromCausas),
+        };
+      });
+
+      console.log('🔗 Cadeia Completa:');
+      Object.entries(reasoningChain).forEach(([compId, chain]) => {
+        console.group(`  Compensação: ${compId}`);
+        console.log('    → Causas prováveis:', chain.causas);
+        console.log('    → Testes indicados:', chain.testes);
+        console.groupEnd();
+      });
+
+      console.log('✅ Testes Sugeridos Finais:', tests.map(t => `${t.name} (${t.id})`));
+      console.groupEnd();
+      // ============================================
 
       // Initialize results if empty
       if (Object.keys(testResults).length === 0) {

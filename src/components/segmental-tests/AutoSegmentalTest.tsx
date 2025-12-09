@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown, Info } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -10,6 +9,7 @@ import { useMovementAnalysis, AnalysisResult } from '@/hooks/useMovementAnalysis
 import { SegmentalTest } from '@/data/segmentalTestMappings';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ResultStatus = 'pass' | 'partial' | 'fail' | null;
 
@@ -231,9 +231,6 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   return (
     <Card className="border-0 shadow-none bg-transparent">
       <CardContent className="p-0 space-y-6">
-        {/* Description */}
-        <p className="text-muted-foreground">{test.description}</p>
-
         {/* Collapsible Instructions */}
         <Collapsible open={instructionsOpen} onOpenChange={setInstructionsOpen}>
           <CollapsibleTrigger asChild>

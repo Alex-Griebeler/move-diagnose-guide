@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2, Info } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
@@ -289,9 +290,25 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       {/* Minimal Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">
-            {isSummaryStep ? 'Resumo' : currentTest?.name}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">
+              {isSummaryStep ? 'Resumo' : currentTest?.name}
+            </h2>
+            {!isSummaryStep && currentTest?.description && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p>{currentTest.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
           <span className="text-sm text-muted-foreground">
             {currentStep} de {totalSteps}
           </span>

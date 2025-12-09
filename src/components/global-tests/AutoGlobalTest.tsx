@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Info, Sparkles, X, Plus, Check, Loader2, ChevronDown } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Info, Sparkles, X, Plus, Check, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -391,66 +390,14 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         </Button>
       </div>
 
-      {/* Aggregated Summary - Collapsible */}
+      {/* Minimal Analysis Indicator */}
       {allSelectedIds.length > 0 && (
-        <Collapsible defaultOpen={false}>
-          <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 rounded-lg transition-colors group">
-              <div className="flex items-center gap-3">
-                <span className="text-base">📊</span>
-                <span className="text-sm text-muted-foreground">Resumo do {config.title}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {aggregated.hyperactiveMuscles.length + aggregated.hypoactiveMuscles.length + aggregated.associatedInjuries.length} achados
-                </span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-              </div>
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-            <Card className="border-accent/30 mt-2">
-              <CardContent className="p-4 space-y-3">
-                <div>
-                  <p className="text-xs font-medium text-destructive mb-1">
-                    Músculos Hiperativos ({aggregated.hyperactiveMuscles.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {aggregated.hyperactiveMuscles.map((m) => (
-                      <Badge key={m} variant="outline" className="text-xs">
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-success mb-1">
-                    Músculos Hipoativos ({aggregated.hypoactiveMuscles.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {aggregated.hypoactiveMuscles.map((m) => (
-                      <Badge key={m} variant="outline" className="text-xs">
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-warning mb-1">
-                    Riscos de Lesão ({aggregated.associatedInjuries.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {aggregated.associatedInjuries.map((i) => (
-                      <Badge key={i} variant="outline" className="text-xs bg-warning/10">
-                        {i}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
+        <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/20 rounded-lg">
+          <Check className="h-4 w-4 text-success" />
+          <span className="text-sm text-muted-foreground">
+            Análise concluída · <span className="text-foreground font-medium">{allSelectedIds.length} compensações</span> detectadas
+          </span>
+        </div>
       )}
 
       {/* Notes */}

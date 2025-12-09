@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle, Camera, ChevronDown, Info } from 'lucide-react';
+import { Sparkles, Loader2, Check, X, Minus, Camera, ChevronDown, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -135,34 +135,36 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
     status, 
     currentStatus, 
     onClick,
-    label,
     tooltip,
     icon: Icon,
   }: { 
     status: ResultStatus; 
     currentStatus: ResultStatus;
     onClick: () => void;
-    label: string;
     tooltip: string;
     icon: React.ElementType;
   }) => {
     const isSelected = status === currentStatus;
     
-    const getStyles = () => {
-      if (!isSelected) {
-        return 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground';
-      }
-      switch (status) {
-        case 'pass':
-          return 'bg-success/10 border-success/30 text-success';
-        case 'partial':
-          return 'bg-warning/10 border-warning/30 text-warning';
-        case 'fail':
-          return 'bg-destructive/10 border-destructive/30 text-destructive';
-        default:
-          return '';
-      }
+    const colorMap = {
+      pass: {
+        idle: 'bg-success/5 border-success/20 text-success/50',
+        hover: 'hover:bg-success/10 hover:border-success/30 hover:text-success/70',
+        selected: 'bg-success/15 border-success/40 text-success shadow-sm shadow-success/10',
+      },
+      partial: {
+        idle: 'bg-warning/5 border-warning/20 text-warning/50',
+        hover: 'hover:bg-warning/10 hover:border-warning/30 hover:text-warning/70',
+        selected: 'bg-warning/15 border-warning/40 text-warning shadow-sm shadow-warning/10',
+      },
+      fail: {
+        idle: 'bg-destructive/5 border-destructive/20 text-destructive/50',
+        hover: 'hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive/70',
+        selected: 'bg-destructive/15 border-destructive/40 text-destructive shadow-sm shadow-destructive/10',
+      },
     };
+    
+    const colors = colorMap[status as keyof typeof colorMap];
 
     return (
       <TooltipProvider>
@@ -171,16 +173,16 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
             <button
               onClick={onClick}
               className={cn(
-                'flex-1 flex flex-col items-center justify-center gap-1.5 py-4 px-3 rounded-xl border transition-all duration-200',
-                getStyles()
+                'h-10 w-10 flex items-center justify-center rounded-lg border transition-all duration-200',
+                isSelected ? colors.selected : [colors.idle, colors.hover],
+                isSelected && 'scale-105'
               )}
             >
-              <Icon className={cn("h-6 w-6", isSelected && "scale-110")} strokeWidth={1.5} />
-              <span className="text-sm font-medium">{label}</span>
+              <Icon className="h-5 w-5" strokeWidth={isSelected ? 2.5 : 2} />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[200px] text-center">
-            <p className="text-xs">{tooltip}</p>
+          <TooltipContent side="bottom">
+            <p className="text-xs max-w-[180px]">{tooltip}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -226,30 +228,27 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
     }
 
     return (
-      <div className="flex gap-3">
+      <div className="flex items-center gap-2">
         <StatusButton
           status="pass"
           currentStatus={currentStatus}
           onClick={() => handleStatusChange(side, 'pass')}
-          label="Passa"
-          tooltip="Movimento executado corretamente, sem compensações visíveis"
-          icon={CheckCircle2}
+          tooltip="Execução correta, sem compensações"
+          icon={Check}
         />
         <StatusButton
           status="partial"
           currentStatus={currentStatus}
           onClick={() => handleStatusChange(side, 'partial')}
-          label="Parcial"
-          tooltip="Movimento com pequenas compensações ou execução inconsistente"
-          icon={AlertCircle}
+          tooltip="Compensações leves ou inconsistência"
+          icon={Minus}
         />
         <StatusButton
           status="fail"
           currentStatus={currentStatus}
           onClick={() => handleStatusChange(side, 'fail')}
-          label="Falha"
-          tooltip="Incapaz de executar ou compensação significativa presente"
-          icon={XCircle}
+          tooltip="Compensação significativa"
+          icon={X}
         />
       </div>
     );

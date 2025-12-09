@@ -133,36 +133,27 @@ serve(async (req: Request) => {
     // Create the user based on mode
     let userData;
     if (mode === "invite") {
-      // For invite mode, create user and send confirmation email
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email: email.toLowerCase(),
-        password: tempPassword,
-        email_confirm: false, // User needs to confirm email
-        user_metadata: {
-          full_name: fullName,
-          phone: phone || null,
-        },
-      });
+      // For invite mode, use inviteUserByEmail which sends the invitation email automatically
+      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        email.toLowerCase(),
+        {
+          data: {
+            full_name: fullName,
+            phone: phone || null,
+          },
+          redirectTo: `${req.headers.get("origin") || Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", ".lovable.app")}/auth`,
+        }
+      );
 
       if (error) {
-        console.error("Error creating user (invite):", error);
+        console.error("Error inviting user:", error);
         return new Response(
-          JSON.stringify({ error: `Erro ao criar usuário: ${error.message}` }),
+          JSON.stringify({ error: `Erro ao enviar convite: ${error.message}` }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      userData = data;
-      console.log("User created (invite mode):", userData.user?.id);
-
-      // Send password reset email so user can set their own password
-      const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-        type: "recovery",
-        email: email.toLowerCase(),
-      });
-
-      if (resetError) {
-        console.warn("Could not generate recovery link:", resetError);
-      }
+      userData = { user: data.user };
+      console.log("User invited successfully:", userData.user?.id);
 
     } else {
       // For in-person mode, create user with confirmed email

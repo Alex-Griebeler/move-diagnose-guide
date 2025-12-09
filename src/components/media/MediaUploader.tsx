@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Camera, Video, X, Upload, Loader2, CheckCircle, Lightbulb } from 'lucide-react';
@@ -17,6 +17,8 @@ interface MediaUploaderProps {
   assessmentId: string;
   testName: string;
   viewType?: string;
+  initialPhotoUrl?: string;
+  initialVideoUrl?: string;
   onUploadComplete: (urls: { photoUrl?: string; videoUrl?: string }) => void;
   onAnalyze?: () => void;
   isAnalyzing?: boolean;
@@ -27,18 +29,30 @@ export function MediaUploader({
   assessmentId,
   testName,
   viewType,
+  initialPhotoUrl,
+  initialVideoUrl,
   onUploadComplete,
   onAnalyze,
   isAnalyzing = false,
   className,
 }: MediaUploaderProps) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  // Use controlled state - sync with parent's data
+  const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl || null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showFramingGuide, setShowFramingGuide] = useState(false);
+  
+  // Sync state when props change (e.g., when switching views)
+  React.useEffect(() => {
+    setPhotoUrl(initialPhotoUrl || null);
+  }, [initialPhotoUrl]);
+  
+  React.useEffect(() => {
+    setVideoUrl(initialVideoUrl || null);
+  }, [initialVideoUrl]);
   
   const photoCameraRef = useRef<HTMLInputElement>(null);
   const photoGalleryRef = useRef<HTMLInputElement>(null);

@@ -9,17 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Primary - Terracota FABRIK (botão principal)
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95 shadow-soft hover:shadow-card",
+        // Primary - Terracota FABRIK (synced with Fabrik Performance)
+        default: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg active:bg-primary/95",
         
         // Destructive - Vermelho discreto
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/95",
+        destructive: "bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90 hover:shadow-lg active:bg-destructive/95",
         
-        // Outline - Borda terracota
-        outline: "border border-border bg-background text-foreground hover:bg-accent hover:border-primary/30",
+        // Outline - Borda com hover (synced with Fabrik Performance)
+        outline: "border-2 border-border bg-background text-foreground shadow-sm hover:bg-accent hover:border-primary/30 hover:shadow-md",
         
         // Secondary - Cinza neutro
-        secondary: "bg-secondary text-secondary-foreground hover:bg-muted active:bg-muted/80",
+        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-muted hover:shadow-md active:bg-muted/80",
         
         // Ghost - Transparente com hover sutil
         ghost: "hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
@@ -27,8 +27,8 @@ const buttonVariants = cva(
         // Link - Estilo texto
         link: "text-primary underline-offset-4 hover:underline",
         
-        // Premium - Botão terracota com efeito premium
-        premium: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-card hover:shadow-elevated active:shadow-soft",
+        // Premium - Botão terracota com efeito premium (synced with Fabrik Performance)
+        premium: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg active:shadow-md",
         
         // Subtle - Para ações secundárias discretas
         subtle: "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",

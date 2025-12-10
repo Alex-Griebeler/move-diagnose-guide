@@ -1,105 +1,113 @@
+import { Target } from 'lucide-react';
 import { AnamnesisData } from '../AnamnesisWizard';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 interface ObjectivesStepProps {
   data: AnamnesisData;
   updateData: (updates: Partial<AnamnesisData>) => void;
 }
 
+const objectiveOptions = [
+  { value: 'mobility', label: 'Melhorar mobilidade' },
+  { value: 'pain_reduction', label: 'Reduzir dor' },
+  { value: 'injury_prevention', label: 'Prevenir lesões' },
+  { value: 'posture', label: 'Melhorar postura' },
+  { value: 'muscle_gain', label: 'Ganhar massa muscular' },
+  { value: 'health_longevity', label: 'Saúde e longevidade' },
+  { value: 'sport_performance', label: 'Performance esportiva' },
+  { value: 'competition_prep', label: 'Preparação para competição' },
+  { value: 'return_activity', label: 'Retorno pós-lesão' },
+  { value: 'functional_strength', label: 'Força funcional' },
+];
+
 const timeHorizonOptions = [
   { value: '1month', label: '1 mês' },
   { value: '3months', label: '3 meses' },
   { value: '6months', label: '6 meses' },
   { value: '1year', label: '1 ano' },
-  { value: 'ongoing', label: 'Contínuo/Sem prazo definido' },
-];
-
-const objectiveExamples = [
-  'Melhorar mobilidade geral',
-  'Reduzir dor lombar',
-  'Voltar a correr após lesão',
-  'Melhorar performance no esporte',
-  'Prevenir lesões',
-  'Ganhar força funcional',
-  'Melhorar postura',
-  'Preparação para competição',
+  { value: 'ongoing', label: 'Contínuo / Sem prazo' },
 ];
 
 export function ObjectivesStep({ data, updateData }: ObjectivesStepProps) {
-  const addExample = (example: string) => {
-    const currentText = data.objectives || '';
-    const newText = currentText ? `${currentText}\n• ${example}` : `• ${example}`;
-    updateData({ objectives: newText });
+  // Fallback for persisted data
+  const selectedObjectives = data.selectedObjectives || [];
+
+  const handleObjectiveToggle = (value: string) => {
+    const newObjectives = selectedObjectives.includes(value)
+      ? selectedObjectives.filter((o) => o !== value)
+      : [...selectedObjectives, value];
+    
+    updateData({ selectedObjectives: newObjectives });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="space-y-2">
         <h3 className="text-lg font-medium">Objetivos</h3>
         <p className="text-sm text-muted-foreground">
-          Defina as metas do aluno para direcionar o protocolo.
+          Selecione os objetivos principais do aluno para direcionar o protocolo.
         </p>
       </div>
 
-      <div className="space-y-6">
-        {/* Main Objectives */}
-        <div className="space-y-2">
-          <Label>Objetivos principais</Label>
-          <Textarea
-            placeholder="Descreva os objetivos do aluno..."
-            value={data.objectives}
-            onChange={(e) => updateData({ objectives: e.target.value })}
-            rows={4}
-            className="resize-none"
-          />
-          
-          {/* Quick add examples */}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {objectiveExamples.map((example) => (
-              <button
-                key={example}
-                type="button"
-                onClick={() => addExample(example)}
-                className="text-xs px-2 py-1 rounded-full border border-border hover:border-accent hover:text-accent transition-colors"
-              >
-                + {example}
-              </button>
+      {/* Objectives Chips */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-foreground">
+          <Target className="w-4 h-4" />
+          <Label className="text-base font-medium">Objetivos Principais</Label>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {objectiveOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleObjectiveToggle(option.value)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
+                selectedObjectives.includes(option.value)
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Time Horizon */}
+      <div className="space-y-3 pt-4 border-t border-border/50">
+        <Label className="text-sm">Horizonte temporal</Label>
+        <Select
+          value={data.timeHorizon}
+          onValueChange={(value) => updateData({ timeHorizon: value })}
+        >
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder="Em quanto tempo espera atingir os objetivos?" />
+          </SelectTrigger>
+          <SelectContent>
+            {timeHorizonOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
             ))}
-          </div>
-        </div>
+          </SelectContent>
+        </Select>
+      </div>
 
-        {/* Time Horizon */}
-        <div className="space-y-2">
-          <Label>Horizonte temporal</Label>
-          <Select
-            value={data.timeHorizon}
-            onValueChange={(value) => updateData({ timeHorizon: value })}
-          >
-            <SelectTrigger className="h-11">
-              <SelectValue placeholder="Em quanto tempo espera atingir os objetivos?" />
-            </SelectTrigger>
-            <SelectContent>
-              {timeHorizonOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* SMART Goals Info */}
-        <div className="p-4 bg-muted rounded-lg space-y-2">
-          <p className="text-sm font-medium">Dicas para objetivos efetivos:</p>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• <span className="font-medium">Específico:</span> O que exatamente quer alcançar?</li>
-            <li>• <span className="font-medium">Mensurável:</span> Como saberá que atingiu?</li>
-            <li>• <span className="font-medium">Realista:</span> É possível no prazo definido?</li>
-            <li>• <span className="font-medium">Relevante:</span> Faz sentido para o aluno?</li>
-          </ul>
-        </div>
+      {/* Other Objectives (secondary) */}
+      <div className="space-y-3">
+        <Label className="text-sm text-muted-foreground">Outros objetivos (opcional)</Label>
+        <Textarea
+          placeholder="Algo mais específico?"
+          value={data.otherObjectives || ''}
+          onChange={(e) => updateData({ otherObjectives: e.target.value })}
+          rows={2}
+          className="resize-none text-sm"
+        />
       </div>
     </div>
   );

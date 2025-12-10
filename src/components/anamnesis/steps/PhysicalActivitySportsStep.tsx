@@ -154,7 +154,10 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
   };
 
   const hasModalities = activityModalities.length > 0 && !isSedentary;
-  const practicesSports = data.practicesSports === true;
+  // Fallback: treat undefined as false (default state)
+  const practicesSports = data.practicesSports ?? false;
+  const practicesSportsSelected = data.practicesSports === true;
+  const notPracticesSportsSelected = data.practicesSports === false || data.practicesSports === undefined;
 
   return (
     <div className="space-y-8">
@@ -306,7 +309,7 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
               onClick={() => updateData({ practicesSports: true })}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
-                practicesSports
+                practicesSportsSelected
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
               )}
@@ -318,7 +321,7 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
               onClick={() => updateData({ practicesSports: false, sports: [] })}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
-                data.practicesSports === false
+                notPracticesSportsSelected
                   ? "bg-muted text-foreground border-border"
                   : "bg-muted/50 text-muted-foreground border-border hover:border-muted"
               )}
@@ -432,7 +435,7 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
           </div>
         )}
 
-        {data.practicesSports === false && (
+        {notPracticesSportsSelected && (
           <p className="text-sm text-muted-foreground italic">
             Prossiga para a próxima etapa.
           </p>

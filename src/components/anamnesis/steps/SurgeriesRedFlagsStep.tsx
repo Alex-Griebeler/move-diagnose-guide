@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Stethoscope } from 'lucide-react';
 import { AnamnesisData } from '../AnamnesisWizard';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface SurgeriesRedFlagsStepProps {
   data: AnamnesisData;
@@ -14,83 +12,86 @@ interface SurgeriesRedFlagsStepProps {
 }
 
 const surgeryRegions = [
-  'Coluna Cervical',
-  'Coluna Torácica',
-  'Coluna Lombar',
-  'Ombro',
-  'Cotovelo',
-  'Punho/Mão',
-  'Quadril',
-  'Joelho',
-  'Tornozelo/Pé',
-  'Abdômen',
-  'Tórax',
-  'Outro',
+  { value: 'cervical', label: 'Cervical' },
+  { value: 'thoracic', label: 'Torácica' },
+  { value: 'lumbar', label: 'Lombar' },
+  { value: 'shoulder', label: 'Ombro' },
+  { value: 'elbow', label: 'Cotovelo' },
+  { value: 'wrist', label: 'Punho/Mão' },
+  { value: 'hip', label: 'Quadril' },
+  { value: 'knee', label: 'Joelho' },
+  { value: 'ankle', label: 'Tornozelo/Pé' },
+  { value: 'abdomen', label: 'Abdômen' },
+  { value: 'other', label: 'Outro' },
 ];
 
 const lateralityOptions = [
-  { value: 'direito', label: 'Direito' },
-  { value: 'esquerdo', label: 'Esquerdo' },
+  { value: 'direito', label: 'D' },
+  { value: 'esquerdo', label: 'E' },
   { value: 'bilateral', label: 'Bilateral' },
-  { value: 'na', label: 'N/A (Central)' },
 ];
 
 const redFlagItems = [
   { key: 'unexplainedWeightLoss', label: 'Perda de peso inexplicada' },
-  { key: 'nightPain', label: 'Dor noturna que não melhora com posição' },
+  { key: 'nightPain', label: 'Dor noturna que não melhora' },
   { key: 'fever', label: 'Febre associada à dor' },
-  { key: 'bladderBowelDysfunction', label: 'Disfunção de bexiga ou intestino' },
-  { key: 'progressiveWeakness', label: 'Fraqueza progressiva em membros' },
+  { key: 'bladderBowelDysfunction', label: 'Disfunção bexiga/intestino' },
+  { key: 'progressiveWeakness', label: 'Fraqueza progressiva' },
   { key: 'recentTrauma', label: 'Trauma recente significativo' },
   { key: 'cancerHistory', label: 'Histórico de câncer' },
-  { key: 'osteoporosis', label: 'Osteoporose diagnosticada' },
+  { key: 'osteoporosis', label: 'Osteoporose' },
 ] as const;
 
 export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsStepProps) {
-  const [newSurgery, setNewSurgery] = useState({
-    type: '',
-    year: '',
-    region: '',
-    laterality: '',
-  });
+  const [selectedRegion, setSelectedRegion] = useState('');
+  const [selectedLaterality, setSelectedLaterality] = useState('');
+  const [surgeryType, setSurgeryType] = useState('');
+  const [surgeryYear, setSurgeryYear] = useState('');
+
+  const surgeries = data.surgeries || [];
 
   const addSurgery = () => {
-    if (newSurgery.type && newSurgery.region) {
+    if (surgeryType && selectedRegion) {
+      const regionLabel = surgeryRegions.find(r => r.value === selectedRegion)?.label || selectedRegion;
       updateData({
-        surgeries: [...data.surgeries, { ...newSurgery }],
+        surgeries: [...surgeries, { 
+          type: surgeryType, 
+          region: regionLabel,
+          laterality: selectedLaterality,
+          year: surgeryYear 
+        }],
       });
-      setNewSurgery({ type: '', year: '', region: '', laterality: '' });
+      setSelectedRegion('');
+      setSelectedLaterality('');
+      setSurgeryType('');
+      setSurgeryYear('');
     }
-  };
-
-  const formatSurgeryDisplay = (surgery: { region: string; laterality?: string; year?: string }) => {
-    const lateralityLabel = lateralityOptions.find(l => l.value === surgery.laterality)?.label;
-    const parts = [surgery.region];
-    if (surgery.laterality && surgery.laterality !== 'na') {
-      parts.push(lateralityLabel || surgery.laterality);
-    }
-    if (surgery.year) {
-      parts.push(surgery.year);
-    }
-    return parts.join(', ');
   };
 
   const removeSurgery = (index: number) => {
     updateData({
-      surgeries: data.surgeries.filter((_, i) => i !== index),
+      surgeries: surgeries.filter((_, i) => i !== index),
     });
   };
 
-  const handleRedFlagChange = (key: keyof typeof data.redFlags, checked: boolean) => {
+  const handleRedFlagChange = (key: keyof typeof data.redFlags) => {
+    const newValue = !data.redFlags[key];
     updateData({
-      redFlags: { ...data.redFlags, [key]: checked },
+      redFlags: { ...data.redFlags, [key]: newValue },
     });
   };
 
   const hasAnyRedFlag = Object.values(data.redFlags).some(Boolean);
 
+  const formatSurgeryDisplay = (surgery: { region: string; laterality?: string; year?: string }) => {
+    const parts = [surgery.region];
+    if (surgery.laterality) parts.push(surgery.laterality === 'direito' ? 'D' : surgery.laterality === 'esquerdo' ? 'E' : 'Bil');
+    if (surgery.year) parts.push(surgery.year);
+    return parts.join(' · ');
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Surgeries Section */}
       <div className="space-y-4">
         <div className="space-y-2">
@@ -100,150 +101,154 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
           </p>
         </div>
 
-        {/* Surgery List */}
-        {data.surgeries.length > 0 && (
-          <div className="space-y-2">
-            {data.surgeries.map((surgery, index) => (
-              <Card key={index} className="bg-muted/50">
-                <CardContent className="p-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-medium">{surgery.type}</span>
-                    <span className="text-sm text-muted-foreground ml-2">
-                      ({formatSurgeryDisplay(surgery)})
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeSurgery(index)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </CardContent>
-              </Card>
+        {/* Region Chips */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-foreground">
+            <Stethoscope className="w-4 h-4" />
+            <Label className="text-base font-medium">Região</Label>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {surgeryRegions.map((region) => (
+              <button
+                key={region.value}
+                type="button"
+                onClick={() => setSelectedRegion(region.value)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
+                  selectedRegion === region.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
+                )}
+              >
+                {region.label}
+              </button>
             ))}
           </div>
-        )}
+        </div>
 
-        {/* Add Surgery Form */}
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Surgery Details - Show when region selected */}
+        {selectedRegion && (
+          <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-border/50 animate-fade-in">
+            {/* Laterality Chips */}
+            <div className="space-y-2">
+              <Label className="text-sm">Lado</Label>
+              <div className="flex gap-2">
+                {lateralityOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSelectedLaterality(option.value)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
+                      selectedLaterality === option.value
+                        ? "bg-accent text-accent-foreground border-accent"
+                        : "bg-muted/50 text-muted-foreground border-border hover:border-accent/50"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Tipo de Cirurgia</Label>
+                <Label className="text-xs text-muted-foreground">Tipo de Cirurgia</Label>
                 <Input
-                  placeholder="Ex: Artroscopia, Reconstrução LCA..."
-                  value={newSurgery.type}
-                  onChange={(e) => setNewSurgery({ ...newSurgery, type: e.target.value })}
+                  placeholder="Ex: Artroscopia"
+                  value={surgeryType}
+                  onChange={(e) => setSurgeryType(e.target.value)}
+                  className="h-10"
                 />
               </div>
-
               <div className="space-y-2">
-                <Label>Região</Label>
-                <Select
-                  value={newSurgery.region}
-                  onValueChange={(value) => setNewSurgery({ ...newSurgery, region: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {surgeryRegions.map((region) => (
-                      <SelectItem key={region} value={region}>
-                        {region}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Lado</Label>
-                <Select
-                  value={newSurgery.laterality}
-                  onValueChange={(value) => setNewSurgery({ ...newSurgery, laterality: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o lado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lateralityOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Ano</Label>
+                <Label className="text-xs text-muted-foreground">Ano</Label>
                 <Input
                   type="number"
-                  placeholder="Ex: 2022"
-                  value={newSurgery.year}
-                  onChange={(e) => setNewSurgery({ ...newSurgery, year: e.target.value })}
+                  placeholder="2022"
+                  value={surgeryYear}
+                  onChange={(e) => setSurgeryYear(e.target.value)}
+                  className="h-10"
                 />
               </div>
             </div>
 
             <Button
               onClick={addSurgery}
-              disabled={!newSurgery.type || !newSurgery.region}
+              disabled={!surgeryType || !selectedRegion}
               variant="outline"
               className="w-full"
             >
               <Plus className="w-4 h-4 mr-2" />
               Adicionar Cirurgia
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        )}
+
+        {/* Surgery List */}
+        {surgeries.length > 0 && (
+          <div className="space-y-2 pt-2">
+            {surgeries.map((surgery, index) => (
+              <div key={index} className="p-3 bg-muted/30 rounded-lg border border-border/50 flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-sm">{surgery.type}</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({formatSurgeryDisplay(surgery)})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeSurgery(index)}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Red Flags Section */}
-      <Card className={hasAnyRedFlag ? 'border-destructive' : ''}>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <AlertTriangle className={`w-5 h-5 ${hasAnyRedFlag ? 'text-destructive' : 'text-warning'}`} />
-            Red Flags - Sinais de Alerta
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Marque se o aluno apresentar algum dos sinais abaixo. Se positivo, encaminhe para avaliação médica.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {redFlagItems.map((item) => (
-            <div key={item.key} className="flex items-center space-x-3">
-              <Checkbox
-                id={item.key}
-                checked={data.redFlags[item.key]}
-                onCheckedChange={(checked) => 
-                  handleRedFlagChange(item.key, checked as boolean)
-                }
-              />
-              <Label
-                htmlFor={item.key}
-                className={`cursor-pointer ${data.redFlags[item.key] ? 'text-destructive font-medium' : ''}`}
-              >
-                {item.label}
-              </Label>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {hasAnyRedFlag && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <p className="text-sm font-medium text-destructive">
-            ⚠️ Atenção: Red Flags detectados
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Recomenda-se avaliação médica antes de prosseguir com exercícios. 
-            A avaliação pode continuar para fins de registro, mas o protocolo deve aguardar liberação médica.
-          </p>
+      <div className={cn(
+        "space-y-4 pt-6 border-t",
+        hasAnyRedFlag ? "border-destructive/50" : "border-border"
+      )}>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className={cn("w-5 h-5", hasAnyRedFlag ? "text-destructive" : "text-warning")} />
+          <Label className="text-base font-medium">Red Flags</Label>
         </div>
-      )}
+        <p className="text-sm text-muted-foreground">
+          Marque se o aluno apresentar algum dos sinais abaixo.
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          {redFlagItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => handleRedFlagChange(item.key)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
+                data.redFlags[item.key]
+                  ? "bg-destructive/10 text-destructive border-destructive"
+                  : "bg-muted/50 text-muted-foreground border-border hover:border-destructive/50"
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {hasAnyRedFlag && (
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-sm text-destructive font-medium">
+              ⚠️ Red Flags detectados - Encaminhar para avaliação médica
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

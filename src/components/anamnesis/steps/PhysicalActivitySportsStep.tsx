@@ -66,7 +66,11 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
   const [otherModality, setOtherModality] = useState('');
   const [otherSport, setOtherSport] = useState('');
 
-  const isSedentary = data.activityModalities.includes('sedentary');
+  // Fallback for persisted data that may not have new fields
+  const activityModalities = data.activityModalities || [];
+  const sports = data.sports || [];
+
+  const isSedentary = activityModalities.includes('sedentary');
 
   const handleModalityToggle = (value: string) => {
     if (value === 'sedentary') {
@@ -79,7 +83,7 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
       });
     } else {
       // Remove sedentary if selecting other modalities
-      const currentModalities = data.activityModalities.filter(m => m !== 'sedentary');
+      const currentModalities = activityModalities.filter(m => m !== 'sedentary');
       const newModalities = currentModalities.includes(value)
         ? currentModalities.filter(m => m !== value)
         : [...currentModalities, value];
@@ -93,7 +97,7 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
 
   const handleAddOtherModality = () => {
     if (otherModality.trim()) {
-      const currentModalities = data.activityModalities.filter(m => m !== 'sedentary');
+      const currentModalities = activityModalities.filter(m => m !== 'sedentary');
       updateData({
         activityModalities: [...currentModalities, `other:${otherModality.trim()}`],
         isSedentary: false,
@@ -103,43 +107,39 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
   };
 
   const handleSportToggle = (sportValue: string) => {
-    const currentSports = data.sports || [];
-    const existingIndex = currentSports.findIndex(s => s.name === sportValue);
+    const existingIndex = sports.findIndex(s => s.name === sportValue);
     
     if (existingIndex >= 0) {
       updateData({
-        sports: currentSports.filter((_, i) => i !== existingIndex),
+        sports: sports.filter((_, i) => i !== existingIndex),
       });
     } else {
       updateData({
-        sports: [...currentSports, { name: sportValue, level: '', frequency: '' }],
+        sports: [...sports, { name: sportValue, level: '', frequency: '' }],
       });
     }
   };
 
   const handleAddOtherSport = () => {
     if (otherSport.trim()) {
-      const currentSports = data.sports || [];
       updateData({
-        sports: [...currentSports, { name: `other:${otherSport.trim()}`, level: '', frequency: '' }],
+        sports: [...sports, { name: `other:${otherSport.trim()}`, level: '', frequency: '' }],
       });
       setOtherSport('');
     }
   };
 
   const updateSportDetails = (sportName: string, field: 'level' | 'frequency', value: string) => {
-    const currentSports = data.sports || [];
     updateData({
-      sports: currentSports.map(s => 
+      sports: sports.map(s => 
         s.name === sportName ? { ...s, [field]: value } : s
       ),
     });
   };
 
   const removeSport = (sportName: string) => {
-    const currentSports = data.sports || [];
     updateData({
-      sports: currentSports.filter(s => s.name !== sportName),
+      sports: sports.filter(s => s.name !== sportName),
     });
   };
 
@@ -153,7 +153,7 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
     return modalityOptions.find(m => m.value === value)?.label || value;
   };
 
-  const hasModalities = data.activityModalities.length > 0 && !isSedentary;
+  const hasModalities = activityModalities.length > 0 && !isSedentary;
   const practicesSports = data.practicesSports === true;
 
   return (
@@ -181,7 +181,7 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
               onClick={() => handleModalityToggle(option.value)}
               className={cn(
                 "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
-                data.activityModalities.includes(option.value)
+                activityModalities.includes(option.value)
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
               )}
@@ -226,9 +226,9 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
         </div>
 
         {/* Display selected "other" modalities */}
-        {data.activityModalities.filter(m => m.startsWith('other:')).length > 0 && (
+        {activityModalities.filter(m => m.startsWith('other:')).length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {data.activityModalities.filter(m => m.startsWith('other:')).map((m) => (
+            {activityModalities.filter(m => m.startsWith('other:')).map((m) => (
               <span
                 key={m}
                 className="px-3 py-1.5 rounded-full text-sm font-medium bg-primary text-primary-foreground flex items-center gap-2"
@@ -333,8 +333,8 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
           <div className="space-y-4 animate-fade-in">
             {/* Sport chips */}
             <div className="flex flex-wrap gap-2">
-              {sportOptions.map((option) => {
-                const isSelected = data.sports?.some(s => s.name === option.value);
+            {sportOptions.map((option) => {
+                const isSelected = sports.some(s => s.name === option.value);
                 return (
                   <button
                     key={option.value}
@@ -373,12 +373,12 @@ export function PhysicalActivitySportsStep({ data, updateData }: PhysicalActivit
             </div>
 
             {/* Selected sports with details */}
-            {data.sports && data.sports.length > 0 && (
+            {sports.length > 0 && (
               <div className="space-y-3 pt-4">
                 <Label className="text-sm text-muted-foreground">
                   Para cada esporte, informe nível e frequência:
                 </Label>
-                {data.sports.map((sport) => (
+                {sports.map((sport) => (
                   <div
                     key={sport.name}
                     className="p-3 bg-muted/30 rounded-lg border border-border/50 space-y-3"

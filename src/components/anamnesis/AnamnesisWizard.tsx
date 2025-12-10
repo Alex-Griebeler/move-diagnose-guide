@@ -73,7 +73,8 @@ export interface AnamnesisData {
   }>;
 
   // Block 8: Objectives
-  objectives: string;
+  selectedObjectives: string[];
+  otherObjectives: string;
   timeHorizon: string;
 
   // Block 9: LGPD Consent
@@ -109,7 +110,8 @@ const initialData: AnamnesisData = {
   isSedentary: false,
   practicesSports: false,
   sports: [],
-  objectives: '',
+  selectedObjectives: [],
+  otherObjectives: '',
   timeHorizon: '',
   lgpdConsent: false,
 };
@@ -209,7 +211,7 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
         activity_types: data.activityModalities,
         activity_duration_minutes: data.activityDuration ? durationMap[data.activityDuration] : null,
         sports: data.sports,
-        objectives: data.objectives || null,
+        objectives: [...(data.selectedObjectives || []), data.otherObjectives].filter(Boolean).join('; ') || null,
         time_horizon: data.timeHorizon || null,
         lgpd_consent: data.lgpdConsent,
         lgpd_consent_date: new Date().toISOString(),

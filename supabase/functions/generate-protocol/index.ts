@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const allowedOrigins = [
   'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com',
@@ -14,6 +15,36 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
+}
+
+// Validate user authentication from Authorization header
+async function validateAuth(req: Request): Promise<{ userId: string } | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Missing Supabase environment variables');
+    return null;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    console.error('Auth validation failed:', error?.message);
+    return null;
+  }
+
+  return { userId: user.id };
 }
 
 interface CompensationFinding {
@@ -75,6 +106,18 @@ serve(async (req) => {
   }
 
   try {
+    // Validate user authentication
+    const auth = await validateAuth(req);
+    if (!auth) {
+      console.error('Unauthorized request to generate-protocol');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized. Please log in to use this feature.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Authenticated request from user: ${auth.userId}`);
+
     const { compensations, segmentalResults, anamnesis, priorityAnalysis, primaryIssues, secondaryIssues }: ProtocolRequest = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 

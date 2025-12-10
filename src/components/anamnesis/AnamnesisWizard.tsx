@@ -13,8 +13,7 @@ import { PainHistoryStep } from './steps/PainHistoryStep';
 import { SurgeriesRedFlagsStep } from './steps/SurgeriesRedFlagsStep';
 import { RoutineHabitsStep } from './steps/RoutineHabitsStep';
 import { SleepRecoveryStep } from './steps/SleepRecoveryStep';
-import { PhysicalActivityStep } from './steps/PhysicalActivityStep';
-import { SportsDemandStep } from './steps/SportsDemandStep';
+import { PhysicalActivitySportsStep } from './steps/PhysicalActivitySportsStep';
 import { ObjectivesStep } from './steps/ObjectivesStep';
 import { ConsentStep } from './steps/ConsentStep';
 import { useState } from 'react';
@@ -61,16 +60,16 @@ export interface AnamnesisData {
   sleepQuality: number;
   sleepHours: string;
 
-  // Block 6: Physical Activity
-  activityFrequency: string;
-  activityTypes: string[];
-  activityDurationMinutes: string;
-
-  // Block 7: Sports Demands
+  // Block 6: Physical Activity and Sports (unified)
+  activityModalities: string[];
+  activityFrequency: '1-2x' | '3-4x' | '5+' | null;
+  activityDuration: '30-45min' | '45-60min' | '60-90min' | null;
+  isSedentary: boolean;
+  practicesSports: boolean;
   sports: Array<{
     name: string;
-    frequency: string;
     level: string;
+    frequency: string;
   }>;
 
   // Block 8: Objectives
@@ -104,9 +103,11 @@ const initialData: AnamnesisData = {
   workType: '',
   sleepQuality: 5,
   sleepHours: '',
-  activityFrequency: '',
-  activityTypes: [],
-  activityDurationMinutes: '',
+  activityModalities: [],
+  activityFrequency: null,
+  activityDuration: null,
+  isSedentary: false,
+  practicesSports: false,
   sports: [],
   objectives: '',
   timeHorizon: '',
@@ -119,10 +120,9 @@ const steps = [
   { id: 3, title: 'Cirurgias e Red Flags', shortTitle: 'Cirurgias' },
   { id: 4, title: 'Rotina e Hábitos', shortTitle: 'Rotina' },
   { id: 5, title: 'Sono e Recuperação', shortTitle: 'Sono' },
-  { id: 6, title: 'Atividade Física', shortTitle: 'Atividade' },
-  { id: 7, title: 'Demandas Esportivas', shortTitle: 'Esportes' },
-  { id: 8, title: 'Objetivos', shortTitle: 'Objetivos' },
-  { id: 9, title: 'Consentimento LGPD', shortTitle: 'LGPD' },
+  { id: 6, title: 'Atividade e Esportes', shortTitle: 'Atividade' },
+  { id: 7, title: 'Objetivos', shortTitle: 'Objetivos' },
+  { id: 8, title: 'Consentimento LGPD', shortTitle: 'LGPD' },
 ];
 
 interface AnamnesisWizardProps {
@@ -162,7 +162,7 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
   };
 
   const handleNext = () => {
-    if (currentStep < 9) {
+    if (currentStep < 8) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -186,6 +186,10 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
     setIsSubmitting(true);
 
     try {
+      // Map new frequency format to numeric for DB compatibility
+      const frequencyMap: Record<string, number> = { '1-2x': 2, '3-4x': 4, '5+': 6 };
+      const durationMap: Record<string, number> = { '30-45min': 38, '45-60min': 52, '60-90min': 75 };
+
       const { error } = await supabase.from('anamnesis_responses').insert({
         assessment_id: assessmentId,
         birth_date: data.birthDate?.toISOString().split('T')[0] || null,
@@ -201,9 +205,9 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
         work_type: data.workType || null,
         sleep_quality: data.sleepQuality,
         sleep_hours: data.sleepHours ? parseFloat(data.sleepHours) : null,
-        activity_frequency: data.activityFrequency ? parseInt(data.activityFrequency) : null,
-        activity_types: data.activityTypes,
-        activity_duration_minutes: data.activityDurationMinutes ? parseInt(data.activityDurationMinutes) : null,
+        activity_frequency: data.activityFrequency ? frequencyMap[data.activityFrequency] : null,
+        activity_types: data.activityModalities,
+        activity_duration_minutes: data.activityDuration ? durationMap[data.activityDuration] : null,
         sports: data.sports,
         objectives: data.objectives || null,
         time_horizon: data.timeHorizon || null,
@@ -242,7 +246,7 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
     }
   };
 
-  const progress = (currentStep / 9) * 100;
+  const progress = (currentStep / 8) * 100;
 
   const renderStep = () => {
     switch (currentStep) {
@@ -257,12 +261,10 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
       case 5:
         return <SleepRecoveryStep data={data} updateData={updateData} />;
       case 6:
-        return <PhysicalActivityStep data={data} updateData={updateData} />;
+        return <PhysicalActivitySportsStep data={data} updateData={updateData} />;
       case 7:
-        return <SportsDemandStep data={data} updateData={updateData} />;
-      case 8:
         return <ObjectivesStep data={data} updateData={updateData} />;
-      case 9:
+      case 8:
         return <ConsentStep data={data} updateData={updateData} />;
       default:
         return null;
@@ -287,8 +289,8 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
           <h2 className="text-lg font-semibold">
             {steps[currentStep - 1].title}
           </h2>
-          <span className="text-sm text-muted-foreground">
-            Etapa {currentStep} de 9
+        <span className="text-sm text-muted-foreground">
+            Etapa {currentStep} de 8
           </span>
         </div>
         <Progress value={progress} className="h-2" />
@@ -359,7 +361,7 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
           Anterior
         </Button>
 
-        {currentStep < 9 ? (
+        {currentStep < 8 ? (
           <Button onClick={handleNext}>
             Próximo
             <ChevronRight className="w-4 h-4 ml-2" />

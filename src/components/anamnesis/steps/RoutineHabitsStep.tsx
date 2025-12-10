@@ -1,108 +1,97 @@
+import { Briefcase } from 'lucide-react';
 import { AnamnesisData } from '../AnamnesisWizard';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { cn } from '@/lib/utils';
 
 interface RoutineHabitsStepProps {
   data: AnamnesisData;
   updateData: (updates: Partial<AnamnesisData>) => void;
 }
 
-const workTypes = [
-  { value: 'sedentary', label: 'Sedentário (escritório, computador)' },
-  { value: 'light', label: 'Leve (em pé, caminhadas curtas)' },
-  { value: 'moderate', label: 'Moderado (movimento frequente)' },
-  { value: 'heavy', label: 'Pesado (carga física intensa)' },
-  { value: 'variable', label: 'Variado (misto)' },
+const workTypeOptions = [
+  { value: 'sedentary', label: 'Sedentário', description: 'Escritório, computador' },
+  { value: 'light', label: 'Leve', description: 'Em pé, caminhadas curtas' },
+  { value: 'moderate', label: 'Moderado', description: 'Movimento frequente' },
+  { value: 'heavy', label: 'Pesado', description: 'Carga física intensa' },
+  { value: 'variable', label: 'Variado', description: 'Misto' },
 ];
 
 export function RoutineHabitsStep({ data, updateData }: RoutineHabitsStepProps) {
   const sedentaryHours = data.sedentaryHoursPerDay ? parseFloat(data.sedentaryHoursPerDay) : 0;
 
-  const getSedentaryWarning = (hours: number) => {
-    if (hours >= 10) return { level: 'destructive', message: 'Risco elevado - comportamento muito sedentário' };
-    if (hours >= 8) return { level: 'warning', message: 'Atenção - tempo sedentário acima do recomendado' };
-    if (hours >= 6) return { level: 'muted', message: 'Moderado - considere pausas ativas' };
-    return null;
+  const getSedentaryLevel = (hours: number) => {
+    if (hours >= 10) return { color: 'text-destructive', label: 'Muito alto' };
+    if (hours >= 8) return { color: 'text-warning', label: 'Alto' };
+    if (hours >= 6) return { color: 'text-muted-foreground', label: 'Moderado' };
+    return { color: 'text-success', label: 'Baixo' };
   };
 
-  const warning = getSedentaryWarning(sedentaryHours);
+  const level = getSedentaryLevel(sedentaryHours);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="space-y-2">
         <h3 className="text-lg font-medium">Rotina e Hábitos</h3>
         <p className="text-sm text-muted-foreground">
-          Informações sobre o dia-a-dia que podem influenciar padrões de movimento.
+          Informações sobre o dia-a-dia que influenciam padrões de movimento.
         </p>
       </div>
 
-      <div className="space-y-6">
-        {/* Sedentary Hours */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>Horas sentado por dia</Label>
-            <span className="text-lg font-semibold">{sedentaryHours}h</span>
+      {/* Sedentary Hours */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm">Horas sentado por dia</Label>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold tabular-nums">{sedentaryHours}h</span>
+            <span className={cn("text-xs", level.color)}>({level.label})</span>
           </div>
-          <Slider
-            value={[sedentaryHours]}
-            onValueChange={([value]) => updateData({ sedentaryHoursPerDay: value.toString() })}
-            min={0}
-            max={16}
-            step={0.5}
-            className="py-2"
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0h</span>
-            <span>8h</span>
-            <span>16h</span>
-          </div>
-          
-          {warning && (
-            <div className={`p-3 rounded-lg text-sm ${
-              warning.level === 'destructive' 
-                ? 'bg-destructive/10 text-destructive' 
-                : warning.level === 'warning'
-                ? 'bg-warning/10 text-warning'
-                : 'bg-muted text-muted-foreground'
-            }`}>
-              {warning.message}
-            </div>
-          )}
+        </div>
+        <Slider
+          value={[sedentaryHours]}
+          onValueChange={([value]) => updateData({ sedentaryHoursPerDay: value.toString() })}
+          min={0}
+          max={16}
+          step={0.5}
+          className="py-2"
+        />
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>0h</span>
+          <span>8h</span>
+          <span>16h</span>
+        </div>
+      </div>
+
+      {/* Work Type - Chips */}
+      <div className="space-y-4 pt-4 border-t border-border/50">
+        <div className="flex items-center gap-2 text-foreground">
+          <Briefcase className="w-4 h-4" />
+          <Label className="text-base font-medium">Tipo de Trabalho</Label>
         </div>
 
-        {/* Work Type */}
-        <div className="space-y-2">
-          <Label>Tipo de Trabalho</Label>
-          <Select
-            value={data.workType}
-            onValueChange={(value) => updateData({ workType: value })}
-          >
-            <SelectTrigger className="h-11">
-              <SelectValue placeholder="Selecione o tipo de trabalho" />
-            </SelectTrigger>
-            <SelectContent>
-              {workTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap gap-2">
+          {workTypeOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => updateData({ workType: option.value })}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
+                data.workType === option.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50"
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
 
-        {/* Info Card */}
-        <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-          <p className="text-sm">
-            <span className="font-medium">Por que isso importa?</span>
-            <br />
-            <span className="text-muted-foreground">
-              O tempo sedentário e o tipo de trabalho influenciam diretamente padrões de movimento, 
-              encurtamentos musculares e a priorização de exercícios no protocolo.
-            </span>
+        {data.workType && (
+          <p className="text-sm text-muted-foreground">
+            {workTypeOptions.find(w => w.value === data.workType)?.description}
           </p>
-        </div>
+        )}
       </div>
     </div>
   );

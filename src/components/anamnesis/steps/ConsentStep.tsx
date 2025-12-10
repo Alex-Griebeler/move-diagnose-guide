@@ -1,8 +1,8 @@
-import { Shield, FileText } from 'lucide-react';
+import { Shield, FileText, Check } from 'lucide-react';
 import { AnamnesisData } from '../AnamnesisWizard';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface ConsentStepProps {
   data: AnamnesisData;
@@ -11,109 +11,104 @@ interface ConsentStepProps {
 
 export function ConsentStep({ data, updateData }: ConsentStepProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="space-y-2">
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          <Shield className="w-5 h-5 text-accent" />
-          Consentimento LGPD
-        </h3>
+        <h3 className="text-lg font-medium">Consentimento LGPD</h3>
         <p className="text-sm text-muted-foreground">
           Leia os termos abaixo e confirme seu consentimento para prosseguir.
         </p>
       </div>
 
       {/* Terms */}
-      <div className="border rounded-lg">
-        <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/50">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-foreground">
           <FileText className="w-4 h-4" />
-          <span className="text-sm font-medium">Termos de Consentimento e Privacidade</span>
+          <Label className="text-base font-medium">Termos de Privacidade</Label>
         </div>
-        <ScrollArea className="h-[250px] p-4">
-          <div className="prose prose-sm max-w-none text-muted-foreground">
-            <h4 className="text-foreground font-semibold">1. Coleta de Dados</h4>
-            <p>
-              O FABRIK Movement & Performance Screen coleta dados pessoais e de saúde 
-              para fins de avaliação de movimento e prescrição de exercícios. Os dados 
-              coletados incluem:
-            </p>
-            <ul>
-              <li>Dados pessoais (nome, idade, peso, altura)</li>
-              <li>Histórico de saúde (dores, lesões, cirurgias)</li>
-              <li>Hábitos de vida (sono, atividade física, rotina)</li>
-              <li>Resultados de testes de movimento</li>
-            </ul>
 
-            <h4 className="text-foreground font-semibold mt-4">2. Finalidade</h4>
-            <p>
-              Os dados são utilizados exclusivamente para:
-            </p>
-            <ul>
-              <li>Realizar avaliação de padrões de movimento</li>
-              <li>Gerar protocolos de exercícios personalizados</li>
-              <li>Acompanhar evolução e progresso do aluno</li>
-              <li>Comunicação entre profissional e aluno</li>
-            </ul>
+        <div className="border rounded-lg overflow-hidden">
+          <ScrollArea className="h-[220px] p-4">
+            <div className="prose prose-sm max-w-none text-muted-foreground space-y-4">
+              <div>
+                <h4 className="text-foreground font-semibold text-sm mb-1">1. Coleta de Dados</h4>
+                <p className="text-xs">
+                  O FABRIK coleta dados pessoais e de saúde para avaliação de movimento e prescrição de exercícios: 
+                  dados pessoais, histórico de saúde, hábitos de vida e resultados de testes.
+                </p>
+              </div>
 
-            <h4 className="text-foreground font-semibold mt-4">3. Compartilhamento</h4>
-            <p>
-              Seus dados são compartilhados apenas com o profissional responsável 
-              pela sua avaliação e não são vendidos ou transferidos para terceiros 
-              sem seu consentimento expresso.
-            </p>
+              <div>
+                <h4 className="text-foreground font-semibold text-sm mb-1">2. Finalidade</h4>
+                <p className="text-xs">
+                  Os dados são utilizados para realizar avaliação de padrões de movimento, 
+                  gerar protocolos personalizados e acompanhar evolução do aluno.
+                </p>
+              </div>
 
-            <h4 className="text-foreground font-semibold mt-4">4. Segurança</h4>
-            <p>
-              Utilizamos criptografia e medidas de segurança para proteger seus dados. 
-              O acesso é restrito a pessoas autorizadas.
-            </p>
+              <div>
+                <h4 className="text-foreground font-semibold text-sm mb-1">3. Compartilhamento</h4>
+                <p className="text-xs">
+                  Seus dados são compartilhados apenas com o profissional responsável 
+                  e não são vendidos ou transferidos para terceiros.
+                </p>
+              </div>
 
-            <h4 className="text-foreground font-semibold mt-4">5. Seus Direitos (LGPD)</h4>
-            <p>
-              Conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018), você tem direito a:
-            </p>
-            <ul>
-              <li>Acessar seus dados a qualquer momento</li>
-              <li>Corrigir dados incompletos ou incorretos</li>
-              <li>Solicitar exclusão dos seus dados</li>
-              <li>Revogar este consentimento a qualquer momento</li>
-            </ul>
-
-            <h4 className="text-foreground font-semibold mt-4">6. Retenção</h4>
-            <p>
-              Os dados serão mantidos enquanto houver relação ativa com o profissional 
-              ou pelo prazo legal aplicável, o que for maior.
-            </p>
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* Consent Checkbox */}
-      <div className="p-4 bg-muted rounded-lg">
-        <div className="flex items-start space-x-3">
-          <Checkbox
-            id="lgpdConsent"
-            checked={data.lgpdConsent}
-            onCheckedChange={(checked) => updateData({ lgpdConsent: checked as boolean })}
-            className="mt-1"
-          />
-          <div className="space-y-1">
-            <Label htmlFor="lgpdConsent" className="cursor-pointer font-medium">
-              Li e concordo com os termos acima
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              Ao marcar esta opção, você declara ter lido e compreendido os termos 
-              de consentimento e autoriza o tratamento dos seus dados pessoais 
-              conforme descrito.
-            </p>
-          </div>
+              <div>
+                <h4 className="text-foreground font-semibold text-sm mb-1">4. Seus Direitos (LGPD)</h4>
+                <p className="text-xs">
+                  Você pode acessar, corrigir, solicitar exclusão ou revogar consentimento a qualquer momento, 
+                  conforme Lei 13.709/2018.
+                </p>
+              </div>
+            </div>
+          </ScrollArea>
         </div>
       </div>
 
-      {!data.lgpdConsent && (
-        <p className="text-sm text-warning text-center">
-          É necessário aceitar os termos para concluir a anamnese.
-        </p>
-      )}
+      {/* Consent Button */}
+      <div className="space-y-4 pt-4 border-t border-border/50">
+        <div className="flex items-center gap-2 text-foreground">
+          <Shield className="w-4 h-4" />
+          <Label className="text-base font-medium">Confirmação</Label>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => updateData({ lgpdConsent: !data.lgpdConsent })}
+          className={cn(
+            "w-full p-4 rounded-lg border-2 transition-all flex items-center gap-3",
+            data.lgpdConsent
+              ? "border-success bg-success/10"
+              : "border-border hover:border-primary/50"
+          )}
+        >
+          <div className={cn(
+            "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+            data.lgpdConsent
+              ? "border-success bg-success text-success-foreground"
+              : "border-muted-foreground"
+          )}>
+            {data.lgpdConsent && <Check className="w-4 h-4" />}
+          </div>
+          <div className="text-left">
+            <p className={cn(
+              "font-medium text-sm",
+              data.lgpdConsent ? "text-success" : "text-foreground"
+            )}>
+              Li e concordo com os termos
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Autorizo o tratamento dos meus dados pessoais conforme descrito.
+            </p>
+          </div>
+        </button>
+
+        {!data.lgpdConsent && (
+          <p className="text-sm text-warning text-center">
+            É necessário aceitar os termos para concluir a anamnese.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

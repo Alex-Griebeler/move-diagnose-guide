@@ -39,6 +39,7 @@ export interface AnamnesisData {
     type: string;
     year: string;
     region: string;
+    laterality?: string;
   }>;
   redFlags: {
     unexplainedWeightLoss: boolean;

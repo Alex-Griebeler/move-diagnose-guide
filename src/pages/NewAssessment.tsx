@@ -16,33 +16,63 @@ type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests' 
 
 export default function NewAssessment() {
   const [searchParams] = useSearchParams();
-  const [step, setStep] = useState<Step>('select-student');
   const [students, setStudents] = useState<StudentItem[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
   const [assessmentId, setAssessmentId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  const [isRestoringState, setIsRestoringState] = useState(true);
+  
+  // Initialize step - will be updated after checking for saved state
+  const [step, setStep] = useState<Step>('select-student');
 
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check for URL parameters (from in-person registration)
+  // Restore state from localStorage or URL params on mount
   useEffect(() => {
     const studentIdParam = searchParams.get('studentId');
     const assessmentIdParam = searchParams.get('assessmentId');
     const studentNameParam = searchParams.get('studentName');
 
+    // Priority 1: URL parameters (from in-person registration or continue)
     if (studentIdParam && assessmentIdParam) {
-      // Coming from in-person registration - go directly to anamnesis
       setSelectedStudent({
         id: studentIdParam,
         full_name: studentNameParam ? decodeURIComponent(studentNameParam) : 'Aluno',
         email: '',
       });
       setAssessmentId(assessmentIdParam);
-      setStep('anamnesis');
+      
+      // Check saved step for this assessment
+      const savedStep = localStorage.getItem(`assessment_step_${assessmentIdParam}`);
+      if (savedStep && ['anamnesis', 'global-tests', 'segmental-tests', 'protocol'].includes(savedStep)) {
+        setStep(savedStep as Step);
+      } else {
+        setStep('anamnesis');
+      }
+      setIsRestoringState(false);
+      return;
     }
+
+    // Priority 2: Check localStorage for in-progress assessment
+    const savedAssessmentId = localStorage.getItem('current_assessment_id');
+    const savedStudentId = localStorage.getItem('current_student_id');
+    const savedStudentName = localStorage.getItem('current_student_name');
+    const savedStep = savedAssessmentId ? localStorage.getItem(`assessment_step_${savedAssessmentId}`) : null;
+    
+    if (savedAssessmentId && savedStudentId && savedStep) {
+      setAssessmentId(savedAssessmentId);
+      setSelectedStudent({
+        id: savedStudentId,
+        full_name: savedStudentName || 'Aluno',
+        email: '',
+      });
+      setStep(savedStep as Step);
+    }
+    
+    setIsRestoringState(false);
   }, [searchParams]);
 
   useEffect(() => {
@@ -99,6 +129,12 @@ export default function NewAssessment() {
 
       if (error) throw error;
 
+      // Save current assessment state to localStorage for recovery
+      localStorage.setItem('current_assessment_id', data.id);
+      localStorage.setItem('current_student_id', studentId);
+      localStorage.setItem('current_student_name', selectedStudent?.full_name || '');
+      localStorage.setItem(`assessment_step_${data.id}`, 'anamnesis');
+
       setAssessmentId(data.id);
       setStep('anamnesis');
     } catch (error) {
@@ -115,10 +151,15 @@ export default function NewAssessment() {
 
   const handleSelectStudent = (student: StudentItem) => {
     setSelectedStudent(student);
+    // Store student name before creating assessment
+    localStorage.setItem('current_student_name', student.full_name);
     createAssessment(student.id);
   };
 
   const handleAnamnesisComplete = () => {
+    if (assessmentId) {
+      localStorage.setItem(`assessment_step_${assessmentId}`, 'global-tests');
+    }
     toast({
       title: 'Anamnese concluída!',
       description: 'Prossiga para os testes globais.',
@@ -127,6 +168,9 @@ export default function NewAssessment() {
   };
 
   const handleGlobalTestsComplete = () => {
+    if (assessmentId) {
+      localStorage.setItem(`assessment_step_${assessmentId}`, 'segmental-tests');
+    }
     toast({
       title: 'Testes globais concluídos!',
       description: 'Prossiga para os testes segmentados.',
@@ -135,6 +179,9 @@ export default function NewAssessment() {
   };
 
   const handleSegmentalTestsComplete = () => {
+    if (assessmentId) {
+      localStorage.setItem(`assessment_step_${assessmentId}`, 'protocol');
+    }
     toast({
       title: 'Testes concluídos!',
       description: 'Gerando protocolo de exercícios...',
@@ -143,6 +190,15 @@ export default function NewAssessment() {
   };
 
   const handleProtocolComplete = () => {
+    // Clear all localStorage state for this assessment
+    if (assessmentId) {
+      localStorage.removeItem(`assessment_step_${assessmentId}`);
+      localStorage.removeItem('globalTests_assessmentId');
+    }
+    localStorage.removeItem('current_assessment_id');
+    localStorage.removeItem('current_student_id');
+    localStorage.removeItem('current_student_name');
+    
     toast({
       title: 'Avaliação finalizada!',
       description: 'Protocolo salvo com sucesso.',
@@ -150,7 +206,7 @@ export default function NewAssessment() {
     navigate('/dashboard');
   };
 
-  if (loading) {
+  if (loading || isRestoringState) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse-soft">Carregando...</div>

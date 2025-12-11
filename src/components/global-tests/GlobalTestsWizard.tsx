@@ -107,12 +107,16 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Detect new assessment and reset wizard
+  // Track assessment ID changes to reset when switching assessments
+  // Only reset if we had a DIFFERENT assessment stored AND data was already loaded
   useEffect(() => {
+    if (isLoadingPersistence) return; // Wait for data to load first
+    
     const savedAssessmentId = localStorage.getItem('globalTests_assessmentId');
     
-    if (savedAssessmentId && savedAssessmentId !== assessmentId) {
-      // New assessment detected, clear old data
+    // Only clear if switching to a DIFFERENT assessment (not first load)
+    if (savedAssessmentId && savedAssessmentId !== assessmentId && prevAssessmentIdRef.current === savedAssessmentId) {
+      console.log(`[GlobalTestsWizard] Switching from ${savedAssessmentId} to ${assessmentId}, clearing old data`);
       clearPersistedData();
       setCurrentStep(1);
     }
@@ -120,7 +124,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     // Update stored assessment ID
     localStorage.setItem('globalTests_assessmentId', assessmentId);
     prevAssessmentIdRef.current = assessmentId;
-  }, [assessmentId, clearPersistedData, setCurrentStep]);
+  }, [assessmentId, isLoadingPersistence, clearPersistedData, setCurrentStep]);
 
   const handleNext = () => {
     if (currentStep < 4) {

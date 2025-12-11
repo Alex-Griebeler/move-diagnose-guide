@@ -62,7 +62,43 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`Generating signed URL for: ${filePath}, user: ${user.id}`);
+    // Extract assessmentId from filePath (format: {assessmentId}/test_view_type.ext)
+    const pathParts = filePath.split('/');
+    if (pathParts.length < 2) {
+      console.warn(`Invalid path format from user ${user.id}: ${filePath}`);
+      return new Response(JSON.stringify({ error: "Invalid file path format" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const assessmentId = pathParts[0];
+
+    // Verify user has access to this assessment (must be professional_id or student_id)
+    const { data: assessment, error: assessmentError } = await supabase
+      .from('assessments')
+      .select('id')
+      .eq('id', assessmentId)
+      .or(`professional_id.eq.${user.id},student_id.eq.${user.id}`)
+      .maybeSingle();
+
+    if (assessmentError) {
+      console.error("Error checking assessment ownership:", assessmentError);
+      return new Response(JSON.stringify({ error: "Failed to verify access" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!assessment) {
+      console.warn(`Access denied: user ${user.id} attempted to access ${filePath}`);
+      return new Response(JSON.stringify({ error: "Access denied" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`Access granted for assessment ${assessmentId}, user: ${user.id}`);
 
     // Use service role to generate signed URL
     const supabaseAdmin = createClient(

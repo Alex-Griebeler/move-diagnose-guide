@@ -24,7 +24,19 @@ export type DeficitType =
   | 'hip_rotation_mobility_deficit'
   | 'hip_abd_ext_stability_deficit'
   | 'posterior_chain_stability_deficit'
-  | 'hip_motor_control_deficit';
+  | 'hip_motor_control_deficit'
+  // Low back deficits
+  | 'lumbar_flexion_mobility_deficit'
+  | 'lumbar_extension_mobility_deficit'
+  | 'core_stability_deficit'
+  | 'posterior_chain_low_back_deficit'
+  | 'low_back_motor_control_deficit'
+  // Shoulder deficits
+  | 'shoulder_flexion_mobility_deficit'
+  | 'shoulder_rotation_mobility_deficit'
+  | 'scapular_control_deficit'
+  | 'posterior_shoulder_stability_deficit'
+  | 'shoulder_motor_control_deficit';
 
 export type TestResultStatus = 'normal' | 'limited' | 'asymmetric' | 'unstable' | 'pain';
 
@@ -94,6 +106,22 @@ const HIP_PRIORITY_ORDER: DeficitType[] = [
   'hip_motor_control_deficit'
 ];
 
+const LOW_BACK_PRIORITY_ORDER: DeficitType[] = [
+  'lumbar_flexion_mobility_deficit',
+  'lumbar_extension_mobility_deficit',
+  'core_stability_deficit',
+  'posterior_chain_low_back_deficit',
+  'low_back_motor_control_deficit'
+];
+
+const SHOULDER_PRIORITY_ORDER: DeficitType[] = [
+  'shoulder_flexion_mobility_deficit',
+  'shoulder_rotation_mobility_deficit',
+  'scapular_control_deficit',
+  'posterior_shoulder_stability_deficit',
+  'shoulder_motor_control_deficit'
+];
+
 // ============================================================================
 // TEST TO DEFICIT MAPPINGS
 // ============================================================================
@@ -112,6 +140,22 @@ const HIP_TEST_TO_DEFICIT: Record<string, DeficitType> = {
   hip_sls_stability: 'hip_abd_ext_stability_deficit',
   posterior_chain: 'posterior_chain_stability_deficit',
   hip_control: 'hip_motor_control_deficit'
+};
+
+const LOW_BACK_TEST_TO_DEFICIT: Record<string, DeficitType> = {
+  lumbar_flexion: 'lumbar_flexion_mobility_deficit',
+  lumbar_extension: 'lumbar_extension_mobility_deficit',
+  hinge_test: 'low_back_motor_control_deficit',
+  low_back_posterior_chain: 'posterior_chain_low_back_deficit',
+  core_stability: 'core_stability_deficit'
+};
+
+const SHOULDER_TEST_TO_DEFICIT: Record<string, DeficitType> = {
+  shoulder_flexion: 'shoulder_flexion_mobility_deficit',
+  shoulder_rotation: 'shoulder_rotation_mobility_deficit',
+  scapular_control: 'scapular_control_deficit',
+  posterior_shoulder: 'posterior_shoulder_stability_deficit',
+  shoulder_motor_control: 'shoulder_motor_control_deficit'
 };
 
 // ============================================================================
@@ -280,6 +324,168 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       duration: '8-10 reps controladas',
       category: 'technique'
     }
+  ],
+  // Low back interventions
+  lumbar_flexion_mobility_deficit: [
+    {
+      id: 'hip_flexor_release',
+      name: 'Liberação Flexores de Quadril',
+      description: 'Liberar psoas e reto femoral com bola',
+      duration: '60-90s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'cat_cow_mobility',
+      name: 'Cat-Cow Mobilidade',
+      description: 'Mobilização segmentar da coluna em flexão/extensão',
+      duration: '10-12 reps controladas',
+      category: 'mobility'
+    }
+  ],
+  lumbar_extension_mobility_deficit: [
+    {
+      id: 'thoracic_foam_roll',
+      name: 'Liberação Torácica',
+      description: 'Rolo na região torácica para liberar extensores',
+      duration: '60-90s',
+      category: 'release'
+    },
+    {
+      id: 'prone_press_up',
+      name: 'Prone Press-Up',
+      description: 'Extensão progressiva em decúbito ventral',
+      duration: '8-10 reps suaves',
+      category: 'mobility'
+    }
+  ],
+  core_stability_deficit: [
+    {
+      id: 'dead_bug_activation',
+      name: 'Dead Bug Ativação',
+      description: 'Dead bug básico com foco em anti-extensão',
+      duration: '8-10 reps cada lado',
+      category: 'activation'
+    },
+    {
+      id: 'bird_dog',
+      name: 'Bird Dog',
+      description: 'Extensão contralateral com coluna neutra',
+      duration: '8-10 reps cada lado',
+      category: 'activation'
+    }
+  ],
+  posterior_chain_low_back_deficit: [
+    {
+      id: 'glute_bridge',
+      name: 'Glute Bridge',
+      description: 'Ponte bilateral com foco em ativação de glúteo',
+      duration: '12-15 reps',
+      category: 'activation'
+    },
+    {
+      id: 'hip_hinge_drill',
+      name: 'Hip Hinge Drill',
+      description: 'Padrão de dobradiça com bastão para feedback',
+      duration: '8-10 reps',
+      category: 'activation'
+    }
+  ],
+  low_back_motor_control_deficit: [
+    {
+      id: 'hinge_technique',
+      name: 'Ajuste Técnico de Hinge',
+      description: 'Correção de padrão: quadril recua primeiro, coluna neutra',
+      duration: '5-8 reps lentas',
+      category: 'technique'
+    },
+    {
+      id: 'bracing_drill',
+      name: 'Bracing Drill',
+      description: 'Ativação de core antes e durante o movimento',
+      duration: '8-10 reps controladas',
+      category: 'technique'
+    }
+  ],
+  // Shoulder interventions
+  shoulder_flexion_mobility_deficit: [
+    {
+      id: 'thoracic_extension_mob',
+      name: 'Mobilidade Torácica',
+      description: 'Extensão torácica com rolo ou parede',
+      duration: '10-12 reps',
+      category: 'mobility'
+    },
+    {
+      id: 'wall_slides',
+      name: 'Wall Slides',
+      description: 'Deslizamento na parede com escápulas retraídas',
+      duration: '10-12 reps',
+      category: 'mobility'
+    }
+  ],
+  shoulder_rotation_mobility_deficit: [
+    {
+      id: 'posterior_capsule_stretch',
+      name: 'Liberação Cápsula Posterior',
+      description: 'Sleeper stretch ou cross-body stretch',
+      duration: '30-45s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'ir_er_mobility',
+      name: 'Mobilidade IR/ER',
+      description: 'Mobilização ativa de rotações do ombro',
+      duration: '10-12 reps cada direção',
+      category: 'mobility'
+    }
+  ],
+  scapular_control_deficit: [
+    {
+      id: 'serratus_activation',
+      name: 'Ativação Serrátil',
+      description: 'Wall slide com protração ou push-up plus',
+      duration: '12-15 reps',
+      category: 'activation'
+    },
+    {
+      id: 'lower_trap_activation',
+      name: 'Ativação Trapézio Inferior',
+      description: 'Prone Y ou L raises',
+      duration: '10-12 reps',
+      category: 'activation'
+    }
+  ],
+  posterior_shoulder_stability_deficit: [
+    {
+      id: 'er_isometric',
+      name: 'Ativação ER Isométrica',
+      description: 'Rotação externa isométrica contra parede ou banda',
+      duration: '3x 10-15s cada lado',
+      category: 'activation'
+    },
+    {
+      id: 'prone_er',
+      name: 'Prone ER Regressão',
+      description: 'Rotação externa deitado com peso leve',
+      duration: '10-12 reps cada lado',
+      category: 'activation'
+    }
+  ],
+  shoulder_motor_control_deficit: [
+    {
+      id: 'amplitude_adjustment',
+      name: 'Ajuste de Amplitude',
+      description: 'Reduzir amplitude do movimento até controle perfeito',
+      duration: '5-8 reps controladas',
+      category: 'technique'
+    },
+    {
+      id: 'tempo_control',
+      name: 'Controle de Ritmo',
+      description: 'Execução em tempo lento (3-0-3) com foco em alinhamento',
+      duration: '5-8 reps lentas',
+      category: 'technique'
+    }
   ]
 };
 
@@ -328,7 +534,49 @@ const EXPLANATIONS: Record<DeficitType, string> = {
   
   hip_motor_control_deficit:
     'Sua mobilidade e estabilidade estão boas, mas o padrão de movimento precisa de ajuste. ' +
-    'Correções técnicas podem proteger melhor o quadril durante o exercício.'
+    'Correções técnicas podem proteger melhor o quadril durante o exercício.',
+
+  // Low back explanations
+  lumbar_flexion_mobility_deficit:
+    'A limitação de flexão da lombar está aumentando a tensão nos tecidos posteriores. ' +
+    'Isso pode causar dor ao flexionar o tronco ou durante movimentos de hinge.',
+  
+  lumbar_extension_mobility_deficit:
+    'A extensão da lombar está limitada ou causando compressão. ' +
+    'Isso pode gerar dor em pé prolongado ou ao estender as costas.',
+  
+  core_stability_deficit:
+    'O core não está estabilizando a coluna adequadamente durante o movimento. ' +
+    'Isso aumenta a carga nas estruturas passivas da lombar.',
+  
+  posterior_chain_low_back_deficit:
+    'A cadeia posterior não está absorvendo carga de forma eficiente. ' +
+    'O glúteo não está ativando adequadamente, sobrecarregando a lombar.',
+  
+  low_back_motor_control_deficit:
+    'Sua mobilidade e estabilidade estão boas, mas o padrão técnico precisa de ajuste. ' +
+    'A lombar está perdendo neutralidade durante o movimento.',
+
+  // Shoulder explanations
+  shoulder_flexion_mobility_deficit:
+    'A limitação de flexão do ombro está aumentando a tensão nas estruturas doloridas. ' +
+    'A mobilidade torácica pode estar contribuindo para esse padrão.',
+  
+  shoulder_rotation_mobility_deficit:
+    'A rotação do ombro está reduzida e isso altera o alinhamento e o espaço subacromial. ' +
+    'Isso pode causar impingement ou desconforto em movimentos de rotação.',
+  
+  scapular_control_deficit:
+    'Sua escápula não está se movimentando de forma eficiente para estabilizar o ombro. ' +
+    'O serrátil e trapézio inferior não estão controlando adequadamente.',
+  
+  posterior_shoulder_stability_deficit:
+    'Os rotadores externos e estabilizadores posteriores não estão segurando o ombro. ' +
+    'Isso aumenta a carga na região anterior do ombro.',
+  
+  shoulder_motor_control_deficit:
+    'Sua técnica está exigindo demasiado do ombro. ' +
+    'Ajustes de amplitude, ritmo e alinhamento podem aliviar a sobrecarga.'
 };
 
 // ============================================================================
@@ -379,9 +627,27 @@ export function calculateDecision(
     };
   }
   
-  // Selecionar mapeamento correto
-  const testToDeficit = protocolType === 'hip_pain' ? HIP_TEST_TO_DEFICIT : KNEE_TEST_TO_DEFICIT;
-  const priorityOrder = protocolType === 'hip_pain' ? HIP_PRIORITY_ORDER : KNEE_PRIORITY_ORDER;
+  // Selecionar mapeamento correto baseado no protocolo
+  let testToDeficit: Record<string, DeficitType>;
+  let priorityOrder: DeficitType[];
+  
+  switch (protocolType) {
+    case 'hip_pain':
+      testToDeficit = HIP_TEST_TO_DEFICIT;
+      priorityOrder = HIP_PRIORITY_ORDER;
+      break;
+    case 'low_back_pain':
+      testToDeficit = LOW_BACK_TEST_TO_DEFICIT;
+      priorityOrder = LOW_BACK_PRIORITY_ORDER;
+      break;
+    case 'shoulder_pain':
+      testToDeficit = SHOULDER_TEST_TO_DEFICIT;
+      priorityOrder = SHOULDER_PRIORITY_ORDER;
+      break;
+    default:
+      testToDeficit = KNEE_TEST_TO_DEFICIT;
+      priorityOrder = KNEE_PRIORITY_ORDER;
+  }
   
   // Mapear testes para déficits
   const detectedDeficits = positiveTestIds
@@ -428,7 +694,19 @@ export function formatDeficitName(deficit: DeficitType): string {
     hip_rotation_mobility_deficit: 'Mobilidade de Rotação (Quadril)',
     hip_abd_ext_stability_deficit: 'Estabilidade de Quadril (Abd/Ext)',
     posterior_chain_stability_deficit: 'Estabilidade Cadeia Posterior',
-    hip_motor_control_deficit: 'Controle Neuromotor (Quadril)'
+    hip_motor_control_deficit: 'Controle Neuromotor (Quadril)',
+    // Low back
+    lumbar_flexion_mobility_deficit: 'Mobilidade de Flexão (Lombar)',
+    lumbar_extension_mobility_deficit: 'Mobilidade de Extensão (Lombar)',
+    core_stability_deficit: 'Estabilidade de Core',
+    posterior_chain_low_back_deficit: 'Estabilidade Cadeia Posterior (Lombar)',
+    low_back_motor_control_deficit: 'Controle Neuromotor (Lombar)',
+    // Shoulder
+    shoulder_flexion_mobility_deficit: 'Mobilidade de Flexão (Ombro)',
+    shoulder_rotation_mobility_deficit: 'Mobilidade de Rotação (Ombro)',
+    scapular_control_deficit: 'Controle Escapular',
+    posterior_shoulder_stability_deficit: 'Estabilidade Posterior (Ombro)',
+    shoulder_motor_control_deficit: 'Controle Neuromotor (Ombro)'
   };
   return names[deficit] || deficit;
 }

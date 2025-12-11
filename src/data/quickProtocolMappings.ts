@@ -7,7 +7,7 @@
 // PROTOCOL TYPES
 // ============================================================================
 
-export type ProtocolType = 'knee_pain' | 'hip_pain' | 'low_back_pain';
+export type ProtocolType = 'knee_pain' | 'hip_pain' | 'low_back_pain' | 'shoulder_pain';
 
 export type TestId =
   // Knee tests
@@ -27,7 +27,13 @@ export type TestId =
   | 'lumbar_extension'
   | 'hinge_test'
   | 'low_back_posterior_chain'
-  | 'core_stability';
+  | 'core_stability'
+  // Shoulder tests
+  | 'shoulder_flexion'
+  | 'shoulder_rotation'
+  | 'scapular_control'
+  | 'posterior_shoulder'
+  | 'shoulder_motor_control';
 
 // ============================================================================
 // TEST DEFINITIONS
@@ -381,6 +387,116 @@ export const LOW_BACK_PROTOCOL_TESTS: QuickTestDefinition[] = [
 ];
 
 // ============================================================================
+// SHOULDER PROTOCOL TESTS
+// ============================================================================
+
+export const SHOULDER_PROTOCOL_TESTS: QuickTestDefinition[] = [
+  {
+    id: 'shoulder_flexion',
+    name: 'Active Shoulder Flexion Test',
+    description: 'Avalia mobilidade glenoumeral e torácica',
+    layer: 'mobility',
+    segment: 'shoulder',
+    isBilateral: true,
+    instructions: [
+      'Fique de costas para a parede',
+      'Eleve os braços totalmente estendidos tentando tocar a parede',
+      'Mantenha as costelas baixas (não arquear lombar)',
+      'Observe se alcança a parede e se há dor'
+    ],
+    options: [
+      { id: 'clean', label: 'Alcança parede com costelas baixas', isPositive: false },
+      { id: 'limited', label: 'Não alcança (limitação)', isPositive: true },
+      { id: 'compensation', label: 'Compensação lombar (costelas sobem)', isPositive: true },
+      { id: 'pain', label: 'Dor no final da amplitude', isPositive: true }
+    ]
+  },
+  {
+    id: 'shoulder_rotation',
+    name: 'ER/IR Rotation Test',
+    description: 'Avalia cápsula anterior/posterior, manguito e equilíbrio rotacional',
+    layer: 'mobility',
+    segment: 'shoulder',
+    isBilateral: true,
+    instructions: [
+      'Cotovelo a 90° junto ao corpo',
+      'Rotacione externamente (mão para fora)',
+      'Rotacione internamente (mão para dentro)',
+      'Compare amplitude e conforto entre lados'
+    ],
+    options: [
+      { id: 'normal', label: 'ER e IR normais', isPositive: false },
+      { id: 'er_limited', label: 'ER limitada', isPositive: true },
+      { id: 'ir_limited', label: 'IR limitada', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria entre lados', isPositive: true },
+      { id: 'pain', label: 'Dor final de amplitude', isPositive: true }
+    ]
+  },
+  {
+    id: 'scapular_control',
+    name: 'Scapular Wall Slide',
+    description: 'Avalia estabilidade dinâmica da escápula (serrátil, trapézio inferior)',
+    layer: 'stability',
+    segment: 'scapula',
+    isBilateral: false,
+    instructions: [
+      'De costas para parede, cotovelos e punhos tocando',
+      'Deslize os braços para cima mantendo contato',
+      'Observe se a escápula "ala" ou perde contato',
+      'Note se há dor anterior ou superior'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'winging', label: 'Escápula alando', isPositive: true },
+      { id: 'contact_loss', label: 'Perde contato com parede', isPositive: true },
+      { id: 'pain', label: 'Dor anterior ou superior', isPositive: true }
+    ]
+  },
+  {
+    id: 'posterior_shoulder',
+    name: 'Prone Y / Prone ER Test',
+    description: 'Avalia recrutamento de rotadores externos e trapézio inferior',
+    layer: 'stability',
+    segment: 'shoulder',
+    isBilateral: false,
+    instructions: [
+      'Deite de bruços, braço fora da maca',
+      'Eleve o braço em Y ou faça rotação externa',
+      'Observe se ombro gira para frente ou perde alinhamento',
+      'Note dor posterior ou incapacidade de manter'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'forward_roll', label: 'Globo do ombro gira para frente', isPositive: true },
+      { id: 'misalignment', label: 'Perda de alinhamento', isPositive: true },
+      { id: 'unable', label: 'Incapacidade de manter posição', isPositive: true },
+      { id: 'pain', label: 'Dor posterior', isPositive: true }
+    ]
+  },
+  {
+    id: 'shoulder_motor_control',
+    name: 'Push-Up / Overhead Control Test',
+    description: 'Avalia controle neuromotor no movimento que causou dor',
+    layer: 'motor_control',
+    segment: 'kinetic_chain',
+    isBilateral: false,
+    instructions: [
+      'Execute o movimento que causou dor (push-up ou overhead)',
+      'Faça lentamente e observe o padrão',
+      'Note se há perda de linha ou desorganização',
+      'Observe alinhamento de cotovelo e escápula'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'trunk_loss', label: 'Perde linha do tronco', isPositive: true },
+      { id: 'scapula_lag', label: 'Escápula não acompanha', isPositive: true },
+      { id: 'elbow_misalign', label: 'Cotovelo desalinha', isPositive: true },
+      { id: 'disorganized', label: 'Descidas desorganizadas', isPositive: true }
+    ]
+  }
+];
+
+// ============================================================================
 // PROTOCOL METADATA
 // ============================================================================
 
@@ -433,6 +549,18 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
     description: 'Avaliação rápida para identificar se a dor lombar é causada por mobilidade limitada, estabilidade insuficiente ou controle neuromotor deficiente.',
     icon: '🦴',
     color: 'red'
+  },
+  shoulder_pain: {
+    id: 'SHOULDER_UNIVERSAL_5MIN',
+    type: 'shoulder_pain',
+    name: 'Mini Protocolo FABRIK – Dor no Ombro',
+    shortName: 'Dor no Ombro',
+    estimatedTime: 5,
+    focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
+    targetCondition: 'shoulder_pain',
+    description: 'Avaliação rápida para identificar se a dor no ombro é causada por mobilidade limitada, estabilidade escapular deficiente ou controle neuromotor inadequado.',
+    icon: '💪',
+    color: 'blue'
   }
 };
 
@@ -465,6 +593,8 @@ export function getTestsForProtocol(protocolType: ProtocolType): QuickTestDefini
       return HIP_PROTOCOL_TESTS;
     case 'low_back_pain':
       return LOW_BACK_PROTOCOL_TESTS;
+    case 'shoulder_pain':
+      return SHOULDER_PROTOCOL_TESTS;
     default:
       return KNEE_PROTOCOL_TESTS;
   }
@@ -480,11 +610,11 @@ export function getTestById(testId: TestId, protocolType?: ProtocolType): QuickT
     return tests.find(t => t.id === testId);
   }
   // Search all protocols
-  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS].find(t => t.id === testId);
+  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS].find(t => t.id === testId);
 }
 
 export function getTestsByLayer(layer: 'mobility' | 'stability' | 'motor_control', protocolType?: ProtocolType): QuickTestDefinition[] {
-  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS];
+  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS];
   return tests.filter(t => t.layer === layer);
 }
 

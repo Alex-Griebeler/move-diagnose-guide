@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2, Target } from 'lucide-react';
+import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2, ChevronDown, Zap } from 'lucide-react';
 import fabrikLogo from '@/assets/fabrik-logo.png';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -298,7 +304,7 @@ function ProfessionalDashboard() {
         <h2 className="text-base font-semibold text-foreground mb-4">Ações Rápidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link to="/assessment/new">
-            <Card className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40">
+            <Card className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40 h-full">
               <CardContent className="flex items-center gap-4 py-5">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Plus className="w-6 h-6 text-primary" />
@@ -311,22 +317,47 @@ function ProfessionalDashboard() {
             </Card>
           </Link>
 
-          <Link to="/quick-protocol?studentId=select">
-            <Card className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-amber-500/40">
-              <CardContent className="flex items-center gap-4 py-5">
-                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                  <Target className="w-6 h-6 text-amber-500" />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-medium">Mini Protocolo</CardTitle>
-                  <CardDescription className="text-sm">Dor no joelho • 5 min</CardDescription>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Card className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40 h-full">
+                <CardContent className="flex items-center gap-4 py-5">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-base font-medium flex items-center gap-1">
+                      Protocolos Rápidos
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    </CardTitle>
+                    <CardDescription className="text-sm">Joelho, quadril • 5 min</CardDescription>
+                  </div>
+                </CardContent>
+              </Card>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 bg-popover">
+              <DropdownMenuItem asChild>
+                <Link to="/quick-protocol?studentId=select&type=knee_pain" className="flex items-center gap-3 cursor-pointer">
+                  <span className="text-lg">🦵</span>
+                  <div>
+                    <p className="font-medium">Dor no Joelho</p>
+                    <p className="text-xs text-muted-foreground">5 testes • ~5 min</p>
+                  </div>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/quick-protocol?studentId=select&type=hip_pain" className="flex items-center gap-3 cursor-pointer">
+                  <span className="text-lg">🦴</span>
+                  <div>
+                    <p className="font-medium">Dor no Quadril</p>
+                    <p className="text-xs text-muted-foreground">5 testes • ~5 min</p>
+                  </div>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Card 
-            className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40"
+            className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40 h-full"
             onClick={() => setShowAddStudent(true)}
           >
             <CardContent className="flex items-center gap-4 py-5">

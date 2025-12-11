@@ -21,10 +21,12 @@ function getCorsHeaders(origin: string | null) {
 }
 
 Deno.serve(async (req) => {
+  console.log("get-signed-url called, method:", req.method);
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
   if (req.method === "OPTIONS") {
+    console.log("Handling OPTIONS preflight");
     return new Response(null, { headers: corsHeaders });
   }
 

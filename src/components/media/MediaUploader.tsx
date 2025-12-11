@@ -42,7 +42,6 @@ export function MediaUploader({
   onSlowMotionChange,
   className,
 }: MediaUploaderProps) {
-  // Use controlled state - sync with parent's data
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl || null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -51,7 +50,6 @@ export function MediaUploader({
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showFramingGuide, setShowFramingGuide] = useState(false);
   
-  // Sync state when props change (e.g., when switching views)
   React.useEffect(() => {
     setPhotoUrl(initialPhotoUrl || null);
   }, [initialPhotoUrl]);
@@ -71,23 +69,95 @@ export function MediaUploader({
     return `${assessmentId}/${testName}${viewSuffix}_${type}_${timestamp}.${extension}`;
   };
 
+  const verifyAssessmentOwnership = async (): Promise<boolean> => {
+    console.log('[MediaUploader] Verifying assessment ownership:', assessmentId);
+    
+    if (!assessmentId) {
+      console.error('[MediaUploader] No assessmentId provided');
+      return false;
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('[MediaUploader] Auth error:', authError);
+      return false;
+    }
+
+    console.log('[MediaUploader] Current user:', user.id);
+
+    const { data: assessment, error: assessmentError } = await supabase
+      .from('assessments')
+      .select('id, professional_id, student_id')
+      .eq('id', assessmentId)
+      .maybeSingle();
+
+    if (assessmentError) {
+      console.error('[MediaUploader] Error fetching assessment:', assessmentError);
+      return false;
+    }
+
+    if (!assessment) {
+      console.error('[MediaUploader] Assessment not found:', assessmentId);
+      return false;
+    }
+
+    const hasAccess = assessment.professional_id === user.id || assessment.student_id === user.id;
+    console.log('[MediaUploader] Assessment ownership check:', {
+      assessmentId,
+      professional_id: assessment.professional_id,
+      student_id: assessment.student_id,
+      userId: user.id,
+      hasAccess,
+    });
+
+    return hasAccess;
+  };
+
   const getSignedUrl = async (filePath: string): Promise<string> => {
+    console.log('[MediaUploader] Getting signed URL for:', filePath);
+    
     const { data, error } = await supabase.functions.invoke('get-signed-url', {
       body: { filePath },
     });
 
-    if (error || !data?.signedUrl) {
-      console.error('Error getting signed URL:', error);
-      throw new Error('Failed to get signed URL');
+    if (error) {
+      console.error('[MediaUploader] Edge function error:', {
+        error,
+        message: error.message,
+        context: error.context,
+      });
+      throw new Error(`Failed to get signed URL: ${error.message}`);
     }
 
+    if (!data?.signedUrl) {
+      console.error('[MediaUploader] No signed URL in response:', data);
+      throw new Error('No signed URL returned');
+    }
+
+    console.log('[MediaUploader] Signed URL obtained successfully');
     return data.signedUrl;
   };
 
-  const uploadFile = async (file: File, type: 'photo' | 'video') => {
+  const uploadFile = async (file: File, type: 'photo' | 'video'): Promise<string> => {
     const extension = file.name.split('.').pop() || (type === 'photo' ? 'jpg' : 'mp4');
     const filePath = generateFilePath(type, extension);
 
+    console.log('[MediaUploader] Starting upload:', {
+      filePath,
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      fileType: file.type,
+      fileName: file.name,
+    });
+
+    // Verify ownership before upload
+    const hasAccess = await verifyAssessmentOwnership();
+    if (!hasAccess) {
+      throw new Error('RLS_ACCESS_DENIED');
+    }
+
+    console.log('[MediaUploader] Uploading to Supabase Storage...');
+    
     const { data, error } = await supabase.storage
       .from('assessment-media')
       .upload(filePath, file, {
@@ -96,26 +166,34 @@ export function MediaUploader({
       });
 
     if (error) {
-      console.error('Storage upload error:', { error, filePath, fileSize: file.size, fileType: file.type });
+      console.error('[MediaUploader] Storage upload error:', {
+        error,
+        message: error.message,
+        name: error.name,
+        filePath,
+        fileSize: file.size,
+        fileType: file.type,
+      });
       throw error;
     }
 
-    // Get signed URL instead of public URL for private bucket
+    console.log('[MediaUploader] Upload successful:', data.path);
+
     const signedUrl = await getSignedUrl(data.path);
     return signedUrl;
   };
 
   const deleteFileFromStorage = async (url: string) => {
     try {
-      // Extract path from URL
       const urlObj = new URL(url);
       const pathMatch = urlObj.pathname.match(/\/assessment-media\/(.+)$/);
       if (pathMatch) {
         const filePath = decodeURIComponent(pathMatch[1]);
+        console.log('[MediaUploader] Deleting file:', filePath);
         await supabase.storage.from('assessment-media').remove([filePath]);
       }
     } catch (error) {
-      console.error('Error deleting file from storage:', error);
+      console.error('[MediaUploader] Error deleting file:', error);
     }
   };
 
@@ -123,24 +201,35 @@ export function MediaUploader({
     const errorMessage = error?.message?.toLowerCase() || '';
     const errorCode = error?.statusCode || error?.status;
     
+    if (error?.message === 'RLS_ACCESS_DENIED') {
+      return 'Sem permissão para este assessment. Verifique se você está logado corretamente.';
+    }
+    
     if (errorCode === 413 || errorMessage.includes('payload too large')) {
       return type === 'video' 
         ? 'Vídeo muito grande. Grave em 720p ou menor qualidade.'
         : 'Imagem muito grande. Máximo 10MB.';
     }
-    if (errorCode === 403 || errorMessage.includes('permission') || errorMessage.includes('policy')) {
+    
+    if (errorCode === 403 || errorMessage.includes('permission') || errorMessage.includes('policy') || errorMessage.includes('row-level security')) {
       return 'Sem permissão para upload. Faça login novamente.';
     }
+    
     if (errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
       return 'Erro de arquivo duplicado. Tente novamente.';
     }
-    if (errorCode === 404) {
+    
+    if (errorCode === 404 || errorMessage.includes('bucket not found')) {
       return 'Bucket de armazenamento não encontrado.';
+    }
+
+    if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+      return 'Erro de conexão. Verifique sua internet e tente novamente.';
     }
     
     return type === 'video'
-      ? `Erro ao enviar vídeo (${errorCode || 'desconhecido'}). Tente novamente.`
-      : `Erro ao enviar foto (${errorCode || 'desconhecido'}). Tente novamente.`;
+      ? `Erro ao enviar vídeo. Tente novamente. (${errorCode || errorMessage || 'erro desconhecido'})`
+      : `Erro ao enviar foto. Tente novamente. (${errorCode || errorMessage || 'erro desconhecido'})`;
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,6 +248,15 @@ export function MediaUploader({
       return;
     }
 
+    console.log('[MediaUploader] Photo upload initiated:', {
+      fileName: file.name,
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      fileType: file.type,
+      assessmentId,
+      testName,
+      viewType,
+    });
+
     triggerHaptic('tap');
     setIsUploadingPhoto(true);
     
@@ -169,11 +267,12 @@ export function MediaUploader({
       triggerHaptic('success');
       toast.success('Foto enviada com sucesso');
     } catch (error: any) {
-      console.error('Error uploading photo:', error);
+      console.error('[MediaUploader] Photo upload failed:', error);
       triggerHaptic('error');
       toast.error(getErrorMessage(error, 'photo'));
     } finally {
       setIsUploadingPhoto(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -187,12 +286,20 @@ export function MediaUploader({
       return;
     }
 
-    // Allow up to 150MB
     if (file.size > 150 * 1024 * 1024) {
       triggerHaptic('error');
       toast.error('O vídeo deve ter no máximo 150MB. Configure seu celular para gravar em 720p.');
       return;
     }
+
+    console.log('[MediaUploader] Video upload initiated:', {
+      fileName: file.name,
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      fileType: file.type,
+      assessmentId,
+      testName,
+      viewType,
+    });
 
     triggerHaptic('tap');
     setIsUploadingVideo(true);
@@ -204,11 +311,12 @@ export function MediaUploader({
       triggerHaptic('success');
       toast.success('Vídeo enviado com sucesso');
     } catch (error: any) {
-      console.error('Error uploading video:', error);
+      console.error('[MediaUploader] Video upload failed:', error);
       triggerHaptic('error');
       toast.error(getErrorMessage(error, 'video'));
     } finally {
       setIsUploadingVideo(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -278,7 +386,6 @@ export function MediaUploader({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* Hidden inputs for camera (with capture) */}
           <input
             ref={photoCameraRef}
             type="file"
@@ -298,7 +405,6 @@ export function MediaUploader({
             id={`video-camera-${inputId}`}
           />
           
-          {/* Hidden inputs for gallery (without capture) */}
           <input
             ref={photoGalleryRef}
             type="file"
@@ -316,7 +422,6 @@ export function MediaUploader({
             id={`video-gallery-${inputId}`}
           />
 
-          {/* Photo Upload */}
           <div className="space-y-2">
             {photoUrl ? (
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
@@ -355,7 +460,6 @@ export function MediaUploader({
             )}
           </div>
 
-          {/* Video Upload */}
           <div className="space-y-2">
           {videoUrl ? (
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
@@ -395,7 +499,6 @@ export function MediaUploader({
           </div>
         </div>
 
-        {/* Analyze Button */}
         {onAnalyze && hasMedia && (
           <Button
             onClick={handleAnalyze}
@@ -417,7 +520,6 @@ export function MediaUploader({
           </Button>
         )}
 
-        {/* Slow Motion Toggle */}
         {hasMedia && onSlowMotionChange && (
           <div className="flex items-center justify-between py-2 px-1 border-t border-border/50">
             <div className="flex items-center gap-2">
@@ -445,7 +547,6 @@ export function MediaUploader({
         )}
       </Card>
 
-      {/* Photo Source Modal */}
       <MediaSourceModal
         open={showPhotoModal}
         onOpenChange={setShowPhotoModal}
@@ -454,7 +555,6 @@ export function MediaUploader({
         mediaType="photo"
       />
 
-      {/* Video Source Modal */}
       <MediaSourceModal
         open={showVideoModal}
         onOpenChange={setShowVideoModal}
@@ -463,7 +563,6 @@ export function MediaUploader({
         mediaType="video"
       />
 
-      {/* Framing Guide Dialog */}
       <Dialog open={showFramingGuide} onOpenChange={setShowFramingGuide}>
         <DialogContent className="max-w-sm p-4">
           <FramingGuide testName={testName} viewType={viewType} />

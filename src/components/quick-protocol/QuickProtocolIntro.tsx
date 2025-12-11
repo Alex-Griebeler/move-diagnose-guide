@@ -5,19 +5,25 @@
 
 import { ArrowRight, Clock, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { KNEE_PROTOCOL_META } from '@/data/quickProtocolMappings';
+import { ProtocolType, getProtocolMeta, getTestsForProtocol } from '@/data/quickProtocolMappings';
 
 interface QuickProtocolIntroProps {
+  protocolType: ProtocolType;
   onStart: () => void;
   hasPriorAssessment?: boolean;
   priorDeficits?: string[];
 }
 
 export function QuickProtocolIntro({ 
+  protocolType,
   onStart, 
   hasPriorAssessment = false,
   priorDeficits = []
 }: QuickProtocolIntroProps) {
+  const meta = getProtocolMeta(protocolType);
+  const tests = getTestsForProtocol(protocolType);
+  const bodyPart = protocolType === 'knee_pain' ? 'joelho' : 'quadril';
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
       {/* Icon */}
@@ -27,20 +33,20 @@ export function QuickProtocolIntro({
 
       {/* Title */}
       <h1 className="text-2xl md:text-3xl font-display mb-3">
-        {KNEE_PROTOCOL_META.name}
+        {meta.name}
       </h1>
 
       {/* Description */}
       <p className="text-muted-foreground max-w-md mb-8 leading-relaxed">
-        Vamos identificar rapidamente o que está sobrecarregando o joelho.
+        Vamos identificar rapidamente o que está sobrecarregando o {bodyPart}.
         <br />
-        <span className="text-foreground font-medium">5 testes simples, ~5 minutos.</span>
+        <span className="text-foreground font-medium">{tests.length} testes simples, ~{meta.estimatedTime} minutos.</span>
       </p>
 
       {/* Time indicator */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-8">
         <Clock className="w-4 h-4" />
-        <span>Duração estimada: {KNEE_PROTOCOL_META.estimatedTime} minutos</span>
+        <span>Duração estimada: {meta.estimatedTime} minutos</span>
       </div>
 
       {/* Prior assessment context */}

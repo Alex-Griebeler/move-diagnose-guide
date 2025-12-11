@@ -17,7 +17,12 @@ import { QuickProtocolTest } from './QuickProtocolTest';
 import { QuickProtocolResult } from './QuickProtocolResult';
 import { QuickProtocolRetest } from './QuickProtocolRetest';
 
-import { QUICK_PROTOCOL_TESTS, RETEST_OPTIONS } from '@/data/quickProtocolMappings';
+import { 
+  ProtocolType,
+  RETEST_OPTIONS, 
+  getTestsForProtocol,
+  getProtocolMeta
+} from '@/data/quickProtocolMappings';
 import { 
   calculateDecision,
   QuickProtocolTestResults,
@@ -33,6 +38,7 @@ interface QuickProtocolWizardProps {
   studentId: string;
   studentName?: string;
   assessmentId?: string | null;
+  protocolType: ProtocolType;
   onComplete?: () => void;
   onClose?: () => void;
 }
@@ -41,6 +47,7 @@ export function QuickProtocolWizard({
   studentId, 
   studentName,
   assessmentId = null,
+  protocolType,
   onComplete,
   onClose 
 }: QuickProtocolWizardProps) {
@@ -55,8 +62,10 @@ export function QuickProtocolWizard({
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const totalTests = QUICK_PROTOCOL_TESTS.length;
-  const currentTest = QUICK_PROTOCOL_TESTS[currentTestIndex];
+  const protocolTests = getTestsForProtocol(protocolType);
+  const protocolMeta = getProtocolMeta(protocolType);
+  const totalTests = protocolTests.length;
+  const currentTest = protocolTests[currentTestIndex];
   const progress = step === 'test' ? ((currentTestIndex + 1) / totalTests) * 100 : 0;
 
   // Check for prior assessment data
@@ -105,7 +114,7 @@ export function QuickProtocolWizard({
           student_id: studentId,
           professional_id: user.id,
           assessment_id: assessmentId,
-          protocol_type: 'knee_pain',
+          protocol_type: protocolType,
           status: 'in_progress',
           test_results: {},
         })
@@ -138,7 +147,7 @@ export function QuickProtocolWizard({
       setCurrentTestIndex(prev => prev + 1);
     } else {
       // All tests complete, calculate decision
-      const decision = calculateDecision(testResults);
+      const decision = calculateDecision(testResults, protocolType);
       setDecisionResult(decision);
       setStep('result');
     }
@@ -237,6 +246,7 @@ export function QuickProtocolWizard({
       case 'intro':
         return (
           <QuickProtocolIntro
+            protocolType={protocolType}
             onStart={handleStart}
             hasPriorAssessment={!!assessmentId}
             priorDeficits={priorDeficits}
@@ -292,7 +302,7 @@ export function QuickProtocolWizard({
         <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
           <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
             <div>
-              <h1 className="text-sm font-medium">Mini Protocolo – Joelho</h1>
+              <h1 className="text-sm font-medium">{protocolMeta.name}</h1>
               {studentName && (
                 <p className="text-xs text-muted-foreground">{studentName}</p>
               )}

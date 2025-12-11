@@ -7,7 +7,7 @@
 // PROTOCOL TYPES
 // ============================================================================
 
-export type ProtocolType = 'knee_pain' | 'hip_pain';
+export type ProtocolType = 'knee_pain' | 'hip_pain' | 'low_back_pain';
 
 export type TestId =
   // Knee tests
@@ -21,7 +21,13 @@ export type TestId =
   | 'hip_rotation_test'
   | 'hip_sls_stability'
   | 'posterior_chain'
-  | 'hip_control';
+  | 'hip_control'
+  // Low back tests
+  | 'lumbar_flexion'
+  | 'lumbar_extension'
+  | 'hinge_test'
+  | 'low_back_posterior_chain'
+  | 'core_stability';
 
 // ============================================================================
 // TEST DEFINITIONS
@@ -264,6 +270,117 @@ export const HIP_PROTOCOL_TESTS: QuickTestDefinition[] = [
 ];
 
 // ============================================================================
+// LOW BACK PROTOCOL TESTS
+// ============================================================================
+
+export const LOW_BACK_PROTOCOL_TESTS: QuickTestDefinition[] = [
+  {
+    id: 'lumbar_flexion',
+    name: 'Toe Touch Control',
+    description: 'Avalia mobilidade posterior, ritmo lombar-pelve e sensibilidade de flexão',
+    layer: 'mobility',
+    segment: 'lumbar_spine',
+    isBilateral: false,
+    instructions: [
+      'Em pé, pés na largura do quadril',
+      'Flexione lentamente tentando tocar os dedos no chão',
+      'Observe amplitude, ritmo lombo-pélvico e simetria',
+      'Note se há dor ou arredondamento precoce da lombar'
+    ],
+    options: [
+      { id: 'clean', label: 'Toca o chão facilmente', isPositive: false },
+      { id: 'limited', label: 'Flexão limitada', isPositive: true },
+      { id: 'early_rounding', label: 'Lombar arredonda cedo', isPositive: true },
+      { id: 'pain', label: 'Dor ao flexionar', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria perceptível', isPositive: true }
+    ]
+  },
+  {
+    id: 'lumbar_extension',
+    name: 'Back Extension Test',
+    description: 'Avalia sensibilidade à extensão, controle posterior e irritabilidade',
+    layer: 'mobility',
+    segment: 'lumbar_spine',
+    isBilateral: false,
+    instructions: [
+      'Em pé, mãos na lombar',
+      'Estenda a coluna para trás lentamente',
+      'Observe amplitude e conforto',
+      'Note se há compressão ou dor'
+    ],
+    options: [
+      { id: 'normal', label: 'Extensão normal', isPositive: false },
+      { id: 'limited', label: 'Extensão limitada', isPositive: true },
+      { id: 'pain', label: 'Dor na lombar', isPositive: true },
+      { id: 'compression', label: 'Compressão desconfortável', isPositive: true }
+    ]
+  },
+  {
+    id: 'hinge_test',
+    name: 'Hinge Pattern Test',
+    description: 'Principal teste para distinguir erro técnico de déficit de estabilidade',
+    layer: 'motor_control',
+    segment: 'kinetic_chain',
+    isBilateral: false,
+    instructions: [
+      'Faça um RDL com bastão ou sem carga',
+      'Mantenha coluna neutra durante todo movimento',
+      'Observe se o quadril recua antes do tronco descer',
+      'Note ativação do core e posição lombar'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'lumbar_rounds', label: 'Lombar arredonda', isPositive: true },
+      { id: 'trunk_first', label: 'Tronco desce antes do quadril', isPositive: true },
+      { id: 'hip_no_pushback', label: 'Quadril não recua', isPositive: true },
+      { id: 'core_inactive', label: 'Core não ativa', isPositive: true }
+    ]
+  },
+  {
+    id: 'low_back_posterior_chain',
+    name: 'Single-Leg Deadlift',
+    description: 'Identifica falha profunda de posterior/glúteo máximo',
+    layer: 'stability',
+    segment: 'posterior_chain',
+    isBilateral: true,
+    instructions: [
+      'Em pé, apoio unilateral',
+      'Faça um airplane leve ou single-leg deadlift',
+      'Observe estabilidade e ativação de glúteo',
+      'Repita do outro lado'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'unstable', label: 'Instável', isPositive: true },
+      { id: 'hip_rotation', label: 'Rotação excessiva de quadril', isPositive: true },
+      { id: 'glute_inactive', label: 'Glúteo não ativa', isPositive: true },
+      { id: 'pain', label: 'Dor', isPositive: true }
+    ]
+  },
+  {
+    id: 'core_stability',
+    name: 'Dead Bug Test',
+    description: 'Avalia estabilidade do core de forma simples e reveladora',
+    layer: 'stability',
+    segment: 'core',
+    isBilateral: false,
+    instructions: [
+      'Deite de costas, joelhos e quadris a 90°',
+      'Pressione a lombar contra o chão',
+      'Estenda braço e perna opostos lentamente',
+      'Mantenha por 10 segundos, observe estabilidade'
+    ],
+    options: [
+      { id: 'clean', label: 'Execução limpa', isPositive: false },
+      { id: 'back_lifts', label: 'Costas saem do chão', isPositive: true },
+      { id: 'coordination_fail', label: 'Falha de coordenação', isPositive: true },
+      { id: 'excessive_tremor', label: 'Tremor excessivo', isPositive: true },
+      { id: 'core_unstable', label: 'Core instável', isPositive: true }
+    ]
+  }
+];
+
+// ============================================================================
 // PROTOCOL METADATA
 // ============================================================================
 
@@ -304,6 +421,18 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
     description: 'Avaliação rápida para identificar qual camada da pirâmide de performance está falhando e causando sobrecarga no quadril.',
     icon: '🦴',
     color: 'purple'
+  },
+  low_back_pain: {
+    id: 'LOW_BACK_UNIVERSAL_5MIN',
+    type: 'low_back_pain',
+    name: 'Mini Protocolo FABRIK – Dor Lombar',
+    shortName: 'Dor Lombar',
+    estimatedTime: 5,
+    focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
+    targetCondition: 'low_back_pain',
+    description: 'Avaliação rápida para identificar se a dor lombar é causada por mobilidade limitada, estabilidade insuficiente ou controle neuromotor deficiente.',
+    icon: '🦴',
+    color: 'red'
   }
 };
 
@@ -334,6 +463,8 @@ export function getTestsForProtocol(protocolType: ProtocolType): QuickTestDefini
       return KNEE_PROTOCOL_TESTS;
     case 'hip_pain':
       return HIP_PROTOCOL_TESTS;
+    case 'low_back_pain':
+      return LOW_BACK_PROTOCOL_TESTS;
     default:
       return KNEE_PROTOCOL_TESTS;
   }
@@ -349,11 +480,11 @@ export function getTestById(testId: TestId, protocolType?: ProtocolType): QuickT
     return tests.find(t => t.id === testId);
   }
   // Search all protocols
-  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS].find(t => t.id === testId);
+  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS].find(t => t.id === testId);
 }
 
 export function getTestsByLayer(layer: 'mobility' | 'stability' | 'motor_control', protocolType?: ProtocolType): QuickTestDefinition[] {
-  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS];
+  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS];
   return tests.filter(t => t.layer === layer);
 }
 

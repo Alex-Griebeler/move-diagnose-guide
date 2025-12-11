@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Activity } from 'lucide-react';
+import fabrikLogo from '@/assets/fabrik-logo.png';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -11,12 +11,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       {/* Header */}
       <header className="w-full py-6 px-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-            <Activity className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-semibold tracking-tight text-foreground">
-            FABRIK
-          </span>
+          <img src={fabrikLogo} alt="FABRIK" className="h-10 w-auto" />
         </div>
       </header>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Activity, Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2 } from 'lucide-react';
+import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2 } from 'lucide-react';
+import fabrikLogo from '@/assets/fabrik-logo.png';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,11 +74,8 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                <Activity className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img src={fabrikLogo} alt="FABRIK" className="h-10 w-auto" />
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">FABRIK</h1>
                 <p className="text-xs text-muted-foreground">
                   {role === 'professional' ? 'Área Profissional' : 'Área do Aluno'}
                 </p>
@@ -441,9 +439,7 @@ function StudentDashboard() {
       <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
         <CardContent className="py-6">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shrink-0">
-              <Activity className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img src={fabrikLogo} alt="FABRIK" className="h-12 w-auto shrink-0" />
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-1">Bem-vindo ao FABRIK</h2>
               <p className="text-sm text-muted-foreground">

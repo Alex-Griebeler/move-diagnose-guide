@@ -76,7 +76,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <img src={fabrikLogo} alt="FABRIK" className="h-14 w-auto" />
               <div>
-                <h1 className="text-lg font-semibold tracking-tight text-foreground">Assessment</h1>
+                <h1 className="text-lg font-semibold tracking-tight text-foreground">Movement Screen</h1>
                 <p className="text-xs text-muted-foreground">
                   {role === 'professional' ? 'Área Profissional' : 'Área do Aluno'}
                 </p>

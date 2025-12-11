@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2 } from 'lucide-react';
+import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2, Target } from 'lucide-react';
 import fabrikLogo from '@/assets/fabrik-logo.png';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -296,7 +296,7 @@ function ProfessionalDashboard() {
       {/* Quick Actions */}
       <div>
         <h2 className="text-base font-semibold text-foreground mb-4">Ações Rápidas</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link to="/assessment/new">
             <Card className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-primary/40">
               <CardContent className="flex items-center gap-4 py-5">
@@ -305,7 +305,21 @@ function ProfessionalDashboard() {
                 </div>
                 <div>
                   <CardTitle className="text-base font-medium">Nova Avaliação</CardTitle>
-                  <CardDescription className="text-sm">Iniciar uma nova avaliação de movimento</CardDescription>
+                  <CardDescription className="text-sm">Avaliação completa de movimento</CardDescription>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link to="/quick-protocol?studentId=select">
+            <Card className="card-hover cursor-pointer border-dashed border-2 border-border hover:border-amber-500/40">
+              <CardContent className="flex items-center gap-4 py-5">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                  <Target className="w-6 h-6 text-amber-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-medium">Mini Protocolo</CardTitle>
+                  <CardDescription className="text-sm">Dor no joelho • 5 min</CardDescription>
                 </div>
               </CardContent>
             </Card>

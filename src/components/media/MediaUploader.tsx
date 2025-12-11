@@ -71,6 +71,19 @@ export function MediaUploader({
     return `${assessmentId}/${testName}${viewSuffix}_${type}_${timestamp}.${extension}`;
   };
 
+  const getSignedUrl = async (filePath: string): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke('get-signed-url', {
+      body: { filePath },
+    });
+
+    if (error || !data?.signedUrl) {
+      console.error('Error getting signed URL:', error);
+      throw new Error('Failed to get signed URL');
+    }
+
+    return data.signedUrl;
+  };
+
   const uploadFile = async (file: File, type: 'photo' | 'video') => {
     const extension = file.name.split('.').pop() || (type === 'photo' ? 'jpg' : 'mp4');
     const filePath = generateFilePath(type, extension);
@@ -79,7 +92,7 @@ export function MediaUploader({
       .from('assessment-media')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: true, // Allow overwriting existing files
+        upsert: true,
       });
 
     if (error) {
@@ -87,11 +100,9 @@ export function MediaUploader({
       throw error;
     }
 
-    const { data: urlData } = supabase.storage
-      .from('assessment-media')
-      .getPublicUrl(data.path);
-
-    return urlData.publicUrl;
+    // Get signed URL instead of public URL for private bucket
+    const signedUrl = await getSignedUrl(data.path);
+    return signedUrl;
   };
 
   const deleteFileFromStorage = async (url: string) => {

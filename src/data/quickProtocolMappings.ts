@@ -339,6 +339,10 @@ export function getTestsForProtocol(protocolType: ProtocolType): QuickTestDefini
   }
 }
 
+export function getProtocolMeta(protocolType: ProtocolType): ProtocolMeta {
+  return PROTOCOL_METAS[protocolType] || PROTOCOL_METAS.knee_pain;
+}
+
 export function getTestById(testId: TestId, protocolType?: ProtocolType): QuickTestDefinition | undefined {
   if (protocolType) {
     const tests = getTestsForProtocol(protocolType);

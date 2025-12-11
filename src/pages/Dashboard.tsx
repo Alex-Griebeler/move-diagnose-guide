@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2, ChevronDown, Zap, Info } from 'lucide-react';
+import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2, ChevronDown, Zap } from 'lucide-react';
 import fabrikLogo from '@/assets/fabrik-logo.png';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -330,18 +325,11 @@ function ProfessionalDashboard() {
                     <Zap className="w-6 h-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <CardTitle className="text-base font-medium flex items-center gap-1">
                       Protocolos Rápidos
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[200px]">
-                          <p>Descubra e trate a causa da dor em 10 minutos</p>
-                        </TooltipContent>
-                      </Tooltip>
                     </CardTitle>
+                    <CardDescription className="text-sm">Descubra e trate a causa da dor em 10 minutos</CardDescription>
                   </div>
                 </CardContent>
               </Card>
@@ -349,6 +337,7 @@ function ProfessionalDashboard() {
             <DropdownMenuContent align="start" className="w-56 bg-popover">
               <DropdownMenuItem asChild>
                 <Link to="/quick-protocol?studentId=select&type=knee_pain" className="flex items-center gap-3 cursor-pointer">
+                  <span className="text-lg">🦵</span>
                   <div>
                     <p className="font-medium">Dor no Joelho</p>
                     <p className="text-xs text-muted-foreground">5 testes • ~5 min</p>
@@ -357,6 +346,7 @@ function ProfessionalDashboard() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/quick-protocol?studentId=select&type=hip_pain" className="flex items-center gap-3 cursor-pointer">
+                  <span className="text-lg">🦴</span>
                   <div>
                     <p className="font-medium">Dor no Quadril</p>
                     <p className="text-xs text-muted-foreground">5 testes • ~5 min</p>

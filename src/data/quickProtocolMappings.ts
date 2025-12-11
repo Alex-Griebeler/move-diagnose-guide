@@ -1,9 +1,27 @@
 /**
- * Quick Protocol Mappings - FABRIK Mini Protocolo
- * Definições dos testes e critérios para avaliação rápida de dor no joelho
+ * Quick Protocol Mappings - FABRIK Mini Protocolos
+ * Definições dos testes e critérios para avaliação rápida
  */
 
-import type { TestId } from '@/lib/quickProtocolEngine';
+// ============================================================================
+// PROTOCOL TYPES
+// ============================================================================
+
+export type ProtocolType = 'knee_pain' | 'hip_pain';
+
+export type TestId =
+  // Knee tests
+  | 'ankle_mobility'
+  | 'hip_rotation'
+  | 'hip_stability'
+  | 'ankle_stability'
+  | 'squat_control'
+  // Hip tests
+  | 'hip_flexion'
+  | 'hip_rotation_test'
+  | 'hip_sls_stability'
+  | 'posterior_chain'
+  | 'hip_control';
 
 // ============================================================================
 // TEST DEFINITIONS
@@ -21,13 +39,17 @@ export interface QuickTestDefinition {
   description: string;
   instructions: string[];
   layer: 'mobility' | 'stability' | 'motor_control';
-  segment: 'ankle' | 'hip' | 'kinetic_chain';
+  segment: string;
   isBilateral: boolean;
   options: QuickTestOption[];
   videoUrl?: string;
 }
 
-export const QUICK_PROTOCOL_TESTS: QuickTestDefinition[] = [
+// ============================================================================
+// KNEE PROTOCOL TESTS
+// ============================================================================
+
+export const KNEE_PROTOCOL_TESTS: QuickTestDefinition[] = [
   {
     id: 'ankle_mobility',
     name: 'Wall Test',
@@ -133,17 +155,163 @@ export const QUICK_PROTOCOL_TESTS: QuickTestDefinition[] = [
 ];
 
 // ============================================================================
+// HIP PROTOCOL TESTS
+// ============================================================================
+
+export const HIP_PROTOCOL_TESTS: QuickTestDefinition[] = [
+  {
+    id: 'hip_flexion',
+    name: 'Knee-to-Chest Test',
+    description: 'Avalia a mobilidade de flexão do quadril',
+    layer: 'mobility',
+    segment: 'hip_flexion',
+    isBilateral: true,
+    instructions: [
+      'Deite de costas com pernas estendidas',
+      'Traga um joelho em direção ao peito',
+      'Observe amplitude e sensação de bloqueio',
+      'Compare os lados'
+    ],
+    options: [
+      { id: 'normal', label: 'Amplitude normal', isPositive: false },
+      { id: 'limited', label: 'Amplitude limitada', isPositive: true },
+      { id: 'pinch', label: 'Pinch anterior', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria', isPositive: true }
+    ]
+  },
+  {
+    id: 'hip_rotation_test',
+    name: 'IR/ER Rotation Test',
+    description: 'Avalia a mobilidade de rotação do quadril',
+    layer: 'mobility',
+    segment: 'hip_rotation',
+    isBilateral: true,
+    instructions: [
+      'Sente ou deite com quadril a 90°',
+      'Rotacione internamente (IR)',
+      'Rotacione externamente (ER)',
+      'Compare amplitude e conforto'
+    ],
+    options: [
+      { id: 'normal', label: 'IR e ER normais', isPositive: false },
+      { id: 'ir_limited', label: 'IR baixa', isPositive: true },
+      { id: 'er_limited', label: 'ER baixa', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria', isPositive: true },
+      { id: 'end_range_pain', label: 'Dor final de amplitude', isPositive: true }
+    ]
+  },
+  {
+    id: 'hip_sls_stability',
+    name: 'Single-Leg Squat',
+    description: 'Avalia a estabilidade do quadril (glúteo médio/máximo)',
+    layer: 'stability',
+    segment: 'hip',
+    isBilateral: true,
+    instructions: [
+      'Fique em apoio unilateral',
+      'Desça em mini-agachamento',
+      'Observe valgo, queda de pelve, instabilidade',
+      'Repita do outro lado'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'valgus', label: 'Valgo dinâmico', isPositive: true },
+      { id: 'pelvic_drop', label: 'Pelve cai', isPositive: true },
+      { id: 'instability', label: 'Instabilidade global', isPositive: true }
+    ]
+  },
+  {
+    id: 'posterior_chain',
+    name: 'Single-Leg Bridge',
+    description: 'Avalia estabilidade da cadeia posterior',
+    layer: 'stability',
+    segment: 'posterior_chain',
+    isBilateral: true,
+    instructions: [
+      'Deite de costas, uma perna dobrada',
+      'Estenda a outra perna',
+      'Eleve o quadril em ponte unilateral',
+      'Observe ativação e estabilidade'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'glute_weak', label: 'Glúteo não ativa', isPositive: true },
+      { id: 'hamstring_dominant', label: 'Isquios dominam', isPositive: true },
+      { id: 'unstable', label: 'Instabilidade', isPositive: true },
+      { id: 'posterior_pain', label: 'Dor posterior', isPositive: true }
+    ]
+  },
+  {
+    id: 'hip_control',
+    name: 'Squat/Hinge Control Test',
+    description: 'Avalia o controle neuromotor do quadril',
+    layer: 'motor_control',
+    segment: 'kinetic_chain',
+    isBilateral: false,
+    instructions: [
+      'Realize o movimento que causou dor (squat ou hinge)',
+      'Execute lentamente e com controle',
+      'Observe organização e compensações',
+      'Note se há perda de eixo'
+    ],
+    options: [
+      { id: 'clean', label: 'Padrão limpo', isPositive: false },
+      { id: 'axis_loss', label: 'Perda de eixo', isPositive: true },
+      { id: 'trunk_dominant', label: 'Tronco toma controle', isPositive: true },
+      { id: 'compensations', label: 'Compensações evidentes', isPositive: true }
+    ]
+  }
+];
+
+// ============================================================================
 // PROTOCOL METADATA
 // ============================================================================
 
-export const KNEE_PROTOCOL_META = {
-  id: 'KNEE_UNIVERSAL_5MIN',
-  name: 'Mini Protocolo FABRIK – Dor no Joelho',
-  estimatedTime: 5,
-  focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
-  targetCondition: 'knee_pain',
-  description: 'Avaliação rápida para identificar qual camada da pirâmide de performance está falhando e causando sobrecarga no joelho.'
+export interface ProtocolMeta {
+  id: string;
+  type: ProtocolType;
+  name: string;
+  shortName: string;
+  estimatedTime: number;
+  focus: string[];
+  targetCondition: string;
+  description: string;
+  icon: string;
+  color: string;
+}
+
+export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
+  knee_pain: {
+    id: 'KNEE_UNIVERSAL_5MIN',
+    type: 'knee_pain',
+    name: 'Mini Protocolo FABRIK – Dor no Joelho',
+    shortName: 'Dor no Joelho',
+    estimatedTime: 5,
+    focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
+    targetCondition: 'knee_pain',
+    description: 'Avaliação rápida para identificar qual camada da pirâmide de performance está falhando e causando sobrecarga no joelho.',
+    icon: '🦵',
+    color: 'amber'
+  },
+  hip_pain: {
+    id: 'HIP_UNIVERSAL_5MIN',
+    type: 'hip_pain',
+    name: 'Mini Protocolo FABRIK – Dor no Quadril',
+    shortName: 'Dor no Quadril',
+    estimatedTime: 5,
+    focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
+    targetCondition: 'hip_pain',
+    description: 'Avaliação rápida para identificar qual camada da pirâmide de performance está falhando e causando sobrecarga no quadril.',
+    icon: '🦴',
+    color: 'purple'
+  }
 };
+
+// Legacy export for backward compatibility
+export const KNEE_PROTOCOL_META = PROTOCOL_METAS.knee_pain;
+
+// Legacy export - maps to KNEE tests
+export const QUICK_PROTOCOL_TESTS = KNEE_PROTOCOL_TESTS;
 
 // ============================================================================
 // RETEST OPTIONS
@@ -160,12 +328,29 @@ export const RETEST_OPTIONS = [
 // HELPER FUNCTIONS
 // ============================================================================
 
-export function getTestById(testId: TestId): QuickTestDefinition | undefined {
-  return QUICK_PROTOCOL_TESTS.find(t => t.id === testId);
+export function getTestsForProtocol(protocolType: ProtocolType): QuickTestDefinition[] {
+  switch (protocolType) {
+    case 'knee_pain':
+      return KNEE_PROTOCOL_TESTS;
+    case 'hip_pain':
+      return HIP_PROTOCOL_TESTS;
+    default:
+      return KNEE_PROTOCOL_TESTS;
+  }
 }
 
-export function getTestsByLayer(layer: 'mobility' | 'stability' | 'motor_control'): QuickTestDefinition[] {
-  return QUICK_PROTOCOL_TESTS.filter(t => t.layer === layer);
+export function getTestById(testId: TestId, protocolType?: ProtocolType): QuickTestDefinition | undefined {
+  if (protocolType) {
+    const tests = getTestsForProtocol(protocolType);
+    return tests.find(t => t.id === testId);
+  }
+  // Search all protocols
+  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS].find(t => t.id === testId);
+}
+
+export function getTestsByLayer(layer: 'mobility' | 'stability' | 'motor_control', protocolType?: ProtocolType): QuickTestDefinition[] {
+  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS];
+  return tests.filter(t => t.layer === layer);
 }
 
 export function getLayerLabel(layer: 'mobility' | 'stability' | 'motor_control'): string {

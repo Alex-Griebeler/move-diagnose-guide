@@ -1,28 +1,30 @@
 /**
- * Quick Protocol Engine - FABRIK Mini Protocolo
- * Motor de decisão determinístico para avaliação rápida de dor no joelho
+ * Quick Protocol Engine - FABRIK Mini Protocolos
+ * Motor de decisão determinístico para avaliação rápida
  * 
  * Baseado na pirâmide de performance:
  * Mobilidade > Estabilidade > Controle Neuromotor
  */
+
+import type { ProtocolType, TestId } from '@/data/quickProtocolMappings';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export type DeficitType =
+  // Knee deficits
   | 'ankle_mobility_deficit'
   | 'hip_mobility_deficit'
   | 'hip_stability_deficit'
   | 'ankle_stability_deficit'
-  | 'motor_control_deficit';
-
-export type TestId =
-  | 'ankle_mobility'
-  | 'hip_rotation'
-  | 'hip_stability'
-  | 'ankle_stability'
-  | 'squat_control';
+  | 'motor_control_deficit'
+  // Hip deficits
+  | 'hip_flexion_mobility_deficit'
+  | 'hip_rotation_mobility_deficit'
+  | 'hip_abd_ext_stability_deficit'
+  | 'posterior_chain_stability_deficit'
+  | 'hip_motor_control_deficit';
 
 export type TestResultStatus = 'normal' | 'limited' | 'asymmetric' | 'unstable' | 'pain';
 
@@ -36,11 +38,7 @@ export interface TestResult {
 }
 
 export interface QuickProtocolTestResults {
-  ankle_mobility?: TestResult;
-  hip_rotation?: TestResult;
-  hip_stability?: TestResult;
-  ankle_stability?: TestResult;
-  squat_control?: TestResult;
+  [key: string]: TestResult | undefined;
 }
 
 export interface Intervention {
@@ -64,7 +62,7 @@ export interface QuickProtocolSession {
   studentId: string;
   professionalId: string;
   assessmentId?: string | null;
-  protocolType: 'knee_pain';
+  protocolType: ProtocolType;
   status: 'in_progress' | 'completed' | 'cancelled';
   testResults: QuickProtocolTestResults;
   primaryDeficit?: DeficitType | null;
@@ -77,10 +75,10 @@ export interface QuickProtocolSession {
 }
 
 // ============================================================================
-// PRIORITY ORDER (Mobilidade > Estabilidade > Controle Motor)
+// PRIORITY ORDERS
 // ============================================================================
 
-const PRIORITY_ORDER: DeficitType[] = [
+const KNEE_PRIORITY_ORDER: DeficitType[] = [
   'ankle_mobility_deficit',
   'hip_mobility_deficit',
   'hip_stability_deficit',
@@ -88,11 +86,19 @@ const PRIORITY_ORDER: DeficitType[] = [
   'motor_control_deficit'
 ];
 
+const HIP_PRIORITY_ORDER: DeficitType[] = [
+  'hip_flexion_mobility_deficit',
+  'hip_rotation_mobility_deficit',
+  'hip_abd_ext_stability_deficit',
+  'posterior_chain_stability_deficit',
+  'hip_motor_control_deficit'
+];
+
 // ============================================================================
-// TEST TO DEFICIT MAPPING
+// TEST TO DEFICIT MAPPINGS
 // ============================================================================
 
-const TEST_TO_DEFICIT: Record<TestId, DeficitType> = {
+const KNEE_TEST_TO_DEFICIT: Record<string, DeficitType> = {
   ankle_mobility: 'ankle_mobility_deficit',
   hip_rotation: 'hip_mobility_deficit',
   hip_stability: 'hip_stability_deficit',
@@ -100,11 +106,20 @@ const TEST_TO_DEFICIT: Record<TestId, DeficitType> = {
   squat_control: 'motor_control_deficit'
 };
 
+const HIP_TEST_TO_DEFICIT: Record<string, DeficitType> = {
+  hip_flexion: 'hip_flexion_mobility_deficit',
+  hip_rotation_test: 'hip_rotation_mobility_deficit',
+  hip_sls_stability: 'hip_abd_ext_stability_deficit',
+  posterior_chain: 'posterior_chain_stability_deficit',
+  hip_control: 'hip_motor_control_deficit'
+};
+
 // ============================================================================
 // INTERVENTIONS DATABASE
 // ============================================================================
 
 const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
+  // Knee interventions
   ankle_mobility_deficit: [
     {
       id: 'calf_release',
@@ -184,6 +199,87 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       duration: '8-10 reps controladas',
       category: 'technique'
     }
+  ],
+  // Hip interventions
+  hip_flexion_mobility_deficit: [
+    {
+      id: 'tfl_iliopsoas_release',
+      name: 'Liberação TFL/Iliopsoas',
+      description: 'Liberar região anterior do quadril com bola ou rolo',
+      duration: '60-90s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'hip_flexion_mob',
+      name: 'Mobilidade de Flexão',
+      description: 'Mobilização ativa de flexão do quadril com controle',
+      duration: '10-12 reps cada lado',
+      category: 'mobility'
+    }
+  ],
+  hip_rotation_mobility_deficit: [
+    {
+      id: 'glute_tfl_release',
+      name: 'Liberação Glúteos/TFL',
+      description: 'Liberar glúteos e TFL com bola',
+      duration: '60-90s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'ir_er_mob',
+      name: 'Mobilidade IR/ER',
+      description: 'Mobilização de rotações do quadril em 90/90',
+      duration: '8-10 reps cada lado',
+      category: 'mobility'
+    }
+  ],
+  hip_abd_ext_stability_deficit: [
+    {
+      id: 'glute_med_activation_hip',
+      name: 'Ativação Glúteo Médio',
+      description: 'Clamshell, side-lying abduction ou monster walk',
+      duration: '12-15 reps cada lado',
+      category: 'activation'
+    },
+    {
+      id: 'step_down_control',
+      name: 'Step-Down Controlado',
+      description: 'Descida controlada de degrau com foco em alinhamento',
+      duration: '8-10 reps cada lado',
+      category: 'activation'
+    }
+  ],
+  posterior_chain_stability_deficit: [
+    {
+      id: 'glute_max_activation',
+      name: 'Ativação Glúteo Máximo',
+      description: 'Bridge bilateral ou glute squeezes',
+      duration: '12-15 reps',
+      category: 'activation'
+    },
+    {
+      id: 'single_leg_bridge',
+      name: 'Bridge Unilateral',
+      description: 'Ponte unilateral com foco em ativação de glúteo',
+      duration: '8-10 reps cada lado',
+      category: 'activation'
+    }
+  ],
+  hip_motor_control_deficit: [
+    {
+      id: 'hinge_drill',
+      name: 'Drill Técnico (Hinge ou Squat)',
+      description: 'Padrão lento e controlado do movimento que causou dor',
+      duration: '5-8 reps lentas',
+      category: 'technique'
+    },
+    {
+      id: 'alignment_focus',
+      name: 'Foco em Alinhamento',
+      description: 'Ritmo lento com atenção ao eixo quadril-joelho-tornozelo',
+      duration: '8-10 reps controladas',
+      category: 'technique'
+    }
   ]
 };
 
@@ -192,6 +288,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
 // ============================================================================
 
 const EXPLANATIONS: Record<DeficitType, string> = {
+  // Knee explanations
   ankle_mobility_deficit: 
     'Sua dor no joelho está relacionada à mobilidade reduzida do tornozelo. ' +
     'Quando o tornozelo não se movimenta bem, o joelho acaba recebendo mais carga durante movimentos como agachamento.',
@@ -210,7 +307,28 @@ const EXPLANATIONS: Record<DeficitType, string> = {
   
   motor_control_deficit:
     'Sua mobilidade e estabilidade estão adequadas, mas o padrão de movimento pode ser ajustado. ' +
-    'Pequenas correções técnicas podem proteger melhor o joelho durante o exercício.'
+    'Pequenas correções técnicas podem proteger melhor o joelho durante o exercício.',
+
+  // Hip explanations
+  hip_flexion_mobility_deficit:
+    'Seu quadril está limitado em flexão, o que aumenta a compressão na região anterior. ' +
+    'Isso pode causar pinch ou desconforto durante agachamentos e lunges.',
+  
+  hip_rotation_mobility_deficit:
+    'A mobilidade de rotação do quadril está reduzida, alterando o alinhamento da coxa. ' +
+    'Isso afeta diretamente squat, lunge e corrida.',
+  
+  hip_abd_ext_stability_deficit:
+    'Seu quadril não está estabilizando o movimento adequadamente. ' +
+    'A fraqueza de glúteo médio e máximo sobrecarrega a articulação.',
+  
+  posterior_chain_stability_deficit:
+    'A cadeia posterior não está absorvendo carga de forma eficiente. ' +
+    'Os isquios estão dominando onde o glúteo deveria atuar.',
+  
+  hip_motor_control_deficit:
+    'Sua mobilidade e estabilidade estão boas, mas o padrão de movimento precisa de ajuste. ' +
+    'Correções técnicas podem proteger melhor o quadril durante o exercício.'
 };
 
 // ============================================================================
@@ -235,20 +353,22 @@ export function isTestPositive(result: TestResult): boolean {
 
 /**
  * Motor de decisão principal - determinístico
- * Prioriza: Mobilidade > Estabilidade > Controle Motor
  */
-export function calculateDecision(testResults: QuickProtocolTestResults): DecisionResult {
-  const positiveTests: TestId[] = [];
+export function calculateDecision(
+  testResults: QuickProtocolTestResults, 
+  protocolType: ProtocolType = 'knee_pain'
+): DecisionResult {
+  const positiveTestIds: string[] = [];
   
   // Identificar todos os testes positivos
   for (const [testId, result] of Object.entries(testResults)) {
     if (result && isTestPositive(result)) {
-      positiveTests.push(testId as TestId);
+      positiveTestIds.push(testId);
     }
   }
   
   // Se nenhum teste positivo, sem déficit identificado
-  if (positiveTests.length === 0) {
+  if (positiveTestIds.length === 0) {
     return {
       primary: null,
       secondary: [],
@@ -259,43 +379,23 @@ export function calculateDecision(testResults: QuickProtocolTestResults): Decisi
     };
   }
   
+  // Selecionar mapeamento correto
+  const testToDeficit = protocolType === 'hip_pain' ? HIP_TEST_TO_DEFICIT : KNEE_TEST_TO_DEFICIT;
+  const priorityOrder = protocolType === 'hip_pain' ? HIP_PRIORITY_ORDER : KNEE_PRIORITY_ORDER;
+  
   // Mapear testes para déficits
-  const detectedDeficits = positiveTests.map(t => TEST_TO_DEFICIT[t]);
+  const detectedDeficits = positiveTestIds
+    .map(t => testToDeficit[t])
+    .filter(Boolean) as DeficitType[];
   
   // Ordenar por prioridade (mobilidade primeiro)
   const sortedDeficits = detectedDeficits.sort((a, b) => 
-    PRIORITY_ORDER.indexOf(a) - PRIORITY_ORDER.indexOf(b)
+    priorityOrder.indexOf(a) - priorityOrder.indexOf(b)
   );
   
-  // Caso especial: motor_control só é primário se todos os outros forem negativos
-  const mobilityAndStabilityTests: TestId[] = [
-    'ankle_mobility', 'hip_rotation', 'hip_stability', 'ankle_stability'
-  ];
-  
-  const hasOnlyMotorControl = 
-    sortedDeficits.length === 1 && 
-    sortedDeficits[0] === 'motor_control_deficit';
-  
-  const allMobilityStabilityNormal = mobilityAndStabilityTests.every(testId => {
-    const result = testResults[testId];
-    return !result || !isTestPositive(result);
-  });
-  
   // Determinar primário e secundários
-  let primary: DeficitType;
-  let secondary: DeficitType[];
-  
-  if (hasOnlyMotorControl && allMobilityStabilityNormal) {
-    primary = 'motor_control_deficit';
-    secondary = [];
-  } else if (sortedDeficits[0] === 'motor_control_deficit' && sortedDeficits.length > 1) {
-    // Motor control não é primário se há outros déficits
-    primary = sortedDeficits[1];
-    secondary = sortedDeficits.filter(d => d !== primary);
-  } else {
-    primary = sortedDeficits[0];
-    secondary = sortedDeficits.slice(1);
-  }
+  const primary = sortedDeficits[0];
+  const secondary = sortedDeficits.slice(1);
   
   // Buscar intervenções para o déficit primário
   const interventions = INTERVENTIONS[primary] || [];
@@ -317,11 +417,18 @@ export function calculateDecision(testResults: QuickProtocolTestResults): Decisi
  */
 export function formatDeficitName(deficit: DeficitType): string {
   const names: Record<DeficitType, string> = {
+    // Knee
     ankle_mobility_deficit: 'Mobilidade de Tornozelo',
     hip_mobility_deficit: 'Mobilidade de Quadril',
     hip_stability_deficit: 'Estabilidade de Quadril',
     ankle_stability_deficit: 'Estabilidade de Pé/Tornozelo',
-    motor_control_deficit: 'Controle Neuromotor'
+    motor_control_deficit: 'Controle Neuromotor',
+    // Hip
+    hip_flexion_mobility_deficit: 'Mobilidade de Flexão (Quadril)',
+    hip_rotation_mobility_deficit: 'Mobilidade de Rotação (Quadril)',
+    hip_abd_ext_stability_deficit: 'Estabilidade de Quadril (Abd/Ext)',
+    posterior_chain_stability_deficit: 'Estabilidade Cadeia Posterior',
+    hip_motor_control_deficit: 'Controle Neuromotor (Quadril)'
   };
   return names[deficit] || deficit;
 }
@@ -362,3 +469,6 @@ export function getLayerStyle(layer: 'mobility' | 'stability' | 'motor_control')
   };
   return styles[layer];
 }
+
+// Re-export TestId for backward compatibility
+export type { TestId, ProtocolType };

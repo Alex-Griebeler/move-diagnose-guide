@@ -329,7 +329,7 @@ function ProfessionalDashboard() {
                       Protocolos Rápidos
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     </CardTitle>
-                    <CardDescription className="text-sm">Joelho, quadril • 5 min</CardDescription>
+                    <CardDescription className="text-sm">Descubra e trate a causa da dor em 10 minutos</CardDescription>
                   </div>
                 </CardContent>
               </Card>

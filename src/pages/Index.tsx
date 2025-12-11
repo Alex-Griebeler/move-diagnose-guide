@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Activity, ArrowRight, CheckCircle2, Zap, Shield, BarChart3 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Zap, Shield, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import fabrikLogo from '@/assets/fabrik-logo.png';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -37,10 +38,7 @@ export default function Index() {
       <header className="w-full py-6 px-4 sm:px-8 border-b border-border">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-              <Activity className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-semibold tracking-tight text-foreground">FABRIK</span>
+            <img src={fabrikLogo} alt="FABRIK" className="h-10 w-auto" />
           </div>
           <Link to="/auth">
             <Button variant="outline" size="sm">Entrar</Button>

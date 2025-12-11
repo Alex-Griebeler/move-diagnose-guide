@@ -1,34 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, UserPlus, Search } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
 import { AssessmentBreadcrumb } from '@/components/assessment/AssessmentBreadcrumb';
+import { StudentSearchList, type StudentItem } from '@/components/students/StudentSearchList';
 
 type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests' | 'protocol';
-
-interface Student {
-  id: string;
-  full_name: string;
-  email: string;
-}
 
 export default function NewAssessment() {
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>('select-student');
-  const [students, setStudents] = useState<Student[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
   const [assessmentId, setAssessmentId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
 
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
@@ -65,8 +58,8 @@ export default function NewAssessment() {
   }, [user, step]);
 
   const fetchStudents = async () => {
+    setIsLoadingStudents(true);
     try {
-      // Get students linked to this professional
       const { data: links, error: linksError } = await supabase
         .from('professional_students')
         .select('student_id')
@@ -86,6 +79,8 @@ export default function NewAssessment() {
       }
     } catch (error) {
       console.error('Error fetching students:', error);
+    } finally {
+      setIsLoadingStudents(false);
     }
   };
 
@@ -118,7 +113,7 @@ export default function NewAssessment() {
     }
   };
 
-  const handleSelectStudent = (student: Student) => {
+  const handleSelectStudent = (student: StudentItem) => {
     setSelectedStudent(student);
     createAssessment(student.id);
   };
@@ -155,12 +150,6 @@ export default function NewAssessment() {
     navigate('/dashboard');
   };
 
-  const filteredStudents = students.filter(
-    (s) =>
-      s.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -192,63 +181,15 @@ export default function NewAssessment() {
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {step === 'select-student' && (
-          <div className="space-y-6">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar aluno por nome ou email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11"
-              />
-            </div>
-
-            {/* Students List */}
-            {filteredStudents.length > 0 ? (
-              <div className="grid gap-3">
-                {filteredStudents.map((student) => (
-                  <Card
-                    key={student.id}
-                    className="cursor-pointer card-hover"
-                    onClick={() => handleSelectStudent(student)}
-                  >
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{student.full_name}</p>
-                        <p className="text-sm text-muted-foreground">{student.email}</p>
-                      </div>
-                      <Button variant="outline" size="sm" disabled={isCreating}>
-                        {isCreating && selectedStudent?.id === student.id
-                          ? 'Criando...'
-                          : 'Iniciar Avaliação'}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : students.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <UserPlus className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-2">
-                    Você ainda não tem alunos cadastrados.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Adicione alunos no dashboard para iniciar avaliações.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground">
-                    Nenhum aluno encontrado para "{searchTerm}"
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <StudentSearchList
+            students={students}
+            onSelect={handleSelectStudent}
+            isLoading={isLoadingStudents}
+            selectedId={selectedStudent?.id}
+            emptyMessage="Você ainda não tem alunos cadastrados."
+            emptySubMessage="Adicione alunos no dashboard para iniciar avaliações."
+            actionLabel={isCreating ? 'Criando...' : 'Iniciar Avaliação'}
+          />
         )}
 
         {step === 'anamnesis' && assessmentId && (

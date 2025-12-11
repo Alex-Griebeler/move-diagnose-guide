@@ -15,7 +15,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Users, Trash2, UserX, Mail } from 'lucide-react';
+import { Users, Trash2, UserX, Mail, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface Student {
   id: string;
@@ -34,12 +36,13 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
   const [loading, setLoading] = useState(true);
   const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   const fetchStudents = async () => {
     if (!user) return;
 
     try {
-      // Get linked student IDs
       const { data: links, error: linksError } = await supabase
         .from('professional_students')
         .select('id, student_id')
@@ -52,7 +55,6 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
         return;
       }
 
-      // Get student profiles
       const studentIds = links.map(l => l.student_id);
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
@@ -61,7 +63,6 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
 
       if (profilesError) throw profilesError;
 
-      // Merge data
       const merged = links.map(link => {
         const profile = profiles?.find(p => p.id === link.student_id);
         return {
@@ -84,6 +85,15 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
   useEffect(() => {
     fetchStudents();
   }, [user]);
+
+  const filteredStudents = students.filter(s => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    return (
+      s.full_name.toLowerCase().includes(q) ||
+      (s.email || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleRemove = async () => {
     if (!studentToRemove) return;
@@ -129,16 +139,41 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Meus Alunos
-            {students.length > 0 && (
-              <span className="text-xs font-normal text-muted-foreground">
-                ({students.length})
-              </span>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Meus Alunos
+              {students.length > 0 && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({students.length})
+                </span>
+              )}
+            </CardTitle>
+            {students.length > 3 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setShowSearch(!showSearch)}
+              >
+                {showSearch ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+              </Button>
             )}
-          </CardTitle>
+          </div>
+          
+          {/* Search Input */}
+          {showSearch && (
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar aluno..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {students.length === 0 ? (
@@ -151,9 +186,15 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
                 Use "Adicionar Aluno" para vincular alunos
               </p>
             </div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="py-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Nenhum resultado para "{searchTerm}"
+              </p>
+            </div>
           ) : (
             <div className="space-y-2">
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <div
                   key={student.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"

@@ -480,6 +480,68 @@ export type Database = {
           },
         ]
       }
+      quick_protocol_sessions: {
+        Row: {
+          assessment_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          intervention_applied: Json | null
+          primary_deficit: string | null
+          professional_id: string
+          protocol_type: string
+          retest_feedback: string | null
+          retest_result: string | null
+          secondary_deficits: Json | null
+          status: string
+          student_id: string
+          test_results: Json
+          updated_at: string
+        }
+        Insert: {
+          assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          intervention_applied?: Json | null
+          primary_deficit?: string | null
+          professional_id: string
+          protocol_type?: string
+          retest_feedback?: string | null
+          retest_result?: string | null
+          secondary_deficits?: Json | null
+          status?: string
+          student_id: string
+          test_results?: Json
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          intervention_applied?: Json | null
+          primary_deficit?: string | null
+          professional_id?: string
+          protocol_type?: string
+          retest_feedback?: string | null
+          retest_result?: string | null
+          secondary_deficits?: Json | null
+          status?: string
+          student_id?: string
+          test_results?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_protocol_sessions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       segmental_test_results: {
         Row: {
           assessment_id: string

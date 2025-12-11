@@ -11,7 +11,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       {/* Header */}
       <header className="w-full py-6 px-8">
         <div className="flex items-center gap-3">
-          <img src={fabrikLogo} alt="FABRIK" className="h-10 w-auto" />
+          <img src={fabrikLogo} alt="FABRIK" className="h-14 w-auto" />
         </div>
       </header>
 

@@ -9,6 +9,9 @@ import { causaToTests } from '@/data/causaTestMappings';
 import { segmentalTests, SegmentalTest } from '@/data/segmentalTestMappings';
 import { contextosAjuste } from '@/data/weightEngine';
 import { removeRedundantTests } from './testRedundancy';
+import { createLogger } from './logger';
+
+const logger = createLogger('TestPrioritization');
 
 // ============================================
 // Interfaces
@@ -140,20 +143,20 @@ export function getSuggestedTestsWithPriority(
   const prioritizedTests = allPrioritizedTests.slice(0, maxTests);
   const additionalTests = allPrioritizedTests.slice(maxTests);
 
-  // Log reasoning chain
-  console.group('[FABRIK] Test Prioritization Engine');
-  console.log('📊 Compensações:', compensationIds.length);
-  console.log('🎯 Contextos aplicados:', priorityResult.contextosAplicados);
-  console.log('📈 Top Causas (Pareto):', topCausas.map(c => `${c.label} (${c.priorityScore})`));
-  console.log('🔄 Testes antes de filtrar redundâncias:', sortedTests.length);
-  console.log('✂️ Testes após remover redundâncias:', filteredTests.length);
-  console.log('✅ Testes Priorizados:', prioritizedTests.map(t => 
+  // Log reasoning chain (apenas em dev)
+  logger.group('Test Prioritization Engine');
+  logger.debug(`Compensações: ${compensationIds.length}`);
+  logger.debug('Contextos aplicados:', priorityResult.contextosAplicados);
+  logger.debug('Top Causas (Pareto):', topCausas.map(c => `${c.label} (${c.priorityScore})`));
+  logger.debug(`Testes antes de filtrar redundâncias: ${sortedTests.length}`);
+  logger.debug(`Testes após remover redundâncias: ${filteredTests.length}`);
+  logger.debug('Testes Priorizados:', prioritizedTests.map(t => 
     `${t.test.name} [${t.priority}] - Score: ${t.score} (${t.coveredCausesCount} causas)`
   ));
   if (additionalTests.length > 0) {
-    console.log('➕ Testes Adicionais:', additionalTests.map(t => t.test.name));
+    logger.debug('Testes Adicionais:', additionalTests.map(t => t.test.name));
   }
-  console.groupEnd();
+  logger.groupEnd();
   return {
     prioritizedTests,
     additionalTests,

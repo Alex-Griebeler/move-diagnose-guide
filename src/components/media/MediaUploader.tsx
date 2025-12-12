@@ -6,12 +6,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
+import { createLogger } from '@/lib/logger';
 import { MediaSourceModal } from './MediaSourceModal';
 import { FramingGuide } from './FramingGuide';
 import {
   Dialog,
   DialogContent,
 } from '@/components/ui/dialog';
+
+const logger = createLogger('MediaUploader');
 
 interface MediaUploaderProps {
   assessmentId: string;
@@ -64,21 +67,21 @@ export function MediaUploader({
   };
 
   const verifyAssessmentOwnership = async (): Promise<boolean> => {
-    console.log('[MediaUploader] Verifying assessment ownership:', assessmentId);
+    logger.debug('Verifying assessment ownership:', assessmentId);
     
     if (!assessmentId) {
-      console.error('[MediaUploader] No assessmentId provided');
+      logger.error('No assessmentId provided');
       return false;
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      console.error('[MediaUploader] Auth error:', authError);
+      logger.error('Auth error', authError);
       return false;
     }
 
-    console.log('[MediaUploader] Current user:', user.id);
+    logger.debug('Current user:', user.id);
 
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
@@ -87,17 +90,17 @@ export function MediaUploader({
       .maybeSingle();
 
     if (assessmentError) {
-      console.error('[MediaUploader] Error fetching assessment:', assessmentError);
+      logger.error('Error fetching assessment', assessmentError);
       return false;
     }
 
     if (!assessment) {
-      console.error('[MediaUploader] Assessment not found:', assessmentId);
+      logger.error('Assessment not found:', assessmentId);
       return false;
     }
 
     const hasAccess = assessment.professional_id === user.id || assessment.student_id === user.id;
-    console.log('[MediaUploader] Assessment ownership check:', {
+    logger.debug('Assessment ownership check:', {
       assessmentId,
       professional_id: assessment.professional_id,
       student_id: assessment.student_id,
@@ -109,14 +112,14 @@ export function MediaUploader({
   };
 
   const getSignedUrl = async (filePath: string): Promise<string> => {
-    console.log('[MediaUploader] Getting signed URL for:', filePath);
+    logger.debug('Getting signed URL for:', filePath);
     
     const { data, error } = await supabase.functions.invoke('get-signed-url', {
       body: { filePath },
     });
 
     if (error) {
-      console.error('[MediaUploader] Edge function error:', {
+      logger.error('Edge function error', {
         error,
         message: error.message,
         context: error.context,
@@ -125,11 +128,11 @@ export function MediaUploader({
     }
 
     if (!data?.signedUrl) {
-      console.error('[MediaUploader] No signed URL in response:', data);
+      logger.error('No signed URL in response', data);
       throw new Error('No signed URL returned');
     }
 
-    console.log('[MediaUploader] Signed URL obtained successfully');
+    logger.debug('Signed URL obtained successfully');
     return data.signedUrl;
   };
 
@@ -137,7 +140,7 @@ export function MediaUploader({
     const extension = file.name.split('.').pop() || (type === 'photo' ? 'jpg' : 'mp4');
     const filePath = generateFilePath(type, extension);
 
-    console.log('[MediaUploader] Starting upload:', {
+    logger.debug('Starting upload:', {
       filePath,
       fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
       fileType: file.type,
@@ -150,7 +153,7 @@ export function MediaUploader({
       throw new Error('RLS_ACCESS_DENIED');
     }
 
-    console.log('[MediaUploader] Uploading to Supabase Storage...');
+    logger.debug('Uploading to Supabase Storage...');
     
     const { data, error } = await supabase.storage
       .from('assessment-media')
@@ -160,7 +163,7 @@ export function MediaUploader({
       });
 
     if (error) {
-      console.error('[MediaUploader] Storage upload error:', {
+      logger.error('Storage upload error', {
         error,
         message: error.message,
         name: error.name,
@@ -171,7 +174,7 @@ export function MediaUploader({
       throw error;
     }
 
-    console.log('[MediaUploader] Upload successful:', data.path);
+    logger.debug('Upload successful:', data.path);
 
     const signedUrl = await getSignedUrl(data.path);
     return signedUrl;
@@ -242,7 +245,7 @@ export function MediaUploader({
       return;
     }
 
-    console.log('[MediaUploader] Photo upload initiated:', {
+    logger.debug('Photo upload initiated:', {
       fileName: file.name,
       fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
       fileType: file.type,
@@ -261,7 +264,7 @@ export function MediaUploader({
       triggerHaptic('success');
       toast.success('Foto enviada com sucesso');
     } catch (error: any) {
-      console.error('[MediaUploader] Photo upload failed:', error);
+      logger.error('Photo upload failed', error);
       triggerHaptic('error');
       toast.error(getErrorMessage(error, 'photo'));
     } finally {
@@ -286,7 +289,7 @@ export function MediaUploader({
       return;
     }
 
-    console.log('[MediaUploader] Video upload initiated:', {
+    logger.debug('Video upload initiated:', {
       fileName: file.name,
       fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
       fileType: file.type,
@@ -305,7 +308,7 @@ export function MediaUploader({
       triggerHaptic('success');
       toast.success('Vídeo enviado com sucesso');
     } catch (error: any) {
-      console.error('[MediaUploader] Video upload failed:', error);
+      logger.error('Video upload failed', error);
       triggerHaptic('error');
       toast.error(getErrorMessage(error, 'video'));
     } finally {

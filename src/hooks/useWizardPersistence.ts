@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('WizardPersistence');
 
 interface WizardPersistenceOptions<T> {
   key: string;
@@ -8,8 +11,16 @@ interface WizardPersistenceOptions<T> {
   assessmentId: string;
 }
 
+// Minimal data stored in localStorage (no sensitive clinical data)
+interface LocalStorageMinimalState {
+  assessmentId: string;
+  currentStep: number;
+  lastUpdated: number;
+  hasDatabaseDraft: boolean;
+}
+
 export function useWizardPersistence<T>({ key, initialData, assessmentId }: WizardPersistenceOptions<T>) {
-  const storageKey = `${key}_${assessmentId}`;
+  const storageKey = `${key}_minimal_${assessmentId}`;
   const stepType = key.replace('_wizard', ''); // 'anamnesis', 'global_tests', 'segmental_tests'
   
   const [isLoading, setIsLoading] = useState(true);
@@ -17,34 +28,26 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncedDataRef = useRef<string>('');
   
-  // Initialize state from localStorage first (fast), then sync with DB
-  const [data, setData] = useState<T>(() => {
+  // State initialized from initialData - actual data comes from database
+  const [data, setData] = useState<T>(initialData);
+
+  // Initialize step from localStorage (minimal, non-sensitive)
+  const [currentStep, setCurrentStep] = useState<number>(() => {
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        // Handle date restoration for birthDate field
-        if (parsed.birthDate) {
-          parsed.birthDate = new Date(parsed.birthDate);
+        const parsed: LocalStorageMinimalState = JSON.parse(stored);
+        if (parsed.assessmentId === assessmentId) {
+          return parsed.currentStep || 1;
         }
-        return parsed;
       }
-    } catch (e) {
-      console.error('Error loading wizard data from localStorage:', e);
-    }
-    return initialData;
-  });
-
-  const [currentStep, setCurrentStep] = useState<number>(() => {
-    try {
-      const stored = localStorage.getItem(`${storageKey}_step`);
-      return stored ? parseInt(stored, 10) : 1;
     } catch {
-      return 1;
+      // Ignore parsing errors
     }
+    return 1;
   });
 
-  // Load from database on mount
+  // Load from database on mount (source of truth for sensitive data)
   useEffect(() => {
     const loadFromDatabase = async () => {
       try {
@@ -56,7 +59,7 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
           .maybeSingle();
 
         if (error) {
-          console.error('Error loading draft from database:', error);
+          logger.error('Error loading draft from database', error);
           setIsLoading(false);
           return;
         }
@@ -71,14 +74,19 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
           setData(draftData);
           setCurrentStep(draft.current_step || 1);
           
-          // Update localStorage with DB data
-          localStorage.setItem(storageKey, JSON.stringify(draftData));
-          localStorage.setItem(`${storageKey}_step`, String(draft.current_step || 1));
+          // Update localStorage with MINIMAL state only (no sensitive data)
+          const minimalState: LocalStorageMinimalState = {
+            assessmentId,
+            currentStep: draft.current_step || 1,
+            lastUpdated: Date.now(),
+            hasDatabaseDraft: true,
+          };
+          localStorage.setItem(storageKey, JSON.stringify(minimalState));
           
           lastSyncedDataRef.current = JSON.stringify({ data: draftData, step: draft.current_step });
         }
       } catch (e) {
-        console.error('Error loading from database:', e);
+        logger.error('Error loading from database', e);
       } finally {
         setIsLoading(false);
       }
@@ -131,17 +139,26 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
       }
 
       if (error) {
-        console.error('Error syncing to database:', error);
+        logger.error('Error syncing to database', error);
       } else {
         lastSyncedDataRef.current = syncKey;
-        console.log(`[WizardPersistence] Synced ${stepType} to database`);
+        logger.debug(`Synced ${stepType} to database`);
+        
+        // Update localStorage with MINIMAL state only
+        const minimalState: LocalStorageMinimalState = {
+          assessmentId,
+          currentStep: stepToSync,
+          lastUpdated: Date.now(),
+          hasDatabaseDraft: true,
+        };
+        localStorage.setItem(storageKey, JSON.stringify(minimalState));
       }
     } catch (e) {
-      console.error('Error syncing to database:', e);
+      logger.error('Error syncing to database', e);
     } finally {
       setIsSyncing(false);
     }
-  }, [assessmentId, stepType]);
+  }, [assessmentId, stepType, storageKey]);
 
   // Debounced sync effect
   useEffect(() => {
@@ -152,14 +169,20 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
       clearTimeout(syncTimeoutRef.current);
     }
 
-    // Save to localStorage immediately
+    // Save MINIMAL state to localStorage immediately (no sensitive data)
     try {
-      localStorage.setItem(storageKey, JSON.stringify(data));
+      const minimalState: LocalStorageMinimalState = {
+        assessmentId,
+        currentStep,
+        lastUpdated: Date.now(),
+        hasDatabaseDraft: lastSyncedDataRef.current !== '',
+      };
+      localStorage.setItem(storageKey, JSON.stringify(minimalState));
     } catch (e) {
-      console.error('Error saving wizard data to localStorage:', e);
+      logger.error('Error saving minimal state to localStorage', e);
     }
 
-    // Debounce database sync (2 seconds)
+    // Debounce database sync (2 seconds) - sensitive data goes to DB only
     syncTimeoutRef.current = setTimeout(() => {
       syncToDatabase(data, currentStep);
     }, 2000);
@@ -169,17 +192,7 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [data, currentStep, isLoading, storageKey, syncToDatabase]);
-
-  // Persist step to localStorage immediately
-  useEffect(() => {
-    if (isLoading) return;
-    try {
-      localStorage.setItem(`${storageKey}_step`, currentStep.toString());
-    } catch (e) {
-      console.error('Error saving wizard step to localStorage:', e);
-    }
-  }, [currentStep, storageKey, isLoading]);
+  }, [data, currentStep, isLoading, storageKey, syncToDatabase, assessmentId]);
 
   // Update data function
   const updateData = useCallback((updates: Partial<T> | ((prev: T) => T)) => {
@@ -196,9 +209,8 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
     // Clear localStorage
     try {
       localStorage.removeItem(storageKey);
-      localStorage.removeItem(`${storageKey}_step`);
     } catch (e) {
-      console.error('Error clearing wizard data from localStorage:', e);
+      logger.error('Error clearing minimal state from localStorage', e);
     }
 
     // Clear from database
@@ -210,12 +222,12 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
         .eq('step_type', stepType);
 
       if (error) {
-        console.error('Error clearing draft from database:', error);
+        logger.error('Error clearing draft from database', error);
       } else {
-        console.log(`[WizardPersistence] Cleared ${stepType} draft from database`);
+        logger.debug(`Cleared ${stepType} draft from database`);
       }
     } catch (e) {
-      console.error('Error clearing from database:', e);
+      logger.error('Error clearing from database', e);
     }
 
     lastSyncedDataRef.current = '';

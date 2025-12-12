@@ -277,7 +277,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       imageUrl,
       videoUrl: media?.videoUrl,
       viewType: targetViewId,
-      isSlowMotion: true, // Always assume slow motion for best analysis
     });
   };
 

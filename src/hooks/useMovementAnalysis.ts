@@ -31,7 +31,6 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
     imageUrl: string;
     videoUrl?: string;
     viewType?: string;
-    isSlowMotion?: boolean;
     // Segmental test specific parameters
     cutoffValue?: number;
     unit?: string;

@@ -47,102 +47,176 @@ async function validateAuth(req: Request): Promise<{ userId: string } | null> {
   return { userId: user.id };
 }
 
+// Dados clínicos de compensações para enriquecer prompts
+const COMPENSATION_DATA: Record<string, { 
+  hyperactive: string[]; 
+  hypoactive: string[]; 
+  injuries: string[] 
+}> = {
+  knee_valgus: {
+    hyperactive: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral'],
+    hypoactive: ['Glúteo médio', 'Glúteo máximo', 'VMO', 'Rotadores laterais do quadril'],
+    injuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA'],
+  },
+  heels_rise: {
+    hyperactive: ['Sóleo', 'Gastrocnêmio', 'Flexores plantares'],
+    hypoactive: ['Tibial anterior', 'Dorsiflexores'],
+    injuries: ['Tendinopatia do Aquiles', 'Fascite plantar'],
+  },
+  spine_flexion: {
+    hyperactive: ['Isquiotibiais', 'Reto abdominal'],
+    hypoactive: ['Eretores lombares', 'Multífidos', 'Flexores do quadril'],
+    injuries: ['Hérnia discal', 'Dor lombar', 'Protrusão discal'],
+  },
+  hip_drop: {
+    hyperactive: ['Quadrado lombar', 'TFL', 'Piriforme', 'Adutores'],
+    hypoactive: ['Glúteo médio', 'Glúteo mínimo', 'Core lateral', 'Oblíquos'],
+    injuries: ['Síndrome da banda IT', 'Tendinopatia glútea', 'Bursite trocantérica'],
+  },
+  scapular_winging: {
+    hyperactive: ['Peitoral menor', 'Levantador da escápula', 'Trapézio superior'],
+    hypoactive: ['Serrátil anterior', 'Trapézio inferior', 'Trapézio médio'],
+    injuries: ['Discinese escapular', 'Impacto do ombro', 'Tendinopatia manguito'],
+  },
+  arms_fall_forward: {
+    hyperactive: ['Peitoral maior', 'Latíssimo do dorso', 'Redondo maior'],
+    hypoactive: ['Trapézio médio/inferior', 'Romboides', 'Serrátil anterior'],
+    injuries: ['Impacto do ombro', 'Síndrome desfiladeiro torácico', 'Cifose'],
+  },
+  trunk_forward_lean: {
+    hyperactive: ['Sóleo', 'Gastrocnêmio', 'Flexores do quadril', 'Reto abdominal'],
+    hypoactive: ['Glúteo máximo', 'Eretores torácicos', 'Core estabilizador'],
+    injuries: ['Dor lombar', 'Impacto femoroacetabular'],
+  },
+  foot_collapse: {
+    hyperactive: ['Fibulares', 'Gastrocnêmio lateral'],
+    hypoactive: ['Tibial posterior', 'Intrínsecos do pé', 'Tibial anterior'],
+    injuries: ['Fascite plantar', 'Tendinopatia tibial posterior'],
+  },
+};
+
+// Gerar contexto clínico para o prompt
+function getCompensationContext(compensationIds: string[]): string {
+  const contexts: string[] = [];
+  
+  for (const id of compensationIds) {
+    const data = COMPENSATION_DATA[id];
+    if (data) {
+      contexts.push(`
+${id}:
+  - Músculos hiperativos: ${data.hyperactive.join(', ')}
+  - Músculos hipoativos: ${data.hypoactive.join(', ')}
+  - Riscos de lesão: ${data.injuries.join(', ')}`);
+    }
+  }
+  
+  return contexts.length > 0 ? `\nCONTEXTO CLÍNICO DAS COMPENSAÇÕES:\n${contexts.join('\n')}` : '';
+}
+
 // Test-specific prompts for movement analysis with clinical severity thresholds
 const TEST_PROMPTS: Record<string, string> = {
   // Global Tests
   overhead_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Overhead Squat.
 
-IMPORTANTE: Só reporte compensações CLINICAMENTE SIGNIFICATIVAS. Variações leves dentro da normalidade NÃO devem ser reportadas.
+OBJETIVO: Detectar compensações VISÍVEIS e CONSISTENTES que indiquem disfunção funcional.
 
-CRITÉRIOS DE SEVERIDADE (só reporte se ultrapassar esses limiares):
+CRITÉRIOS DE DETECÇÃO (reporte se presente de forma CLARA):
 
 VISTA ANTERIOR:
-- feet_abduction: Pés giram >30° para fora (15-30° é normal)
-- feet_eversion: Arco plantar CLARAMENTE colapsado, calcanhar inclinado >10°
-- knee_valgus: Joelhos CLARAMENTE passam da linha do hálux durante descida
-- knee_varus: Joelhos se afastam >15° da vertical
+- feet_abduction: Pés giram >30° para fora (15-30° pode ser variação normal)
+- feet_eversion: Arco plantar COLAPSA, calcanhar inclina medialmente
+- knee_valgus: Joelhos CLARAMENTE passam da linha do hálux (valgo dinâmico)
+- knee_varus: Joelhos se afastam significativamente da vertical
 
 VISTA LATERAL:
-- trunk_forward_lean: Tronco inclina >45° com a vertical (até 30° é aceitável)
-- lumbar_hyperextension: Lordose EXAGERADA, hiperlordose visível
-- spine_flexion: Arredondamento EVIDENTE da lombar no fundo (butt wink pronunciado)
-- heels_rise: Calcanhares sobem CLARAMENTE do chão
+- trunk_forward_lean: Tronco inclina >45° com a vertical
+- lumbar_hyperextension: Lordose EXAGERADA, hiperlordose evidente
+- spine_flexion: Arredondamento EVIDENTE da lombar (butt wink pronunciado)
+- heels_rise: Calcanhares CLARAMENTE sobem do chão
 - arms_fall_forward: Braços caem abaixo da linha da cabeça
 
 VISTA POSTERIOR:
-- asymmetric_shift: Pelve desvia >2cm para um lado (shift EVIDENTE)
-- trunk_rotation: Ombros ou pelve rotam >10° (assimetria CLARA)
-- feet_eversion_posterior: Calcanhares inclinam VISIVELMENTE para fora
+- asymmetric_shift: Pelve desvia VISIVELMENTE para um lado (>2cm)
+- trunk_rotation: Ombros ou pelve rotam de forma ASSIMÉTRICA
+- feet_eversion_posterior: Calcanhares inclinam para fora
 
-REGRAS:
-1. NA DÚVIDA, NÃO REPORTE - melhor subnotificar que supernotificar
-2. Compensações SUTIS não são clinicamente relevantes
-3. Avalie se a compensação é CONSISTENTE (padrão) ou MOMENTÂNEA (não reportar)
-4. Considere que variação biomecânica individual é NORMAL
+REGRAS DE ANÁLISE:
+1. Reporte compensações que são VISÍVEIS e CONSISTENTES no padrão de movimento
+2. Considere que pequenas variações biomecânicas são NORMAIS
+3. Foque em compensações que indicam DISFUNÇÃO FUNCIONAL real
+4. Se a imagem não permite avaliação clara de uma compensação, não a reporte
+
+${getCompensationContext(['knee_valgus', 'heels_rise', 'spine_flexion', 'hip_drop', 'arms_fall_forward'])}
 
 Responda em JSON:
 {
-  "detected_compensations": ["apenas_ids_significativos"],
+  "detected_compensations": ["ids_das_compensacoes_detectadas"],
   "confidence": 0.85,
-  "notes": "Breve descrição das compensações significativas encontradas (ou 'Movimento dentro dos padrões normais' se nenhuma)"
+  "notes": "Descrição objetiva das compensações encontradas ou 'Movimento dentro dos padrões normais'"
 }`,
 
   single_leg_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Single-Leg Squat.
 
-IMPORTANTE: Só reporte compensações CLINICAMENTE SIGNIFICATIVAS.
+OBJETIVO: Detectar compensações VISÍVEIS e CONSISTENTES em apoio unipodal.
 
-CRITÉRIOS DE SEVERIDADE:
+CRITÉRIOS DE DETECÇÃO:
 
 VISTA ANTERIOR:
 - knee_valgus: Joelho CLARAMENTE colapsa medialmente, passando linha do hálux
-- foot_collapse: Arco plantar desaba COMPLETAMENTE
-- instability: Oscilações GRANDES e repetidas (não micromovimentos normais)
-- tremor: Tremor VISÍVEL e persistente
-- balance_loss: TOCA o chão ou perde apoio completamente
+- foot_collapse: Arco plantar COLAPSA completamente
+- instability: Oscilações GRANDES e REPETIDAS (não micromovimentos)
+- tremor: Tremor VISÍVEL e PERSISTENTE durante execução
+- balance_loss: PERDE apoio ou toca o chão
 
 VISTA POSTERIOR:
-- hip_drop: Pelve cai >5° do lado contralateral (Trendelenburg POSITIVO)
+- hip_drop: Pelve CAI >5° do lado contralateral (Trendelenburg POSITIVO)
 - hip_hike: Elevação EXAGERADA da pelve contralateral
 - trunk_rotation_medial/lateral: Rotação >15° do tronco
 - trunk_forward_lean_sls: Inclinação >30° para frente
 - knee_flexion_insufficient: Joelho flexiona <30° (amplitude MUITO limitada)
 
-REGRAS:
-1. Pequenas oscilações são NORMAIS em teste unipodal
-2. Só reporte hip_drop se for EVIDENTE (teste Trendelenburg positivo)
-3. NA DÚVIDA, NÃO REPORTE
+REGRAS DE ANÁLISE:
+1. Pequenas oscilações são NORMAIS em teste unipodal - não reporte
+2. Hip drop só deve ser reportado se for EVIDENTE (Trendelenburg positivo claro)
+3. Foque em compensações que indicam DÉFICIT DE CONTROLE real
+4. Considere a dificuldade inerente do teste unipodal
+
+${getCompensationContext(['knee_valgus', 'hip_drop', 'foot_collapse'])}
 
 Responda em JSON:
 {
-  "detected_compensations": ["apenas_ids_significativos"],
+  "detected_compensations": ["ids_das_compensacoes_detectadas"],
   "side": "left" ou "right",
   "confidence": 0.85,
-  "notes": "Descrição breve ou 'Controle adequado para teste unipodal'"
+  "notes": "Descrição objetiva ou 'Controle adequado para teste unipodal'"
 }`,
 
   pushup: `Você é um especialista em análise biomecânica. Analise esta imagem de Push-up.
 
-IMPORTANTE: Só reporte compensações CLINICAMENTE SIGNIFICATIVAS.
+OBJETIVO: Detectar compensações VISÍVEIS que indicam déficit de controle escapular ou core.
 
-CRITÉRIOS DE SEVERIDADE:
+CRITÉRIOS DE DETECÇÃO:
 
-- scapular_winging: Borda medial da escápula CLARAMENTE se projeta >2cm do tórax
+- scapular_winging: Borda medial da escápula PROJETA-SE >2cm do tórax
 - elbow_flare: Cotovelos abrem >60° do tronco (até 45° é aceitável)
 - shoulder_protraction: Protração EXAGERADA, ombros muito arredondados
-- shoulder_retraction_insufficient: Escápulas NÃO se aproximam na descida
+- shoulder_retraction_insufficient: Escápulas NÃO se aproximam na fase excêntrica
 - hip_elevation: Quadril sobe formando "pirâmide" (pike EVIDENTE)
 - hip_drop: Quadril afunda criando lordose EXAGERADA
 
-REGRAS:
+REGRAS DE ANÁLISE:
 1. Variações leves na técnica são NORMAIS
 2. Foque em compensações que indicam DÉFICIT FUNCIONAL
-3. NA DÚVIDA, NÃO REPORTE
+3. Scapular winging é RELEVANTE - indica serrátil anterior deficiente
+4. Avalie a posição durante TODO o movimento, não só posição estática
+
+${getCompensationContext(['scapular_winging', 'arms_fall_forward'])}
 
 Responda em JSON:
 {
-  "detected_compensations": ["apenas_ids_significativos"],
+  "detected_compensations": ["ids_das_compensacoes_detectadas"],
   "confidence": 0.85,
-  "notes": "Descrição breve ou 'Execução dentro dos padrões adequados'"
+  "notes": "Descrição objetiva ou 'Execução dentro dos padrões adequados'"
 }`
 };
 
@@ -433,8 +507,6 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
         testName,
         viewType,
         analysis: analysisResult,
-        // Include prompt for debugging/transparency
-        promptUsed: prompt,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -1,15 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Camera, Video, X, Loader2, CheckCircle, Lightbulb, Gauge } from 'lucide-react';
+import { Camera, Video, X, Loader2, CheckCircle, Lightbulb } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { MediaSourceModal } from './MediaSourceModal';
 import { FramingGuide } from './FramingGuide';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -21,11 +19,9 @@ interface MediaUploaderProps {
   viewType?: string;
   initialPhotoUrl?: string;
   initialVideoUrl?: string;
-  onUploadComplete: (urls: { photoUrl?: string; videoUrl?: string; isSlowMotion?: boolean }) => void;
+  onUploadComplete: (urls: { photoUrl?: string; videoUrl?: string }) => void;
   onAnalyze?: () => void;
   isAnalyzing?: boolean;
-  isSlowMotion?: boolean;
-  onSlowMotionChange?: (value: boolean) => void;
   className?: string;
 }
 
@@ -38,8 +34,6 @@ export function MediaUploader({
   onUploadComplete,
   onAnalyze,
   isAnalyzing = false,
-  isSlowMotion = false,
-  onSlowMotionChange,
   className,
 }: MediaUploaderProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
@@ -499,25 +493,7 @@ export function MediaUploader({
           </div>
         </div>
 
-        {/* Slow Motion Toggle - Only show when video exists */}
-        {videoUrl && onSlowMotionChange && (
-          <div className="flex items-center justify-between py-2 px-1">
-            <div className="flex items-center gap-2">
-              <Gauge className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="slow-motion" className="text-xs text-muted-foreground cursor-pointer">
-                Slow Motion
-              </Label>
-            </div>
-            <Switch
-              id="slow-motion"
-              checked={isSlowMotion}
-              onCheckedChange={(checked) => {
-                triggerHaptic('tap');
-                onSlowMotionChange(checked);
-              }}
-            />
-          </div>
-        )}
+        {/* Removed slow motion toggle - always assumed true */}
 
         {!hasMedia && (
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-1">

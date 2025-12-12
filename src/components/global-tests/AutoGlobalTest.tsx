@@ -146,7 +146,7 @@ interface AutoGlobalTestProps {
   assessmentId: string;
   data: {
     compensations: Record<ViewType, string[]>;
-    mediaUrls: Record<ViewType, { photoUrl?: string; videoUrl?: string; isSlowMotion?: boolean }>;
+    mediaUrls: Record<ViewType, { photoUrl?: string; videoUrl?: string }>;
     notes: string;
   };
   onUpdate: (data: AutoGlobalTestProps['data']) => void;
@@ -180,12 +180,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     }
   }, [data, onUpdate, analysisResults]);
 
-  const handleSlowMotionChange = useCallback((viewId: ViewType, isSlowMotion: boolean) => {
-    onUpdate({
-      ...data,
-      mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], isSlowMotion } },
-    });
-  }, [data, onUpdate]);
+  // Slow motion is always assumed true for better analysis
 
   const handleUpdateCompensations = useCallback((viewId: ViewType, compensations: string[]) => {
     onUpdate({
@@ -289,7 +284,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       imageUrl,
       videoUrl: media?.videoUrl,
       viewType: targetViewId,
-      isSlowMotion: media?.isSlowMotion,
+      isSlowMotion: true, // Always assume slow motion for best analysis
     });
   };
 
@@ -400,7 +395,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
             <p className="text-xs text-muted-foreground">{currentView.description}</p>
           </CardHeader>
           <CardContent className="space-y-3 px-4 pb-4 pt-0">
-            {/* Media Upload - No analyze button, auto-analyzes */}
+            {/* Media Upload - Auto-analyzes on upload */}
             <MediaUploader
               assessmentId={assessmentId}
               testName={`${testType}_${currentView.id}`}
@@ -409,8 +404,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               initialVideoUrl={currentMedia.videoUrl}
               onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
               isAnalyzing={isAnalyzing}
-              isSlowMotion={currentMedia.isSlowMotion || false}
-              onSlowMotionChange={(value) => handleSlowMotionChange(currentView.id, value)}
             />
 
             {/* AI Analysis Loading */}

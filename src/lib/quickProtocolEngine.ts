@@ -42,7 +42,13 @@ export type DeficitType =
   | 'posterior_ankle_mobility_deficit'
   | 'foot_arch_stability_deficit'
   | 'lateral_ankle_stability_deficit'
-  | 'ankle_motor_control_deficit';
+  | 'ankle_motor_control_deficit'
+  // Elbow deficits
+  | 'wrist_mobility_deficit'
+  | 'shoulder_rotation_elbow_deficit'
+  | 'scapular_stability_deficit'
+  | 'forearm_stability_deficit'
+  | 'elbow_motor_control_deficit';
 
 export type TestResultStatus = 'normal' | 'limited' | 'asymmetric' | 'unstable' | 'pain';
 
@@ -128,6 +134,14 @@ const SHOULDER_PRIORITY_ORDER: DeficitType[] = [
   'shoulder_motor_control_deficit'
 ];
 
+const ELBOW_PRIORITY_ORDER: DeficitType[] = [
+  'wrist_mobility_deficit',
+  'shoulder_rotation_elbow_deficit',
+  'scapular_stability_deficit',
+  'forearm_stability_deficit',
+  'elbow_motor_control_deficit'
+];
+
 const ANKLE_PRIORITY_ORDER: DeficitType[] = [
   'ankle_dorsiflexion_mobility_deficit',
   'posterior_ankle_mobility_deficit',
@@ -178,6 +192,14 @@ const ANKLE_TEST_TO_DEFICIT: Record<string, DeficitType> = {
   foot_stability: 'foot_arch_stability_deficit',
   lateral_stability: 'lateral_ankle_stability_deficit',
   ankle_motor_control: 'ankle_motor_control_deficit'
+};
+
+const ELBOW_TEST_TO_DEFICIT: Record<string, DeficitType> = {
+  wrist_mobility: 'wrist_mobility_deficit',
+  shoulder_rotation_elbow: 'shoulder_rotation_elbow_deficit',
+  scapular_stability: 'scapular_stability_deficit',
+  forearm_stability: 'forearm_stability_deficit',
+  elbow_motor_control: 'elbow_motor_control_deficit'
 };
 
 // ============================================================================
@@ -589,6 +611,87 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       duration: '5-8 reps lentas',
       category: 'technique'
     }
+  ],
+  // Elbow interventions
+  wrist_mobility_deficit: [
+    {
+      id: 'forearm_release',
+      name: 'Liberação de Extensores/Flexores',
+      description: 'Liberar antebraço com bola ou rolo',
+      duration: '60-90s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'wrist_mobility_drill',
+      name: 'Mobilidade de Punho',
+      description: 'Flexão e extensão ativa do punho com suporte',
+      duration: '10-12 reps cada direção',
+      category: 'mobility'
+    }
+  ],
+  shoulder_rotation_elbow_deficit: [
+    {
+      id: 'posterior_capsule',
+      name: 'Liberação Cápsula Posterior',
+      description: 'Sleeper stretch ou cross-body stretch',
+      duration: '30-45s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'rotator_cuff_activation',
+      name: 'Ativação Manguito Rotador',
+      description: 'Rotação externa leve com banda',
+      duration: '12-15 reps cada lado',
+      category: 'activation'
+    }
+  ],
+  scapular_stability_deficit: [
+    {
+      id: 'serratus_activation_elbow',
+      name: 'Ativação Serrátil',
+      description: 'Wall slide com controle ou push-up plus',
+      duration: '12-15 reps',
+      category: 'activation'
+    },
+    {
+      id: 'lower_trap',
+      name: 'Ativação Trapézio Inferior',
+      description: 'Prone Y com foco em depressão escapular',
+      duration: '10-12 reps',
+      category: 'activation'
+    }
+  ],
+  forearm_stability_deficit: [
+    {
+      id: 'grip_exercises',
+      name: 'Exercícios de Grip',
+      description: 'Squeeze com controle e pronação/supinação',
+      duration: '10-15 reps cada direção',
+      category: 'activation'
+    },
+    {
+      id: 'wrist_curl',
+      name: 'Ativação Extensores/Flexores',
+      description: 'Wrist curls leves com foco em controle',
+      duration: '12-15 reps cada direção',
+      category: 'activation'
+    }
+  ],
+  elbow_motor_control_deficit: [
+    {
+      id: 'technique_correction',
+      name: 'Correção Técnica',
+      description: 'Ajuste de trajetória do cotovelo no push/pull',
+      duration: '5-8 reps controladas',
+      category: 'technique'
+    },
+    {
+      id: 'tempo_elbow',
+      name: 'Controle de Ritmo',
+      description: 'Execução em tempo lento com alinhamento',
+      duration: '5-8 reps lentas',
+      category: 'technique'
+    }
   ]
 };
 
@@ -700,7 +803,28 @@ const EXPLANATIONS: Record<DeficitType, string> = {
   
   ankle_motor_control_deficit:
     'Sua mobilidade e estabilidade estão boas, mas o padrão de aterrissagem pode ser melhorado. ' +
-    'Correções técnicas de absorção podem proteger melhor o tornozelo.'
+    'Correções técnicas de absorção podem proteger melhor o tornozelo.',
+
+  // Elbow explanations
+  wrist_mobility_deficit:
+    'A mobilidade do punho está restringindo o movimento e sobrecarregando o cotovelo. ' +
+    'Flexão ou extensão limitada transfere tensão para extensores e flexores do antebraço.',
+  
+  shoulder_rotation_elbow_deficit:
+    'A limitação de rotação do ombro está transferindo carga excessiva para o cotovelo. ' +
+    'Quando o ombro não rota adequadamente, o cotovelo compensa.',
+  
+  scapular_stability_deficit:
+    'A escápula não está estabilizando adequadamente o braço. ' +
+    'Quando a escápula não controla o movimento, o cotovelo paga o preço.',
+  
+  forearm_stability_deficit:
+    'Os músculos do antebraço não estão absorvendo carga de forma eficiente. ' +
+    'Flexores ou extensores estão dominando e causando dor medial ou lateral.',
+  
+  elbow_motor_control_deficit:
+    'Sua mobilidade e estabilidade estão boas, mas o padrão de movimento precisa ser ajustado. ' +
+    'Correções técnicas de trajetória e ritmo podem proteger melhor o cotovelo.'
 };
 
 // ============================================================================
@@ -772,6 +896,10 @@ export function calculateDecision(
       testToDeficit = ANKLE_TEST_TO_DEFICIT;
       priorityOrder = ANKLE_PRIORITY_ORDER;
       break;
+    case 'elbow_pain':
+      testToDeficit = ELBOW_TEST_TO_DEFICIT;
+      priorityOrder = ELBOW_PRIORITY_ORDER;
+      break;
     default:
       testToDeficit = KNEE_TEST_TO_DEFICIT;
       priorityOrder = KNEE_PRIORITY_ORDER;
@@ -840,7 +968,13 @@ export function formatDeficitName(deficit: DeficitType): string {
     posterior_ankle_mobility_deficit: 'Mobilidade Posterior (Tornozelo)',
     foot_arch_stability_deficit: 'Estabilidade do Arco Plantar',
     lateral_ankle_stability_deficit: 'Estabilidade Lateral (Tornozelo)',
-    ankle_motor_control_deficit: 'Controle Neuromotor (Tornozelo)'
+    ankle_motor_control_deficit: 'Controle Neuromotor (Tornozelo)',
+    // Elbow
+    wrist_mobility_deficit: 'Mobilidade de Punho',
+    shoulder_rotation_elbow_deficit: 'Rotação do Ombro (Cotovelo)',
+    scapular_stability_deficit: 'Estabilidade Escapular',
+    forearm_stability_deficit: 'Estabilidade do Antebraço',
+    elbow_motor_control_deficit: 'Controle Neuromotor (Cotovelo)'
   };
   return names[deficit] || deficit;
 }

@@ -7,7 +7,7 @@
 // PROTOCOL TYPES
 // ============================================================================
 
-export type ProtocolType = 'knee_pain' | 'hip_pain' | 'low_back_pain' | 'shoulder_pain' | 'ankle_pain';
+export type ProtocolType = 'knee_pain' | 'hip_pain' | 'low_back_pain' | 'shoulder_pain' | 'ankle_pain' | 'elbow_pain';
 
 export type TestId =
   // Knee tests
@@ -39,7 +39,13 @@ export type TestId =
   | 'posterior_chain_ankle'
   | 'foot_stability'
   | 'lateral_stability'
-  | 'ankle_motor_control';
+  | 'ankle_motor_control'
+  // Elbow tests
+  | 'wrist_mobility'
+  | 'shoulder_rotation_elbow'
+  | 'scapular_stability'
+  | 'forearm_stability'
+  | 'elbow_motor_control';
 
 // ============================================================================
 // TEST DEFINITIONS
@@ -613,6 +619,117 @@ export const ANKLE_PROTOCOL_TESTS: QuickTestDefinition[] = [
 ];
 
 // ============================================================================
+// ELBOW PROTOCOL TESTS
+// ============================================================================
+
+export const ELBOW_PROTOCOL_TESTS: QuickTestDefinition[] = [
+  {
+    id: 'wrist_mobility',
+    name: 'Wrist Mobility Test',
+    description: 'Avalia mobilidade de flexão e extensão do punho',
+    layer: 'mobility',
+    segment: 'wrist',
+    isBilateral: true,
+    instructions: [
+      'Estenda o punho ao máximo (dorsiflexão)',
+      'Flexione o punho ao máximo',
+      'Compare amplitude entre os lados',
+      'Observe dor ou limitação'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'extension_limited', label: 'Extensão limitada', isPositive: true },
+      { id: 'flexion_limited', label: 'Flexão limitada', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria', isPositive: true },
+      { id: 'pain', label: 'Dor anterior/lateral', isPositive: true }
+    ]
+  },
+  {
+    id: 'shoulder_rotation_elbow',
+    name: 'ER/IR Rotation Test',
+    description: 'Avalia rotação do ombro e sua relação com dor no cotovelo',
+    layer: 'mobility',
+    segment: 'shoulder',
+    isBilateral: true,
+    instructions: [
+      'Cotovelo a 90° junto ao corpo',
+      'Rotacione externamente (mão para fora)',
+      'Rotacione internamente (mão para dentro)',
+      'Compare amplitude e dor entre lados'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'er_limited', label: 'ER limitada', isPositive: true },
+      { id: 'ir_limited', label: 'IR limitada', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria', isPositive: true },
+      { id: 'rotation_pain', label: 'Dor na rotação', isPositive: true }
+    ]
+  },
+  {
+    id: 'scapular_stability',
+    name: 'Scapular Control Test',
+    description: 'Avalia estabilidade escapular e impacto no cotovelo',
+    layer: 'stability',
+    segment: 'scapula',
+    isBilateral: false,
+    instructions: [
+      'Wall slide ou scapular setting',
+      'Observe controle da escápula',
+      'Note se a escápula "ala"',
+      'Observe dor no braço ou cotovelo'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'winging', label: 'Escápula alando', isPositive: true },
+      { id: 'control_loss', label: 'Perda de controle', isPositive: true },
+      { id: 'arm_pain', label: 'Dor no braço ou cotovelo', isPositive: true }
+    ]
+  },
+  {
+    id: 'forearm_stability',
+    name: 'Grip Load Test (20s)',
+    description: 'Avalia estabilidade do antebraço e controle de flexores/extensores',
+    layer: 'stability',
+    segment: 'forearm',
+    isBilateral: true,
+    instructions: [
+      'Segure um objeto com pegada firme por 20s',
+      'Observe perda de força ou fadiga',
+      'Note dor medial ou lateral',
+      'Compare os lados'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'strength_loss', label: 'Perde força rapidamente', isPositive: true },
+      { id: 'medial_pain', label: 'Dor medial', isPositive: true },
+      { id: 'lateral_pain', label: 'Dor lateral', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria evidente', isPositive: true }
+    ]
+  },
+  {
+    id: 'elbow_motor_control',
+    name: 'Push/Pull Motor Control Test',
+    description: 'Avalia controle neuromotor no movimento que causou dor',
+    layer: 'motor_control',
+    segment: 'elbow',
+    isBilateral: false,
+    instructions: [
+      'Execute o movimento que causou dor (push-up ou row)',
+      'Faça lentamente e observe o padrão',
+      'Note desalinhamento do cotovelo',
+      'Observe ritmo e técnica'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'elbow_misalign', label: 'Cotovelo desalinha', isPositive: true },
+      { id: 'forearm_rotation', label: 'Antebraço gira', isPositive: true },
+      { id: 'rhythm_fail', label: 'Falha de ritmo', isPositive: true },
+      { id: 'poor_technique', label: 'Técnica ruim', isPositive: true }
+    ]
+  }
+];
+
+// ============================================================================
 // PROTOCOL METADATA
 // ============================================================================
 
@@ -689,6 +806,18 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
     description: 'Avaliação rápida para identificar se a dor no tornozelo é causada por mobilidade de dorsiflexão limitada, instabilidade lateral ou controle neuromotor deficiente.',
     icon: '🦶',
     color: 'teal'
+  },
+  elbow_pain: {
+    id: 'ELBOW_UNIVERSAL_5MIN',
+    type: 'elbow_pain',
+    name: 'Mini Protocolo FABRIK – Dor no Cotovelo',
+    shortName: 'Dor no Cotovelo',
+    estimatedTime: 5,
+    focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
+    targetCondition: 'elbow_pain',
+    description: 'Avaliação rápida para identificar se a dor no cotovelo é causada por mobilidade de punho/ombro, estabilidade escapular ou controle neuromotor deficiente.',
+    icon: '💪',
+    color: 'orange'
   }
 };
 
@@ -725,6 +854,8 @@ export function getTestsForProtocol(protocolType: ProtocolType): QuickTestDefini
       return SHOULDER_PROTOCOL_TESTS;
     case 'ankle_pain':
       return ANKLE_PROTOCOL_TESTS;
+    case 'elbow_pain':
+      return ELBOW_PROTOCOL_TESTS;
     default:
       return KNEE_PROTOCOL_TESTS;
   }
@@ -740,11 +871,11 @@ export function getTestById(testId: TestId, protocolType?: ProtocolType): QuickT
     return tests.find(t => t.id === testId);
   }
   // Search all protocols
-  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS, ...ANKLE_PROTOCOL_TESTS].find(t => t.id === testId);
+  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS, ...ANKLE_PROTOCOL_TESTS, ...ELBOW_PROTOCOL_TESTS].find(t => t.id === testId);
 }
 
 export function getTestsByLayer(layer: 'mobility' | 'stability' | 'motor_control', protocolType?: ProtocolType): QuickTestDefinition[] {
-  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS, ...ANKLE_PROTOCOL_TESTS];
+  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS, ...ANKLE_PROTOCOL_TESTS, ...ELBOW_PROTOCOL_TESTS];
   return tests.filter(t => t.layer === layer);
 }
 

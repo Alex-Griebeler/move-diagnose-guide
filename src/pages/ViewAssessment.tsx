@@ -8,10 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   ArrowLeft, Edit2, Save, X, User, ClipboardList, Activity, 
   FileText, CheckCircle2, AlertCircle, Loader2, Calendar,
-  Dumbbell, Target, Zap, Shield, Flame, RotateCcw
+  Dumbbell, Target, Zap, Shield, Flame, RotateCcw, Video, Play
 } from 'lucide-react';
 import { 
   PageLayout, 
@@ -61,6 +62,7 @@ interface GlobalTestData {
   posterior_view: unknown;
   left_side: any;
   right_side: any;
+  media_urls: unknown;
 }
 
 interface SegmentalTestData {
@@ -484,7 +486,53 @@ export default function ViewAssessment() {
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                          <div className="space-y-2 pt-2">
+                          <div className="space-y-4 pt-2">
+                            {/* Video Section */}
+                            {Array.isArray(test.media_urls) && test.media_urls.length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-xs text-muted-foreground font-medium">Vídeos</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {(test.media_urls as string[]).map((url, idx) => {
+                                    const fileName = url.split('/').pop() || `Video ${idx + 1}`;
+                                    const viewName = fileName.includes('anterior') ? 'Anterior' 
+                                      : fileName.includes('lateral') ? 'Lateral' 
+                                      : fileName.includes('posterior') ? 'Posterior'
+                                      : fileName.includes('left') ? 'Esquerdo'
+                                      : fileName.includes('right') ? 'Direito'
+                                      : `Vídeo ${idx + 1}`;
+                                    
+                                    return (
+                                      <Dialog key={url}>
+                                        <DialogTrigger asChild>
+                                          <Button variant="outline" size="sm" className="gap-2">
+                                            <Play className="w-3 h-3" />
+                                            {viewName}
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-3xl">
+                                          <DialogHeader>
+                                            <DialogTitle className="flex items-center gap-2">
+                                              <Video className="w-4 h-4" />
+                                              {getTestLabel(test.test_name)} - {viewName}
+                                            </DialogTitle>
+                                          </DialogHeader>
+                                          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                                            <video 
+                                              src={url} 
+                                              controls 
+                                              className="w-full h-full object-contain"
+                                              playsInline
+                                            />
+                                          </div>
+                                        </DialogContent>
+                                      </Dialog>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Compensations Section */}
                             {['anterior_view', 'lateral_view', 'posterior_view', 'left_side', 'right_side'].map(view => {
                               const viewData = test[view as keyof GlobalTestData] as any;
                               if (!viewData?.compensations?.length) return null;

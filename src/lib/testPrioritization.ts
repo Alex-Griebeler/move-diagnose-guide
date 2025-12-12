@@ -1,7 +1,6 @@
 // ============================================
 // Test Prioritization Engine
-// Integra Priority Engine na seleção de testes segmentados
-// Inclui sistema de eliminação de redundâncias
+// Integra Priority Engine + MILO Region Filter
 // ============================================
 
 import { calcularPrioridades, CausaPriorizada, Anamnese, CompensacaoDetectada } from './priorityEngine';
@@ -9,12 +8,13 @@ import { causaToTests } from '@/data/causaTestMappings';
 import { segmentalTests, SegmentalTest } from '@/data/segmentalTestMappings';
 import { contextosAjuste } from '@/data/weightEngine';
 import { removeRedundantTests } from './testRedundancy';
+import { applyMiloRegionFilter, shouldApplyMiloFilter, BodyRegionGroup, PainEntry } from './miloRegionFilter';
 import { createLogger } from './logger';
 
 const logger = createLogger('TestPrioritization');
 
 // ============================================
-// Interfaces
+// Types
 // ============================================
 
 export type TestPriority = 'high' | 'medium' | 'low';
@@ -33,6 +33,11 @@ export interface TestPrioritizationResult {
   contextosAplicados: string[];
   totalCausasAnalisadas: number;
   paretoApplied: boolean;
+  miloApplied: boolean;
+  miloDetails?: {
+    painRegions: BodyRegionGroup[];
+    adjacentRegions: BodyRegionGroup[];
+  };
 }
 
 // ============================================
@@ -42,7 +47,7 @@ export interface TestPrioritizationResult {
 export function getSuggestedTestsWithPriority(
   compensationIds: string[],
   anamnese: Anamnese,
-  maxTests: number = 6
+  maxTests: number = 5
 ): TestPrioritizationResult {
   if (!compensationIds || compensationIds.length === 0) {
     return {
@@ -51,6 +56,7 @@ export function getSuggestedTestsWithPriority(
       contextosAplicados: [],
       totalCausasAnalisadas: 0,
       paretoApplied: false,
+      miloApplied: false,
     };
   }
 
@@ -74,10 +80,7 @@ export function getSuggestedTestsWithPriority(
   for (const causa of causasPriorizadas) {
     topCausas.push(causa);
     accumulatedScore += causa.priorityScore;
-    // Keep at least 3, max 8 causes
-    if (accumulatedScore >= paretoThreshold && topCausas.length >= 3) {
-      break;
-    }
+    if (accumulatedScore >= paretoThreshold && topCausas.length >= 3) break;
     if (topCausas.length >= 8) break;
   }
 
@@ -109,25 +112,20 @@ export function getSuggestedTestsWithPriority(
   const sortedTests = Array.from(testScoreMap.values())
     .sort((a, b) => b.score - a.score);
 
-  // 5.5 Remove redundant tests (keep only most informative per group)
+  // 6. Remove redundant tests
   const nonRedundantTestIds = removeRedundantTests(sortedTests.map(t => t.testId));
   const filteredTests = sortedTests.filter(t => nonRedundantTestIds.includes(t.testId));
 
-  // 6. Get test details and assign priorities
-  const allPrioritizedTests: SuggestedTestWithPriority[] = filteredTests
+  // 7. Get test details and create SuggestedTestWithPriority array
+  let allPrioritizedTests: SuggestedTestWithPriority[] = filteredTests
     .map((t, index) => {
       const test = segmentalTests.find(st => st.id === t.testId);
       if (!test) return null;
 
-      // Assign priority based on position
       let priority: TestPriority;
-      if (index < 2) {
-        priority = 'high';
-      } else if (index < 4) {
-        priority = 'medium';
-      } else {
-        priority = 'low';
-      }
+      if (index < 2) priority = 'high';
+      else if (index < 4) priority = 'medium';
+      else priority = 'low';
 
       return {
         test,
@@ -139,30 +137,78 @@ export function getSuggestedTestsWithPriority(
     })
     .filter((t): t is SuggestedTestWithPriority => t !== null);
 
-  // 7. Split into prioritized (max 6) and additional tests
-  const prioritizedTests = allPrioritizedTests.slice(0, maxTests);
-  const additionalTests = allPrioritizedTests.slice(maxTests);
+  // 8. Apply MILO filter if painHistory exists
+  let miloApplied = false;
+  let miloDetails: { painRegions: BodyRegionGroup[]; adjacentRegions: BodyRegionGroup[] } | undefined;
+  let additionalFromMilo: SuggestedTestWithPriority[] = [];
 
-  // Log reasoning chain (apenas em dev)
+  const painHistory = anamnese.painHistory as PainEntry[] | undefined;
+  
+  if (shouldApplyMiloFilter(painHistory)) {
+    const miloResult = applyMiloRegionFilter(
+      allPrioritizedTests,
+      painHistory!,
+      {
+        maxPrimaryRegion: 3,
+        maxAdjacentRegion: 2,
+        maxTotal: 5,
+        prioritizeMobility: true,
+      }
+    );
+    
+    allPrioritizedTests = miloResult.selectedTests;
+    additionalFromMilo = miloResult.excludedTests;
+    miloApplied = true;
+    miloDetails = {
+      painRegions: miloResult.painRegions,
+      adjacentRegions: miloResult.adjacentRegions,
+    };
+  }
+
+  // 9. Sort by category (mobility first) then by score
+  allPrioritizedTests.sort((a, b) => {
+    const catA = a.test.testCategory;
+    const catB = b.test.testCategory;
+    if (catA !== catB) return catA === 'mobility' ? -1 : 1;
+    return b.score - a.score;
+  });
+
+  // 10. Reassign priorities after MILO filter
+  allPrioritizedTests.forEach((t, index) => {
+    if (index < 2) t.priority = 'high';
+    else if (index < 4) t.priority = 'medium';
+    else t.priority = 'low';
+  });
+
+  // 11. Split into prioritized and additional
+  const prioritizedTests = allPrioritizedTests.slice(0, maxTests);
+  const additionalTests = [
+    ...additionalFromMilo,
+    ...allPrioritizedTests.slice(maxTests),
+  ];
+
+  // Logging
   logger.group('Test Prioritization Engine');
   logger.debug(`Compensações: ${compensationIds.length}`);
   logger.debug('Contextos aplicados:', priorityResult.contextosAplicados);
   logger.debug('Top Causas (Pareto):', topCausas.map(c => `${c.label} (${c.priorityScore})`));
-  logger.debug(`Testes antes de filtrar redundâncias: ${sortedTests.length}`);
-  logger.debug(`Testes após remover redundâncias: ${filteredTests.length}`);
-  logger.debug('Testes Priorizados:', prioritizedTests.map(t => 
-    `${t.test.name} [${t.priority}] - Score: ${t.score} (${t.coveredCausesCount} causas)`
-  ));
-  if (additionalTests.length > 0) {
-    logger.debug('Testes Adicionais:', additionalTests.map(t => t.test.name));
+  logger.debug(`Testes após redundância: ${filteredTests.length}`);
+  logger.debug(`MILO aplicado: ${miloApplied}`);
+  if (miloDetails) {
+    logger.debug(`Pain regions: ${miloDetails.painRegions.join(', ')}`);
+    logger.debug(`Adjacent regions: ${miloDetails.adjacentRegions.join(', ')}`);
   }
+  logger.debug(`Testes finais: ${prioritizedTests.length}`);
   logger.groupEnd();
+
   return {
     prioritizedTests,
     additionalTests,
     contextosAplicados: priorityResult.contextosAplicados,
     totalCausasAnalisadas: causasPriorizadas.length,
     paretoApplied: sortedTests.length > maxTests,
+    miloApplied,
+    miloDetails,
   };
 }
 

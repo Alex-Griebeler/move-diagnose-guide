@@ -6,6 +6,8 @@
 import { compensacaoCausas } from './weightEngine';
 import { causaToTests } from './causaTestMappings';
 
+export type TestCategory = 'mobility' | 'strength';
+
 export interface SegmentalTest {
   id: string;
   name: string;
@@ -15,8 +17,8 @@ export interface SegmentalTest {
   cutoffValue?: number;
   isBilateral: boolean;
   instructions: string;
-  // Resultado aceito: 'quantitative' (valor numérico) ou 'qualitative' (pass/partial/fail)
   resultType?: 'quantitative' | 'qualitative';
+  testCategory: TestCategory;
 }
 
 export const segmentalTests: SegmentalTest[] = [
@@ -33,6 +35,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Posicione o pé paralelo à parede. Avance o joelho em direção à parede mantendo o calcanhar no solo. Meça a distância do hálux até a parede.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
   {
     id: 'calf_flexibility',
@@ -44,8 +47,8 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito dorsal, com joelho estendido, realize dorsiflexão passiva máxima. Meça o ângulo em relação à posição neutra.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
-  // NEW: Short-foot Test (Superprompt Tabela C)
   {
     id: 'short_foot',
     name: 'Short-foot Test',
@@ -55,6 +58,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em pé, tente encurtar o pé contraindo os músculos intrínsecos, elevando o arco sem flexionar os dedos. Observe se consegue ativar e manter a posição.',
     resultType: 'qualitative',
+    testCategory: 'strength',
   },
 
   // ============================================
@@ -70,6 +74,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Paciente em decúbito dorsal na borda da maca. Flexione um quadril ao máximo e observe a posição da coxa contralateral. Avalie extensão do quadril e flexão do joelho.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
   {
     id: 'hip_rotation',
@@ -81,6 +86,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito ventral com joelho flexionado a 90°. Realize rotação interna e externa passivamente. Meça os ângulos de cada movimento.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
   {
     id: 'ober_test',
@@ -92,6 +98,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Decúbito lateral. Estabilize a pelve e realize abdução + extensão do quadril, depois solte. A coxa deve cair abaixo da horizontal.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
   {
     id: 'hip_abduction_strength',
@@ -103,8 +110,8 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito lateral, realize abdução isométrica contra resistência manual. Gradue de 0 a 5 conforme escala de Oxford.',
     resultType: 'quantitative',
+    testCategory: 'strength',
   },
-  // NEW: Trendelenburg (Superprompt Tabela C)
   {
     id: 'trendelenburg',
     name: 'Teste de Trendelenburg',
@@ -114,6 +121,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Paciente em pé, apoio unipodal. Observe se a pelve do lado contralateral desce (positivo) ou se mantém nivelada (negativo). Sustente por 30 segundos cada lado.',
     resultType: 'qualitative',
+    testCategory: 'strength',
   },
 
   // ============================================
@@ -128,6 +136,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: false,
     instructions: 'Paciente em prono sobre a maca com pernas para fora. Realize pressão sobre processos espinhosos com e sem ativação de extensores. Dor que alivia com ativação muscular indica instabilidade.',
     resultType: 'qualitative',
+    testCategory: 'strength',
   },
   {
     id: 'trunk_endurance_flexor',
@@ -139,6 +148,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: false,
     instructions: 'Posição de flexão parcial do tronco (60°) com joelhos e quadris flexionados a 90°. Mantenha a posição o máximo possível.',
     resultType: 'quantitative',
+    testCategory: 'strength',
   },
   {
     id: 'trunk_endurance_lateral',
@@ -150,8 +160,8 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Apoie-se no cotovelo e pés, mantendo o corpo alinhado. Sustente a posição o máximo possível de cada lado.',
     resultType: 'quantitative',
+    testCategory: 'strength',
   },
-  // NEW: Dead Bug Test (Superprompt Tabela C)
   {
     id: 'dead_bug',
     name: 'Dead Bug Test',
@@ -161,8 +171,8 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: false,
     instructions: 'Decúbito dorsal, quadris e joelhos a 90°, braços estendidos para o teto. Estenda alternadamente braço e perna opostos mantendo a lombar estável. Observe perda de controle, arqueamento lombar ou tremor.',
     resultType: 'qualitative',
+    testCategory: 'strength',
   },
-  // NEW: Tspine Extension (Superprompt Tabela C)
   {
     id: 'tspine_extension',
     name: 'Extensão Torácica',
@@ -173,6 +183,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: false,
     instructions: 'Sentado ou em quadrupedia, mãos na nuca. Realize extensão torácica máxima observando o movimento da coluna. Pode-se medir com inclinômetro ou observar qualitativamente.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
 
   // ============================================
@@ -188,6 +199,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em pé ou sentado, eleve os braços ativamente acima da cabeça. Observe compensações e meça a amplitude máxima.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
   {
     id: 'pec_minor_length',
@@ -199,6 +211,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em decúbito dorsal relaxado, meça a distância do acrômio até a maca. Compare bilateralmente.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
   {
     id: 'scapular_dyskinesis',
@@ -209,6 +222,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Observe a escápula durante flexão e abdução ativa de ombro com peso leve (1-2kg). Classifique o padrão de discinese.',
     resultType: 'qualitative',
+    testCategory: 'strength',
   },
   {
     id: 'serratus_strength',
@@ -220,6 +234,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em posição de push-up plus ou em pé empurrando parede. Realize protração máxima contra resistência. Grade de 0-5.',
     resultType: 'quantitative',
+    testCategory: 'strength',
   },
 
   // ============================================
@@ -235,6 +250,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: false,
     instructions: 'Em decúbito dorsal, realize flexão craniocervical (queixo no peito) e eleve levemente a cabeça da maca. Mantenha o máximo possível.',
     resultType: 'quantitative',
+    testCategory: 'strength',
   },
   {
     id: 'upper_trap_length',
@@ -246,6 +262,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Em sentado, estabilize o ombro e realize flexão lateral cervical contralateral passiva. Meça a amplitude.',
     resultType: 'quantitative',
+    testCategory: 'mobility',
   },
 
   // ============================================
@@ -260,6 +277,7 @@ export const segmentalTests: SegmentalTest[] = [
     isBilateral: true,
     instructions: 'Realize agachamento unilateral lento observando tremor, controle e profundidade alcançada.',
     resultType: 'qualitative',
+    testCategory: 'strength',
   },
 ];
 

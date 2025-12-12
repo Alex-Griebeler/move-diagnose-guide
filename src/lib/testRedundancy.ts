@@ -15,11 +15,20 @@ export const REDUNDANT_TEST_GROUPS: Record<string, string[]> = {
   // Estabilidade lombar - dead_bug é mais funcional que prone_instability
   lumbar_stability: ['dead_bug', 'prone_instability'],
   
-  // Comprimento de flexores de quadril - hip_flexor_length cobre glúteo max
+  // Comprimento de flexores de quadril
   hip_flexor_chain: ['hip_flexor_length'],
   
-  // Endurance de core - trunk_endurance_flexor e lateral são complementares, não redundantes
-  // (não incluídos aqui pois avaliam planos diferentes)
+  // Mobilidade de ombro - shoulder_flexion mais abrangente que pec_minor_length
+  shoulder_mobility: ['shoulder_flexion', 'pec_minor_length'],
+  
+  // Função escapular - scapular_dyskinesis mais informativo que serratus isolado
+  scapular_function: ['scapular_dyskinesis', 'serratus_strength'],
+  
+  // Endurance de core - flexor mais relevante clinicamente
+  core_endurance: ['trunk_endurance_flexor', 'trunk_endurance_lateral'],
+  
+  // Função cervical - cervical_flexion_endurance mais funcional
+  cervical_function: ['cervical_flexion_endurance', 'upper_trap_length'],
 };
 
 // Mapa inverso: testId → groupId

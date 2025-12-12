@@ -518,11 +518,25 @@ export default function ViewAssessment() {
                                           </DialogHeader>
                                           <div className="aspect-video bg-black rounded-lg overflow-hidden">
                                             <video 
-                                              src={url} 
                                               controls 
                                               className="w-full h-full object-contain"
                                               playsInline
-                                            />
+                                              preload="metadata"
+                                            >
+                                              <source src={url} type="video/quicktime" />
+                                              <source src={url} type="video/mp4" />
+                                              Seu navegador não suporta este formato.
+                                            </video>
+                                          </div>
+                                          <div className="flex justify-center pt-2">
+                                            <a 
+                                              href={url} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="text-xs text-muted-foreground hover:text-primary underline"
+                                            >
+                                              Não consegue ver? Clique para abrir em nova aba
+                                            </a>
                                           </div>
                                         </DialogContent>
                                       </Dialog>

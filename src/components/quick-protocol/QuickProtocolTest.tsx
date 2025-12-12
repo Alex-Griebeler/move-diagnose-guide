@@ -1,19 +1,16 @@
 /**
  * Quick Protocol Test Component
- * Componente genérico para cada teste do Mini Protocolo
+ * Componente genérico para cada teste do Protocolo Rápido
  */
 
 import { useState } from 'react';
-import { Check, AlertTriangle, X, Info } from 'lucide-react';
+import { Check, AlertTriangle, X, Move, Shield, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   QuickTestDefinition, 
-  QuickTestOption,
-  getLayerLabel,
-  getLayerIcon 
+  getLayerLabel 
 } from '@/data/quickProtocolMappings';
 import type { TestResult, TestId } from '@/lib/quickProtocolEngine';
 
@@ -21,6 +18,19 @@ interface QuickProtocolTestProps {
   test: QuickTestDefinition;
   value?: TestResult;
   onChange: (result: TestResult) => void;
+}
+
+// Layer icon component using Lucide icons instead of emojis
+function LayerIcon({ layer }: { layer: 'mobility' | 'stability' | 'motor_control' }) {
+  const iconClass = "w-3.5 h-3.5";
+  switch (layer) {
+    case 'mobility':
+      return <Move className={iconClass} />;
+    case 'stability':
+      return <Shield className={iconClass} />;
+    case 'motor_control':
+      return <Zap className={iconClass} />;
+  }
 }
 
 export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestProps) {
@@ -65,14 +75,13 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
     onChange(result);
   };
 
-  const layerIcon = getLayerIcon(test.layer);
   const layerLabel = getLayerLabel(test.layer);
 
-  // Get layer color
+  // Get layer color - using neutral, premium palette
   const layerColorClass = {
-    mobility: 'text-blue-500 bg-blue-500/10',
-    stability: 'text-amber-500 bg-amber-500/10',
-    motor_control: 'text-purple-500 bg-purple-500/10',
+    mobility: 'text-foreground/70 bg-muted/50',
+    stability: 'text-foreground/70 bg-muted/50',
+    motor_control: 'text-foreground/70 bg-muted/50',
   }[test.layer];
 
   return (
@@ -80,45 +89,48 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
       {/* Test Header */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={cn("px-2 py-0.5 rounded text-xs font-medium", layerColorClass)}>
-              {layerIcon} {layerLabel}
+          <div className="flex items-center gap-2 mb-2">
+            <span className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border/50",
+              layerColorClass
+            )}>
+              <LayerIcon layer={test.layer} />
+              {layerLabel}
             </span>
           </div>
           <h3 className="text-xl font-semibold">{test.name}</h3>
           <p className="text-sm text-muted-foreground mt-1">{test.description}</p>
         </div>
-        
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                <Info className="w-5 h-5 text-muted-foreground" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="max-w-xs">
-              <p className="font-medium mb-2">Instruções:</p>
-              <ul className="text-sm space-y-1">
+      </div>
+
+      {/* Instructions - Single source, clean collapsible */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button className="w-full text-left text-sm text-muted-foreground bg-muted/30 hover:bg-muted/50 rounded-lg p-3 transition-colors">
+              <span className="font-medium text-foreground">Como fazer: </span>
+              {test.instructions[0]}
+              {test.instructions.length > 1 && (
+                <span className="text-muted-foreground/60 ml-1">
+                  (toque para ver {test.instructions.length - 1} passos)
+                </span>
+              )}
+            </button>
+          </TooltipTrigger>
+          {test.instructions.length > 1 && (
+            <TooltipContent side="bottom" className="max-w-sm p-4">
+              <p className="font-medium mb-2">Instruções completas:</p>
+              <ol className="text-sm space-y-1 list-decimal list-inside">
                 {test.instructions.map((instruction, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-muted-foreground">{i + 1}.</span>
+                  <li key={i} className="text-muted-foreground">
                     {instruction}
                   </li>
                 ))}
-              </ul>
+              </ol>
             </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Instructions collapsed by default - only show first one */}
-      <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">
-        <span className="font-medium">Como fazer: </span>
-        {test.instructions[0]}
-        {test.instructions.length > 1 && (
-          <span className="text-muted-foreground/60"> (+{test.instructions.length - 1} passos)</span>
-        )}
-      </div>
+          )}
+        </Tooltip>
+      </TooltipProvider>
 
       {/* Options Grid */}
       <div className="space-y-3">
@@ -137,8 +149,8 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
                   "flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
                   isSelected
                     ? isPositive
-                      ? "border-destructive/50 bg-destructive/5"
-                      : "border-success/50 bg-success/5"
+                      ? "border-destructive/40 bg-destructive/5"
+                      : "border-success/40 bg-success/5"
                     : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                 )}
               >

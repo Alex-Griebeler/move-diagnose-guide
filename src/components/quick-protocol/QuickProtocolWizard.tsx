@@ -1,21 +1,23 @@
 /**
  * Quick Protocol Wizard - Main Component
- * Wizard principal do Mini Protocolo FABRIK
+ * Wizard principal do Protocolo Rápido FABRIK
  */
 
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { createLogger } from '@/lib/logger';
 
 import { QuickProtocolIntro } from './QuickProtocolIntro';
 import { QuickProtocolTest } from './QuickProtocolTest';
 import { QuickProtocolResult } from './QuickProtocolResult';
 import { QuickProtocolRetest } from './QuickProtocolRetest';
+import { QuickProtocolSideSelector } from './QuickProtocolSideSelector';
 
 import { 
   ProtocolType,
@@ -27,12 +29,13 @@ import {
   calculateDecision,
   QuickProtocolTestResults,
   TestResult,
-  TestId,
-  DecisionResult,
-  QuickProtocolSession
+  DecisionResult
 } from '@/lib/quickProtocolEngine';
 
-type WizardStep = 'intro' | 'test' | 'result' | 'retest' | 'complete';
+const logger = createLogger('QuickProtocolWizard');
+
+type WizardStep = 'intro' | 'side_selection' | 'test' | 'result' | 'retest' | 'complete';
+type AffectedSide = 'left' | 'right' | 'bilateral';
 
 interface QuickProtocolWizardProps {
   studentId: string;
@@ -52,6 +55,7 @@ export function QuickProtocolWizard({
   onClose 
 }: QuickProtocolWizardProps) {
   const [step, setStep] = useState<WizardStep>('intro');
+  const [affectedSide, setAffectedSide] = useState<AffectedSide | null>(null);
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
   const [testResults, setTestResults] = useState<QuickProtocolTestResults>({});
   const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
@@ -85,29 +89,38 @@ export function QuickProtocolWizard({
         .eq('assessment_id', assessmentId);
 
       if (findings && findings.length > 0) {
-        // Extract relevant deficits for knee context
+        // Extract relevant deficits for context
         const relevantTags = findings
           .filter(f => 
             f.body_region === 'hip' || 
             f.body_region === 'knee' || 
-            f.body_region === 'ankle'
+            f.body_region === 'ankle' ||
+            f.body_region === 'shoulder' ||
+            f.body_region === 'lumbar'
           )
           .map(f => f.classification_tag);
         
         setPriorDeficits([...new Set(relevantTags)]);
       }
     } catch (error) {
-      console.error('Error loading prior assessment:', error);
+      logger.error('Error loading prior assessment', error);
     }
   };
 
-  const handleStart = async () => {
+  const handleStart = () => {
+    // Go to side selection before starting tests
+    setStep('side_selection');
+  };
+
+  const handleSideSelected = async (side: AffectedSide) => {
+    setAffectedSide(side);
+    
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Create session in database
+      // Create session in database with affected side
       const { data: session, error } = await supabase
         .from('quick_protocol_sessions')
         .insert({
@@ -117,6 +130,7 @@ export function QuickProtocolWizard({
           protocol_type: protocolType,
           status: 'in_progress',
           test_results: {},
+          affected_side: side,
         })
         .select()
         .single();
@@ -126,7 +140,7 @@ export function QuickProtocolWizard({
       setSessionId(session.id);
       setStep('test');
     } catch (error) {
-      console.error('Error starting session:', error);
+      logger.error('Error starting session', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao iniciar',
@@ -221,7 +235,7 @@ export function QuickProtocolWizard({
       }, 1500);
 
     } catch (error) {
-      console.error('Error saving session:', error);
+      logger.error('Error saving session', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao salvar',
@@ -240,6 +254,17 @@ export function QuickProtocolWizard({
     }
   };
 
+  // Get side label for display
+  const getSideLabel = (side: AffectedSide | null): string => {
+    if (!side) return '';
+    const labels: Record<AffectedSide, string> = {
+      left: 'Esquerdo',
+      right: 'Direito',
+      bilateral: 'Bilateral'
+    };
+    return labels[side];
+  };
+
   // Render based on step
   const renderContent = () => {
     switch (step) {
@@ -250,6 +275,14 @@ export function QuickProtocolWizard({
             onStart={handleStart}
             hasPriorAssessment={!!assessmentId}
             priorDeficits={priorDeficits}
+          />
+        );
+
+      case 'side_selection':
+        return (
+          <QuickProtocolSideSelector
+            protocolType={protocolType}
+            onSelect={handleSideSelected}
           />
         );
 
@@ -283,7 +316,7 @@ export function QuickProtocolWizard({
         return (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
             <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mb-6 animate-scale-in">
-              <span className="text-4xl">✓</span>
+              <Check className="w-10 h-10 text-success" />
             </div>
             <h2 className="text-2xl font-display mb-2">Concluído!</h2>
             <p className="text-muted-foreground">Redirecionando...</p>
@@ -303,9 +336,15 @@ export function QuickProtocolWizard({
           <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
             <div>
               <h1 className="text-sm font-medium">{protocolMeta.name}</h1>
-              {studentName && (
-                <p className="text-xs text-muted-foreground">{studentName}</p>
-              )}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {studentName && <span>{studentName}</span>}
+                {affectedSide && (
+                  <>
+                    <span>•</span>
+                    <span>Lado {getSideLabel(affectedSide)}</span>
+                  </>
+                )}
+              </div>
             </div>
             <Button
               variant="ghost"

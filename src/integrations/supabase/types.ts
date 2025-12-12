@@ -482,6 +482,7 @@ export type Database = {
       }
       quick_protocol_sessions: {
         Row: {
+          affected_side: string | null
           assessment_id: string | null
           completed_at: string | null
           created_at: string
@@ -499,6 +500,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          affected_side?: string | null
           assessment_id?: string | null
           completed_at?: string | null
           created_at?: string
@@ -516,6 +518,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          affected_side?: string | null
           assessment_id?: string | null
           completed_at?: string | null
           created_at?: string

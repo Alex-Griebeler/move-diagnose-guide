@@ -1,9 +1,9 @@
 /**
  * Quick Protocol Result Screen
- * Tela de resultado do Mini Protocolo FABRIK
+ * Tela de resultado do Protocolo Rápido FABRIK
  */
 
-import { Check, AlertCircle, ArrowRight, RotateCcw } from 'lucide-react';
+import { Check, AlertCircle, ArrowRight, RotateCcw, Unlock, Move, Zap, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -19,6 +19,39 @@ interface QuickProtocolResultProps {
   result: DecisionResult;
   onRetest: () => void;
   onClose: () => void;
+}
+
+// Layer icon component using Lucide icons
+function LayerIcon({ layer, size = 'md' }: { layer: 'mobility' | 'stability' | 'motor_control', size?: 'sm' | 'md' | 'lg' }) {
+  const sizeClass = {
+    sm: 'w-4 h-4',
+    md: 'w-6 h-6',
+    lg: 'w-8 h-8'
+  }[size];
+  
+  switch (layer) {
+    case 'mobility':
+      return <Move className={sizeClass} />;
+    case 'stability':
+      return <AlertCircle className={sizeClass} />;
+    case 'motor_control':
+      return <Zap className={sizeClass} />;
+  }
+}
+
+// Category icon component using Lucide icons
+function CategoryIcon({ category }: { category: 'release' | 'mobility' | 'activation' | 'technique' }) {
+  const iconClass = "w-4 h-4";
+  switch (category) {
+    case 'release':
+      return <Unlock className={iconClass} />;
+    case 'mobility':
+      return <Move className={iconClass} />;
+    case 'activation':
+      return <Zap className={iconClass} />;
+    case 'technique':
+      return <Target className={iconClass} />;
+  }
 }
 
 export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocolResultProps) {
@@ -59,9 +92,7 @@ export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocol
           </div>
           <div className="flex items-center gap-3">
             <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center", primaryStyle.bgClass)}>
-              <span className="text-2xl">
-                {primaryLayer === 'mobility' ? '🔄' : primaryLayer === 'stability' ? '⚖️' : '🧠'}
-              </span>
+              <LayerIcon layer={primaryLayer} size="lg" />
             </div>
             <div>
               <h2 className="text-xl font-semibold">{formatDeficitName(primary)}</h2>
@@ -101,7 +132,7 @@ export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocol
       <Card>
         <CardHeader className="pb-3">
           <h3 className="font-semibold flex items-center gap-2">
-            <span className="text-lg">⚡</span>
+            <Zap className="w-5 h-5 text-primary" />
             Intervenção Imediata
           </h3>
           <p className="text-sm text-muted-foreground">
@@ -147,13 +178,6 @@ interface InterventionCardProps {
 }
 
 function InterventionCard({ intervention, index }: InterventionCardProps) {
-  const categoryIcons = {
-    release: '🔓',
-    mobility: '🔄',
-    activation: '⚡',
-    technique: '🎯',
-  };
-
   const categoryLabels = {
     release: 'Liberação',
     mobility: 'Mobilidade',
@@ -172,12 +196,16 @@ function InterventionCard({ intervention, index }: InterventionCardProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium">{intervention.name}</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
-            {categoryIcons[intervention.category]} {categoryLabels[intervention.category]}
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground border border-border/50">
+            <CategoryIcon category={intervention.category} />
+            {categoryLabels[intervention.category]}
           </span>
         </div>
         <p className="text-sm text-muted-foreground">{intervention.description}</p>
-        <p className="text-xs text-primary mt-1">⏱️ {intervention.duration}</p>
+        <p className="text-xs text-primary mt-1 flex items-center gap-1">
+          <span className="w-3 h-3 inline-flex items-center justify-center">⏱</span>
+          {intervention.duration}
+        </p>
       </div>
     </div>
   );

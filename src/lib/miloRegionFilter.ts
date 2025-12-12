@@ -5,6 +5,12 @@
 // ============================================
 
 import { createLogger } from './logger';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  calculateRiskProfile, 
+  extractCompensationsFromResults,
+  RiskDataInput 
+} from './riskProfileEngine';
 import type { SuggestedTestWithPriority } from './testPrioritization';
 
 const logger = createLogger('MiloRegionFilter');
@@ -235,7 +241,7 @@ const GLOBAL_TEST_RELEVANCE: Record<BodyRegionGroup, GlobalTestType[]> = {
 export function getRelevantGlobalTests(
   painHistory?: PainEntry[]
 ): GlobalTestMiloResult {
-  // Sem dor → todos os testes
+  // Sem dor → será tratado por getRelevantGlobalTestsWithHistory
   if (!painHistory || painHistory.length === 0) {
     return {
       testsToRun: ['ohs', 'sls', 'pushup'],
@@ -304,6 +310,122 @@ export function getRelevantGlobalTests(
     testsToRun,
     testsSkipped,
     reason: `Baseado em dor: ${regionNames}`,
+  };
+}
+
+// ============================================
+// NEW: Global Tests with History (Async)
+// Usa perfil de risco quando não há dor
+// ============================================
+
+interface RiskDataFromDB {
+  anamnesis: {
+    sedentaryHoursPerDay?: number | null;
+    workType?: string | null;
+    activityModalities?: string[] | null;
+    sports?: Array<{ name: string; level?: string }> | null;
+  } | null;
+  historicalCompensations: string[];
+}
+
+async function fetchRiskData(
+  assessmentId: string,
+  studentId: string
+): Promise<RiskDataFromDB> {
+  try {
+    // 1. Buscar anamnese atual
+    const { data: anamnesis } = await supabase
+      .from('anamnesis_responses')
+      .select('sedentary_hours_per_day, work_type, activity_types, sports')
+      .eq('assessment_id', assessmentId)
+      .single();
+
+    // 2. Buscar avaliações anteriores do mesmo aluno
+    const { data: previousAssessments } = await supabase
+      .from('assessments')
+      .select('id')
+      .eq('student_id', studentId)
+      .neq('id', assessmentId)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(3); // Últimas 3 avaliações
+
+    // 3. Buscar resultados de testes globais dessas avaliações
+    let historicalCompensations: string[] = [];
+    
+    if (previousAssessments && previousAssessments.length > 0) {
+      const assessmentIds = previousAssessments.map(a => a.id);
+      
+      const { data: globalResults } = await supabase
+        .from('global_test_results')
+        .select('test_name, anterior_view, lateral_view, posterior_view, left_side, right_side')
+        .in('assessment_id', assessmentIds);
+
+      if (globalResults) {
+        historicalCompensations = extractCompensationsFromResults(globalResults as any);
+      }
+    }
+
+    return {
+      anamnesis: anamnesis ? {
+        sedentaryHoursPerDay: anamnesis.sedentary_hours_per_day,
+        workType: anamnesis.work_type,
+        activityModalities: Array.isArray(anamnesis.activity_types) 
+          ? anamnesis.activity_types as string[]
+          : null,
+        sports: Array.isArray(anamnesis.sports) 
+          ? anamnesis.sports as Array<{ name: string; level?: string }>
+          : null,
+      } : null,
+      historicalCompensations,
+    };
+  } catch (error) {
+    logger.error('Error fetching risk data', error);
+    return { anamnesis: null, historicalCompensations: [] };
+  }
+}
+
+export async function getRelevantGlobalTestsWithHistory(
+  assessmentId: string,
+  studentId: string,
+  painHistory?: PainEntry[]
+): Promise<GlobalTestMiloResult> {
+  // Se tem dor registrada, usar lógica original baseada em dor
+  if (painHistory && painHistory.length > 0) {
+    return getRelevantGlobalTests(painHistory);
+  }
+
+  // Sem dor: usar perfil de risco baseado em anamnese + histórico
+  logger.debug('No pain history - calculating risk profile');
+
+  const riskData = await fetchRiskData(assessmentId, studentId);
+
+  // Se não temos dados suficientes, fallback para todos os testes
+  if (!riskData.anamnesis && riskData.historicalCompensations.length === 0) {
+    logger.debug('No risk data available - running all tests');
+    return {
+      testsToRun: ['ohs', 'sls', 'pushup'],
+      testsSkipped: [],
+      reason: 'Sem dados de risco - avaliação completa',
+    };
+  }
+
+  // Calcular perfil de risco
+  const riskInput: RiskDataInput = {
+    sedentaryHoursPerDay: riskData.anamnesis?.sedentaryHoursPerDay,
+    workType: riskData.anamnesis?.workType,
+    activityModalities: riskData.anamnesis?.activityModalities,
+    sports: riskData.anamnesis?.sports,
+    historicalCompensations: riskData.historicalCompensations,
+  };
+
+  const profile = calculateRiskProfile(riskInput);
+
+  return {
+    testsToRun: profile.suggestedTests,
+    testsSkipped: (['ohs', 'sls', 'pushup'] as GlobalTestType[])
+      .filter(t => !profile.suggestedTests.includes(t)),
+    reason: profile.reason,
   };
 }
 

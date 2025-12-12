@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
 import { 
-  getRelevantGlobalTests, 
+  getRelevantGlobalTestsWithHistory, 
   GlobalTestMiloResult, 
   GlobalTestType,
   GLOBAL_TEST_LABELS,
@@ -56,6 +56,7 @@ interface Step {
 
 interface GlobalTestsWizardProps {
   assessmentId: string;
+  studentId: string;
   onComplete: () => void;
 }
 
@@ -128,7 +129,7 @@ function collectMediaUrls(testData: AutoTestData): string[] {
 // Component
 // ============================================
 
-export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizardProps) {
+export function GlobalTestsWizard({ assessmentId, studentId, onComplete }: GlobalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -184,33 +185,41 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     async function loadMiloConfig() {
       setIsLoadingMilo(true);
       try {
+        // Buscar pain_history da anamnese
         const { data: anamnesis, error } = await supabase
           .from('anamnesis_responses')
           .select('pain_history')
           .eq('assessment_id', assessmentId)
           .single();
         
-        if (error) {
-          logger.warn('Could not load anamnesis for MILO:', error.message);
-          setMiloResult(getRelevantGlobalTests([]));
-        } else {
-          const rawPainHistory = anamnesis?.pain_history;
-          const painHistory: PainEntry[] = Array.isArray(rawPainHistory) 
-            ? (rawPainHistory as unknown as PainEntry[])
-            : [];
-          const result = getRelevantGlobalTests(painHistory);
-          setMiloResult(result);
-        }
+        const rawPainHistory = anamnesis?.pain_history;
+        const painHistory: PainEntry[] = Array.isArray(rawPainHistory) 
+          ? (rawPainHistory as unknown as PainEntry[])
+          : [];
+        
+        // Usar nova função com histórico
+        const result = await getRelevantGlobalTestsWithHistory(
+          assessmentId,
+          studentId,
+          painHistory
+        );
+        
+        setMiloResult(result);
       } catch (error) {
         logger.error('Error loading MILO config', error);
-        setMiloResult(getRelevantGlobalTests([]));
+        // Fallback: todos os testes
+        setMiloResult({
+          testsToRun: ['ohs', 'sls', 'pushup'],
+          testsSkipped: [],
+          reason: 'Erro ao carregar - avaliação completa',
+        });
       } finally {
         setIsLoadingMilo(false);
       }
     }
     
     loadMiloConfig();
-  }, [assessmentId]);
+  }, [assessmentId, studentId]);
 
   // ============================================
   // Track Assessment Changes

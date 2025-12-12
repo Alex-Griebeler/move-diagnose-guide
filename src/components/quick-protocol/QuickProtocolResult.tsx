@@ -66,7 +66,7 @@ function getSideLabel(side: 'left' | 'right' | 'bilateral'): string {
 }
 
 export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocolResultProps) {
-  const { primary, secondary, interventions, explanation, recommendRetest, interventionSide, contralateralNote } = result;
+  const { primary, secondary, interventions, explanation, recommendRetest, interventionSide, findingSide, contralateralNote } = result;
 
   // No deficit found
   if (!primary) {
@@ -115,6 +115,16 @@ export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocol
           <p className="text-muted-foreground leading-relaxed">
             {explanation}
           </p>
+          
+          {/* Finding Side Indicator */}
+          {findingSide && findingSide !== 'bilateral' && (
+            <div className="flex items-center gap-2 text-sm py-2 px-3 bg-warning/5 rounded-lg border border-warning/10">
+              <AlertCircle className="h-4 w-4 text-warning" />
+              <span>
+                Déficit detectado: <strong className="text-foreground">Lado {getSideLabel(findingSide)}</strong>
+              </span>
+            </div>
+          )}
           
           {/* Intervention Side Indicator */}
           {interventionSide && interventionSide !== 'bilateral' && (

@@ -480,6 +480,31 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           </CardContent>
         </Card>
 
+      {/* View Navigation Buttons - Only show if multiple views */}
+      {config.views.length > 1 && (
+        <div className="flex justify-between pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCurrentViewIndex(Math.max(0, currentViewIndex - 1))}
+            disabled={currentViewIndex === 0}
+            className="gap-1"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Vista Anterior
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setCurrentViewIndex(Math.min(config.views.length - 1, currentViewIndex + 1))}
+            disabled={currentViewIndex === config.views.length - 1}
+            className="gap-1"
+          >
+            Próxima Vista
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Notes - Collapsible */}
       <div className="space-y-2 pt-2 border-t border-border/50">
         <Label className="text-xs text-muted-foreground">Observações (opcional)</Label>

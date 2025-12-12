@@ -79,6 +79,8 @@ export interface DecisionResult {
   interventions: Intervention[];
   explanation: string;
   recommendRetest: boolean;
+  interventionSide?: 'left' | 'right' | 'bilateral';
+  contralateralNote?: string;
 }
 
 export interface QuickProtocolSession {
@@ -847,12 +849,73 @@ export function isTestPositive(result: TestResult): boolean {
   );
 }
 
+// ============================================================================
+// CONTRALATERAL PATTERNS
+// Based on Rebuilding MILO methodology
+// ============================================================================
+
+interface ContralateralPattern {
+  isContralateral: boolean;
+  targetMuscle: string;
+  explanation: string;
+}
+
+/**
+ * Padrões contralaterais baseados no conhecimento clínico Rebuilding MILO:
+ * - hip_stability (Trendelenburg/pelvic drop): fraqueza do glúteo médio CONTRALATERAL
+ * - hip_abd_ext_stability_deficit (SLS hip): fraqueza do glúteo médio CONTRALATERAL
+ * Outros déficits são ipsilaterais (mesmo lado da dor)
+ */
+const CONTRALATERAL_PATTERNS: Record<string, ContralateralPattern> = {
+  // Knee - hip_stability test detects pelvic drop (Trendelenburg sign)
+  hip_stability_deficit: {
+    isContralateral: true,
+    targetMuscle: 'Glúteo médio',
+    explanation: 'Sinal de Trendelenburg: a queda pélvica indica fraqueza do glúteo médio do lado oposto à dor.'
+  },
+  // Hip - SLS stability test detects same pattern
+  hip_abd_ext_stability_deficit: {
+    isContralateral: true,
+    targetMuscle: 'Glúteo médio',
+    explanation: 'A instabilidade no apoio unilateral indica fraqueza do glúteo médio contralateral.'
+  }
+};
+
+/**
+ * Determina o lado que deve receber a intervenção
+ */
+function determineInterventionSide(
+  deficit: DeficitType | null,
+  affectedSide: 'left' | 'right' | 'bilateral' | undefined
+): { side: 'left' | 'right' | 'bilateral'; note?: string } {
+  // Se não há lado definido ou é bilateral, retorna bilateral
+  if (!affectedSide || affectedSide === 'bilateral' || !deficit) {
+    return { side: 'bilateral' };
+  }
+  
+  // Verificar se o déficit tem padrão contralateral
+  const pattern = CONTRALATERAL_PATTERNS[deficit];
+  
+  if (pattern?.isContralateral) {
+    // Inverter o lado: dor no E → tratar D
+    const interventionSide = affectedSide === 'left' ? 'right' : 'left';
+    return {
+      side: interventionSide,
+      note: pattern.explanation
+    };
+  }
+  
+  // Padrão ipsilateral: tratar mesmo lado
+  return { side: affectedSide };
+}
+
 /**
  * Motor de decisão principal - determinístico
  */
 export function calculateDecision(
   testResults: QuickProtocolTestResults, 
-  protocolType: ProtocolType = 'knee_pain'
+  protocolType: ProtocolType = 'knee_pain',
+  affectedSide?: 'left' | 'right' | 'bilateral'
 ): DecisionResult {
   const positiveTestIds: string[] = [];
   
@@ -925,12 +988,20 @@ export function calculateDecision(
   // Buscar explicação
   const explanation = EXPLANATIONS[primary] || '';
   
+  // Determinar lado da intervenção (lógica contralateral)
+  const { side: interventionSide, note: contralateralNote } = determineInterventionSide(
+    primary,
+    affectedSide
+  );
+  
   return {
     primary,
     secondary,
     interventions,
     explanation,
-    recommendRetest: true
+    recommendRetest: true,
+    interventionSide,
+    contralateralNote
   };
 }
 

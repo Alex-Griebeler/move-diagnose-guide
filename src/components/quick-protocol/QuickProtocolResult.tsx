@@ -3,10 +3,11 @@
  * Tela de resultado do Protocolo Rápido FABRIK
  */
 
-import { Check, AlertCircle, ArrowRight, RotateCcw, Unlock, Move, Zap, Target } from 'lucide-react';
+import { Check, AlertCircle, ArrowRight, RotateCcw, Unlock, Move, Zap, Target, Info, Crosshair } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   DecisionResult, 
   Intervention,
@@ -54,8 +55,18 @@ function CategoryIcon({ category }: { category: 'release' | 'mobility' | 'activa
   }
 }
 
+// Helper to format side label
+function getSideLabel(side: 'left' | 'right' | 'bilateral'): string {
+  const labels = {
+    left: 'Esquerdo',
+    right: 'Direito',
+    bilateral: 'Bilateral'
+  };
+  return labels[side];
+}
+
 export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocolResultProps) {
-  const { primary, secondary, interventions, explanation, recommendRetest } = result;
+  const { primary, secondary, interventions, explanation, recommendRetest, interventionSide, contralateralNote } = result;
 
   // No deficit found
   if (!primary) {
@@ -100,10 +111,30 @@ export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocol
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <p className="text-muted-foreground leading-relaxed">
             {explanation}
           </p>
+          
+          {/* Intervention Side Indicator */}
+          {interventionSide && interventionSide !== 'bilateral' && (
+            <div className="flex items-center gap-2 text-sm py-2 px-3 bg-primary/5 rounded-lg border border-primary/10">
+              <Crosshair className="h-4 w-4 text-primary" />
+              <span>
+                Foco da intervenção: <strong className="text-foreground">Lado {getSideLabel(interventionSide)}</strong>
+              </span>
+            </div>
+          )}
+          
+          {/* Contralateral Explanation */}
+          {contralateralNote && (
+            <Alert className="border-amber-500/30 bg-amber-500/5">
+              <Info className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-sm text-muted-foreground">
+                {contralateralNote}
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

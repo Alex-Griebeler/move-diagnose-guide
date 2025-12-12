@@ -160,8 +160,8 @@ export function QuickProtocolWizard({
     if (currentTestIndex < totalTests - 1) {
       setCurrentTestIndex(prev => prev + 1);
     } else {
-      // All tests complete, calculate decision
-      const decision = calculateDecision(testResults, protocolType);
+      // All tests complete, calculate decision with affected side for contralateral logic
+      const decision = calculateDecision(testResults, protocolType, affectedSide || undefined);
       setDecisionResult(decision);
       setStep('result');
     }

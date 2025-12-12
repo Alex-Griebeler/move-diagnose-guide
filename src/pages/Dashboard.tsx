@@ -367,6 +367,14 @@ function ProfessionalDashboard() {
                   </div>
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/quick-protocol?studentId=select&type=ankle_pain" className="cursor-pointer">
+                  <div>
+                    <p className="font-medium">Dor no Tornozelo</p>
+                    <p className="text-xs text-muted-foreground">5 testes • ~5 min</p>
+                  </div>
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 

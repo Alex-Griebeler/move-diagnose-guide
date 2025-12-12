@@ -8,11 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   ArrowLeft, Edit2, Save, X, User, ClipboardList, Activity, 
   FileText, CheckCircle2, AlertCircle, Loader2, Calendar,
-  Dumbbell, Target, Zap, Shield, Flame, RotateCcw, Video, Play
+  Dumbbell, Target, Zap, Shield, Flame, RotateCcw, Video, ExternalLink
 } from 'lucide-react';
 import { 
   PageLayout, 
@@ -518,44 +517,17 @@ export default function ViewAssessment() {
                                       : `Vídeo ${idx + 1}`;
                                     
                                     return (
-                                      <Dialog key={url}>
-                                        <DialogTrigger asChild>
-                                          <Button variant="outline" size="sm" className="gap-2">
-                                            <Play className="w-3 h-3" />
-                                            {viewName}
-                                          </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-3xl">
-                                          <DialogHeader>
-                                            <DialogTitle className="flex items-center gap-2">
-                                              <Video className="w-4 h-4" />
-                                              {getTestLabel(test.test_name)} - {viewName}
-                                            </DialogTitle>
-                                          </DialogHeader>
-                                          <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                                            <video 
-                                              controls 
-                                              className="w-full h-full object-contain"
-                                              playsInline
-                                              preload="metadata"
-                                            >
-                                              <source src={url} type="video/quicktime" />
-                                              <source src={url} type="video/mp4" />
-                                              Seu navegador não suporta este formato.
-                                            </video>
-                                          </div>
-                                          <div className="flex justify-center pt-2">
-                                            <a 
-                                              href={url} 
-                                              target="_blank" 
-                                              rel="noopener noreferrer"
-                                              className="text-xs text-muted-foreground hover:text-primary underline"
-                                            >
-                                              Não consegue ver? Clique para abrir em nova aba
-                                            </a>
-                                          </div>
-                                        </DialogContent>
-                                      </Dialog>
+                                      <a
+                                        key={url}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-muted hover:bg-muted/80 transition-colors text-sm"
+                                      >
+                                        <Video className="w-4 h-4" />
+                                        <span>{viewName}</span>
+                                        <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                                      </a>
                                     );
                                   })}
                                 </div>
@@ -636,44 +608,17 @@ export default function ViewAssessment() {
                         {getMediaUrls(test.media_urls).length > 0 && (
                           <div className="flex flex-wrap gap-2 pt-1">
                             {getMediaUrls(test.media_urls).map((url, idx) => (
-                              <Dialog key={url}>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm" className="gap-2 h-7 text-xs">
-                                    <Play className="w-3 h-3" />
-                                    Vídeo {idx + 1}
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-3xl">
-                                  <DialogHeader>
-                                    <DialogTitle className="flex items-center gap-2">
-                                      <Video className="w-4 h-4" />
-                                      {test.test_name.replace(/_/g, ' ')}
-                                    </DialogTitle>
-                                  </DialogHeader>
-                                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                                    <video 
-                                      controls 
-                                      className="w-full h-full object-contain"
-                                      playsInline
-                                      preload="metadata"
-                                    >
-                                      <source src={url} type="video/quicktime" />
-                                      <source src={url} type="video/mp4" />
-                                      Seu navegador não suporta este formato.
-                                    </video>
-                                  </div>
-                                  <div className="flex justify-center pt-2">
-                                    <a 
-                                      href={url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-muted-foreground hover:text-primary underline"
-                                    >
-                                      Não consegue ver? Clique para abrir em nova aba
-                                    </a>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
+                              <a
+                                key={url}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted hover:bg-muted/80 transition-colors text-xs"
+                              >
+                                <Video className="w-3 h-3" />
+                                <span>Vídeo {idx + 1}</span>
+                                <ExternalLink className="w-2.5 h-2.5 text-muted-foreground" />
+                              </a>
                             ))}
                           </div>
                         )}

@@ -95,7 +95,7 @@ export const TEST_REGION_MAP: Record<string, BodyRegionGroup> = {
 };
 
 // ============================================
-// Core Function
+// Segmental Tests MILO Filter
 // ============================================
 
 export function applyMiloRegionFilter(
@@ -208,3 +208,111 @@ export function applyMiloRegionFilter(
 export function shouldApplyMiloFilter(painHistory?: PainEntry[]): boolean {
   return Boolean(painHistory && painHistory.length > 0);
 }
+
+// ============================================
+// Global Tests MILO
+// ============================================
+
+export type GlobalTestType = 'ohs' | 'sls' | 'pushup';
+
+export interface GlobalTestMiloResult {
+  testsToRun: GlobalTestType[];
+  testsSkipped: GlobalTestType[];
+  reason: string;
+}
+
+// Quais testes globais são relevantes para cada região de dor
+const GLOBAL_TEST_RELEVANCE: Record<BodyRegionGroup, GlobalTestType[]> = {
+  ankle: ['ohs', 'sls'],       // Membros inferiores
+  knee: ['ohs', 'sls'],        // Membros inferiores
+  hip: ['ohs', 'sls'],         // Membros inferiores + core
+  lumbar: ['ohs', 'sls'],      // Core + membros inferiores
+  thoracic: ['ohs', 'pushup'], // Transição
+  shoulder: ['ohs', 'pushup'], // Membros superiores + escápula
+  cervical: ['ohs', 'pushup'], // Membros superiores + cervical
+};
+
+export function getRelevantGlobalTests(
+  painHistory?: PainEntry[]
+): GlobalTestMiloResult {
+  // Sem dor → todos os testes
+  if (!painHistory || painHistory.length === 0) {
+    return {
+      testsToRun: ['ohs', 'sls', 'pushup'],
+      testsSkipped: [],
+      reason: 'Nenhuma dor registrada - avaliação completa',
+    };
+  }
+
+  // Identificar regiões de dor
+  const painRegions = new Set<BodyRegionGroup>();
+  painHistory.forEach(pain => {
+    const region = PAIN_REGION_MAP[pain.region];
+    if (region) painRegions.add(region);
+  });
+
+  // Se nenhuma região foi mapeada, executar todos
+  if (painRegions.size === 0) {
+    return {
+      testsToRun: ['ohs', 'sls', 'pushup'],
+      testsSkipped: [],
+      reason: 'Região de dor não mapeada - avaliação completa',
+    };
+  }
+
+  // Calcular relevância de cada teste
+  const testScores: Record<GlobalTestType, number> = { ohs: 0, sls: 0, pushup: 0 };
+  
+  painRegions.forEach(region => {
+    GLOBAL_TEST_RELEVANCE[region]?.forEach(test => {
+      testScores[test]++;
+    });
+  });
+
+  // OHS sempre incluso (teste mais abrangente)
+  const testsToRun: GlobalTestType[] = ['ohs'];
+  const testsSkipped: GlobalTestType[] = [];
+
+  // SLS: se dor em região inferior
+  if (testScores.sls > 0) {
+    testsToRun.push('sls');
+  } else {
+    testsSkipped.push('sls');
+  }
+
+  // Push-up: se dor em região superior
+  if (testScores.pushup > 0) {
+    testsToRun.push('pushup');
+  } else {
+    testsSkipped.push('pushup');
+  }
+
+  // Garantir ao menos 2 testes sempre
+  if (testsToRun.length < 2 && testsSkipped.length > 0) {
+    testsToRun.push(testsSkipped.shift()!);
+  }
+
+  const regionNames = Array.from(painRegions).join(', ');
+  
+  logger.group('Global Tests MILO');
+  logger.debug(`Pain regions: ${regionNames}`);
+  logger.debug(`Tests to run: ${testsToRun.join(', ')}`);
+  logger.debug(`Tests skipped: ${testsSkipped.join(', ') || 'none'}`);
+  logger.groupEnd();
+
+  return {
+    testsToRun,
+    testsSkipped,
+    reason: `Baseado em dor: ${regionNames}`,
+  };
+}
+
+// ============================================
+// Global Test Labels for UI
+// ============================================
+
+export const GLOBAL_TEST_LABELS: Record<GlobalTestType, string> = {
+  ohs: 'Overhead Squat',
+  sls: 'Single-Leg Squat',
+  pushup: 'Push-up',
+};

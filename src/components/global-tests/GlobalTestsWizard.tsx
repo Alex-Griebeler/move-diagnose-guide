@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, AlertCircle, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,11 +8,22 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('GlobalTestsWizard');
+import { 
+  getRelevantGlobalTests, 
+  GlobalTestMiloResult, 
+  GlobalTestType,
+  GLOBAL_TEST_LABELS,
+  PainEntry 
+} from '@/lib/miloRegionFilter';
 
 import { AutoGlobalTest } from './AutoGlobalTest';
 import { TestSummary, LegacyTestData } from './TestSummary';
+
+const logger = createLogger('GlobalTestsWizard');
+
+// ============================================
+// Types
+// ============================================
 
 type ViewType = 
   | 'anterior' 
@@ -35,6 +46,34 @@ export interface GlobalTestData {
   pushup: AutoTestData;
 }
 
+interface Step {
+  id: number;
+  testType: GlobalTestType | 'summary';
+  title: string;
+  shortTitle: string;
+  icon: string;
+}
+
+interface GlobalTestsWizardProps {
+  assessmentId: string;
+  onComplete: () => void;
+}
+
+// ============================================
+// Constants
+// ============================================
+
+const ALL_STEPS: Step[] = [
+  { id: 1, testType: 'ohs', title: 'Overhead Squat', shortTitle: 'OHS', icon: '🏋️' },
+  { id: 2, testType: 'sls', title: 'Single-Leg Squat', shortTitle: 'SLS', icon: '🦵' },
+  { id: 3, testType: 'pushup', title: 'Push-up Test', shortTitle: 'Push-up', icon: '💪' },
+  { id: 4, testType: 'summary', title: 'Resumo', shortTitle: 'Resumo', icon: '📊' },
+];
+
+// ============================================
+// Helpers
+// ============================================
+
 const createEmptyAutoTestData = (): AutoTestData => ({
   compensations: {} as Record<ViewType, string[]>,
   mediaUrls: {} as Record<ViewType, { photoUrl?: string; videoUrl?: string }>,
@@ -47,21 +86,7 @@ const initialData: GlobalTestData = {
   pushup: createEmptyAutoTestData(),
 };
 
-const steps = [
-  { id: 1, title: 'Overhead Squat', shortTitle: 'OHS', icon: '🏋️' },
-  { id: 2, title: 'Single-Leg Squat', shortTitle: 'SLS', icon: '🦵' },
-  { id: 3, title: 'Push-up Test', shortTitle: 'Push-up', icon: '💪' },
-  { id: 4, title: 'Resumo', shortTitle: 'Resumo', icon: '📊' },
-];
-
-interface GlobalTestsWizardProps {
-  assessmentId: string;
-  onComplete: () => void;
-}
-
-// Convert new format to legacy format for TestSummary
 function toLegacyFormat(data: GlobalTestData): LegacyTestData {
-  // Aggregate SLS compensations by side (left = left_anterior + left_posterior, right = right_anterior + right_posterior)
   const leftSideComps = [
     ...(data.sls.compensations.left_anterior || []),
     ...(data.sls.compensations.left_posterior || []),
@@ -90,9 +115,25 @@ function toLegacyFormat(data: GlobalTestData): LegacyTestData {
   };
 }
 
+function collectMediaUrls(testData: AutoTestData): string[] {
+  const urls: string[] = [];
+  Object.values(testData.mediaUrls).forEach(media => {
+    if (media.photoUrl) urls.push(media.photoUrl);
+    if (media.videoUrl) urls.push(media.videoUrl);
+  });
+  return urls;
+}
+
+// ============================================
+// Component
+// ============================================
+
 export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
   
+  // Wizard persistence
   const {
     data,
     updateData,
@@ -106,31 +147,96 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     assessmentId,
   });
   
+  // MILO state
+  const [miloResult, setMiloResult] = useState<GlobalTestMiloResult | null>(null);
+  const [isLoadingMilo, setIsLoadingMilo] = useState(true);
+  
+  // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
-  const navigate = useNavigate();
 
-  // Track assessment ID changes to reset when switching assessments
-  // Only reset if we had a DIFFERENT assessment stored AND data was already loaded
+  // ============================================
+  // Calculate Active Steps based on MILO
+  // ============================================
+  
+  const activeSteps = useMemo((): Step[] => {
+    if (!miloResult) return ALL_STEPS;
+    
+    const filteredSteps = ALL_STEPS.filter(step => 
+      step.testType === 'summary' || 
+      miloResult.testsToRun.includes(step.testType as GlobalTestType)
+    );
+    
+    // Re-number sequentially
+    return filteredSteps.map((step, index) => ({
+      ...step,
+      id: index + 1,
+    }));
+  }, [miloResult]);
+
+  const totalSteps = activeSteps.length;
+  const currentStepData = activeSteps[currentStep - 1];
+
+  // ============================================
+  // Load MILO Configuration
+  // ============================================
+  
   useEffect(() => {
-    if (isLoadingPersistence) return; // Wait for data to load first
+    async function loadMiloConfig() {
+      setIsLoadingMilo(true);
+      try {
+        const { data: anamnesis, error } = await supabase
+          .from('anamnesis_responses')
+          .select('pain_history')
+          .eq('assessment_id', assessmentId)
+          .single();
+        
+        if (error) {
+          logger.warn('Could not load anamnesis for MILO:', error.message);
+          setMiloResult(getRelevantGlobalTests([]));
+        } else {
+          const rawPainHistory = anamnesis?.pain_history;
+          const painHistory: PainEntry[] = Array.isArray(rawPainHistory) 
+            ? (rawPainHistory as unknown as PainEntry[])
+            : [];
+          const result = getRelevantGlobalTests(painHistory);
+          setMiloResult(result);
+        }
+      } catch (error) {
+        logger.error('Error loading MILO config', error);
+        setMiloResult(getRelevantGlobalTests([]));
+      } finally {
+        setIsLoadingMilo(false);
+      }
+    }
+    
+    loadMiloConfig();
+  }, [assessmentId]);
+
+  // ============================================
+  // Track Assessment Changes
+  // ============================================
+  
+  useEffect(() => {
+    if (isLoadingPersistence) return;
     
     const savedAssessmentId = localStorage.getItem('globalTests_assessmentId');
     
-    // Only clear if switching to a DIFFERENT assessment (not first load)
     if (savedAssessmentId && savedAssessmentId !== assessmentId && prevAssessmentIdRef.current === savedAssessmentId) {
       logger.debug(`Switching from ${savedAssessmentId} to ${assessmentId}, clearing old data`);
       clearPersistedData();
       setCurrentStep(1);
     }
     
-    // Update stored assessment ID
     localStorage.setItem('globalTests_assessmentId', assessmentId);
     prevAssessmentIdRef.current = assessmentId;
   }, [assessmentId, isLoadingPersistence, clearPersistedData, setCurrentStep]);
 
+  // ============================================
+  // Navigation
+  // ============================================
+  
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -141,67 +247,65 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     }
   };
 
-  // Collect all media URLs for a test
-  const collectMediaUrls = (testData: AutoTestData): string[] => {
-    const urls: string[] = [];
-    Object.values(testData.mediaUrls).forEach(media => {
-      if (media.photoUrl) urls.push(media.photoUrl);
-      if (media.videoUrl) urls.push(media.videoUrl);
-    });
-    return urls;
-  };
-
+  // ============================================
+  // Submission
+  // ============================================
+  
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
     try {
       const legacyData = toLegacyFormat(data);
 
-      // Save OHS results
-      await supabase.from('global_test_results').insert({
-        assessment_id: assessmentId,
-        test_name: 'ohs',
-        anterior_view: { compensations: legacyData.ohs.anteriorView },
-        lateral_view: { compensations: legacyData.ohs.lateralView },
-        posterior_view: { compensations: legacyData.ohs.posteriorView },
-        notes: legacyData.ohs.notes || null,
-        media_urls: collectMediaUrls(data.ohs),
-      });
+      // Save only tests that were actually run
+      const testsToSave = miloResult?.testsToRun || ['ohs', 'sls', 'pushup'];
 
-      // Save SLS results with detailed view data
-      await supabase.from('global_test_results').insert({
-        assessment_id: assessmentId,
-        test_name: 'sls',
-        left_side: { 
-          compensations: legacyData.sls.leftSide,
-          anterior: data.sls.compensations.left_anterior || [],
-          posterior: data.sls.compensations.left_posterior || [],
-        },
-        right_side: { 
-          compensations: legacyData.sls.rightSide,
-          anterior: data.sls.compensations.right_anterior || [],
-          posterior: data.sls.compensations.right_posterior || [],
-        },
-        notes: legacyData.sls.notes || null,
-        media_urls: collectMediaUrls(data.sls),
-      });
+      if (testsToSave.includes('ohs')) {
+        await supabase.from('global_test_results').insert({
+          assessment_id: assessmentId,
+          test_name: 'ohs',
+          anterior_view: { compensations: legacyData.ohs.anteriorView },
+          lateral_view: { compensations: legacyData.ohs.lateralView },
+          posterior_view: { compensations: legacyData.ohs.posteriorView },
+          notes: legacyData.ohs.notes || null,
+          media_urls: collectMediaUrls(data.ohs),
+        });
+      }
 
-      // Save Push-up results (posterior view)
-      await supabase.from('global_test_results').insert({
-        assessment_id: assessmentId,
-        test_name: 'pushup',
-        posterior_view: { compensations: legacyData.pushup.compensations },
-        notes: legacyData.pushup.notes || null,
-        media_urls: collectMediaUrls(data.pushup),
-      });
+      if (testsToSave.includes('sls')) {
+        await supabase.from('global_test_results').insert({
+          assessment_id: assessmentId,
+          test_name: 'sls',
+          left_side: { 
+            compensations: legacyData.sls.leftSide,
+            anterior: data.sls.compensations.left_anterior || [],
+            posterior: data.sls.compensations.left_posterior || [],
+          },
+          right_side: { 
+            compensations: legacyData.sls.rightSide,
+            anterior: data.sls.compensations.right_anterior || [],
+            posterior: data.sls.compensations.right_posterior || [],
+          },
+          notes: legacyData.sls.notes || null,
+          media_urls: collectMediaUrls(data.sls),
+        });
+      }
 
-      // Update assessment status
+      if (testsToSave.includes('pushup')) {
+        await supabase.from('global_test_results').insert({
+          assessment_id: assessmentId,
+          test_name: 'pushup',
+          posterior_view: { compensations: legacyData.pushup.compensations },
+          notes: legacyData.pushup.notes || null,
+          media_urls: collectMediaUrls(data.pushup),
+        });
+      }
+
       await supabase
         .from('assessments')
         .update({ status: 'in_progress' })
         .eq('id', assessmentId);
 
-      // Clear persisted data after successful save
       clearPersistedData();
       localStorage.removeItem('globalTests_assessmentId');
 
@@ -212,7 +316,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
 
       onComplete();
     } catch (error) {
-      console.error('Error saving global tests:', error);
+      logger.error('Error saving global tests:', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao salvar',
@@ -223,9 +327,13 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     }
   };
 
-  const progress = (currentStep / 4) * 100;
+  // ============================================
+  // Computed Values
+  // ============================================
+  
+  const progress = (currentStep / totalSteps) * 100;
 
-  const getTotalCompensations = () => {
+  const getTotalCompensations = (): number => {
     const legacyData = toLegacyFormat(data);
     return (
       legacyData.ohs.anteriorView.length +
@@ -237,9 +345,15 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     );
   };
 
+  // ============================================
+  // Render Step Content
+  // ============================================
+  
   const renderStep = () => {
-    switch (currentStep) {
-      case 1:
+    if (!currentStepData) return null;
+    
+    switch (currentStepData.testType) {
+      case 'ohs':
         return (
           <AutoGlobalTest
             testType="ohs"
@@ -248,7 +362,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
             onUpdate={(ohs) => updateData({ ohs })}
           />
         );
-      case 2:
+      case 'sls':
         return (
           <AutoGlobalTest
             testType="sls"
@@ -257,7 +371,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
             onUpdate={(sls) => updateData({ sls })}
           />
         );
-      case 3:
+      case 'pushup':
         return (
           <AutoGlobalTest
             testType="pushup"
@@ -266,41 +380,62 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
             onUpdate={(pushup) => updateData({ pushup })}
           />
         );
-      case 4:
+      case 'summary':
         return <TestSummary data={toLegacyFormat(data)} />;
       default:
         return null;
     }
   };
 
-  if (isLoadingPersistence) {
+  // ============================================
+  // Loading State
+  // ============================================
+  
+  if (isLoadingPersistence || isLoadingMilo) {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-pulse text-muted-foreground">Carregando dados salvos...</div>
+          <div className="animate-pulse text-muted-foreground">Carregando dados...</div>
         </div>
       </div>
     );
   }
 
+  // ============================================
+  // Render
+  // ============================================
+  
   return (
     <div className="max-w-4xl mx-auto">
+      {/* MILO Info Banner */}
+      {miloResult && miloResult.testsSkipped.length > 0 && (
+        <div className="mb-6 p-3 bg-muted/50 border border-border/50 rounded-lg flex items-start gap-3">
+          <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="text-sm text-muted-foreground">
+            <span>Testes omitidos com base na região de dor: </span>
+            <span className="font-medium text-foreground">
+              {miloResult.testsSkipped.map(t => GLOBAL_TEST_LABELS[t]).join(', ')}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Progress Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span>{steps[currentStep - 1].icon}</span>
-            {steps[currentStep - 1].title}
+            <span>{currentStepData?.icon}</span>
+            {currentStepData?.title}
           </h2>
           <span className="text-sm text-muted-foreground">
-            Etapa {currentStep} de 4
+            Etapa {currentStep} de {totalSteps}
           </span>
         </div>
         <Progress value={progress} className="h-2" />
 
         {/* Step indicators */}
         <div className="flex justify-between mt-4">
-          {steps.map((step) => (
+          {activeSteps.map((step) => (
             <button
               key={step.id}
               onClick={() => setCurrentStep(step.id)}
@@ -332,7 +467,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
       </div>
 
       {/* Compensation Counter */}
-      {currentStep < 4 && getTotalCompensations() > 0 && (
+      {currentStepData?.testType !== 'summary' && getTotalCompensations() > 0 && (
         <div className="mb-6 p-3 bg-warning/10 border border-warning/20 rounded-lg flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-warning" />
           <span className="text-sm">
@@ -357,7 +492,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
           Anterior
         </Button>
 
-        {currentStep < 4 ? (
+        {currentStep < totalSteps ? (
           <Button onClick={handleNext}>
             Próximo
             <ChevronRight className="w-4 h-4 ml-2" />

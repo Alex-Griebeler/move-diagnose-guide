@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
+import { createLogger } from '@/lib/logger';
 import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
 import { AssessmentBreadcrumb } from '@/components/assessment/AssessmentBreadcrumb';
 import { StudentSearchList, type StudentItem } from '@/components/students/StudentSearchList';
+import { 
+  PageLayout, 
+  PageHeader, 
+  PageContent,
+  PageLoading 
+} from '@/components/layout/PageLayout';
+
+const logger = createLogger('NewAssessment');
 
 type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests' | 'protocol';
 
@@ -108,7 +115,7 @@ export default function NewAssessment() {
         setStudents(profiles || []);
       }
     } catch (error) {
-      console.error('Error fetching students:', error);
+      logger.error('Error fetching students', error);
     } finally {
       setIsLoadingStudents(false);
     }
@@ -138,7 +145,7 @@ export default function NewAssessment() {
       setAssessmentId(data.id);
       setStep('anamnesis');
     } catch (error) {
-      console.error('Error creating assessment:', error);
+      logger.error('Error creating assessment', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao criar avaliação',
@@ -207,35 +214,27 @@ export default function NewAssessment() {
   };
 
   if (loading || isRestoringState) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse-soft">Carregando...</div>
-      </div>
-    );
+    return <PageLoading variant="minimal" />;
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4 mb-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl font-semibold">Nova Avaliação</h1>
-          </div>
-          
-          {/* Breadcrumb Navigation */}
-          <AssessmentBreadcrumb 
-            currentStep={step} 
-            studentName={selectedStudent?.full_name}
-          />
-        </div>
-      </header>
+    <PageLayout>
+      <PageHeader
+        variant="minimal"
+        title="Nova Avaliação"
+        showBack
+        onBack={() => navigate('/dashboard')}
+        className="border-b"
+      />
+      
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-2 border-b bg-card">
+        <AssessmentBreadcrumb 
+          currentStep={step} 
+          studentName={selectedStudent?.full_name}
+        />
+      </div>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContent size="lg" className="py-8">
         {step === 'select-student' && (
           <StudentSearchList
             students={students}
@@ -275,7 +274,7 @@ export default function NewAssessment() {
             onComplete={handleProtocolComplete}
           />
         )}
-      </main>
-    </div>
+      </PageContent>
+    </PageLayout>
   );
 }

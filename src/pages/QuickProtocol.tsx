@@ -5,13 +5,22 @@
 
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ChevronLeft, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { createLogger } from '@/lib/logger';
 import { QuickProtocolWizard } from '@/components/quick-protocol/QuickProtocolWizard';
-import { Button } from '@/components/ui/button';
 import { PROTOCOL_METAS, type ProtocolType } from '@/data/quickProtocolMappings';
 import { StudentSearchList, type StudentItem } from '@/components/students/StudentSearchList';
+import { 
+  PageLayout, 
+  PageHeader, 
+  PageContent, 
+  PageLoading,
+  PageEmpty 
+} from '@/components/layout/PageLayout';
+
+const logger = createLogger('QuickProtocol');
 
 export default function QuickProtocol() {
   const [searchParams] = useSearchParams();
@@ -58,7 +67,7 @@ export default function QuickProtocol() {
         setLinkedStudents(profiles || []);
       }
     } catch (error) {
-      console.error('Error loading students:', error);
+      logger.error('Error loading students', error);
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +88,7 @@ export default function QuickProtocol() {
         assessmentId: assessmentId || null,
       });
     } catch (error) {
-      console.error('Error loading student:', error);
+      logger.error('Error loading student', error);
     } finally {
       setIsLoading(false);
     }
@@ -98,30 +107,22 @@ export default function QuickProtocol() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Carregando...</div>
-      </div>
-    );
+    return <PageLoading variant="minimal" />;
   }
 
   // Student selection mode
   if (studentId === 'select') {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
-          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-sm font-medium">{protocolMeta.shortName}</h1>
-              <p className="text-xs text-muted-foreground">Selecione o aluno</p>
-            </div>
-          </div>
-        </header>
+      <PageLayout>
+        <PageHeader
+          variant="minimal"
+          title={protocolMeta.shortName}
+          subtitle="Selecione o aluno"
+          showBack
+          onBack={() => navigate('/dashboard')}
+        />
 
-        <main className="max-w-2xl mx-auto px-4 py-8">
+        <PageContent size="md">
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <User className="w-8 h-8 text-primary" />
@@ -132,14 +133,22 @@ export default function QuickProtocol() {
             </p>
           </div>
 
-          <StudentSearchList
-            students={linkedStudents}
-            onSelect={handleSelectStudent}
-            emptyMessage="Nenhum aluno vinculado"
-            emptySubMessage="Adicione alunos no dashboard primeiro"
-          />
-        </main>
-      </div>
+          {linkedStudents.length > 0 ? (
+            <StudentSearchList
+              students={linkedStudents}
+              onSelect={handleSelectStudent}
+              emptyMessage="Nenhum aluno vinculado"
+              emptySubMessage="Adicione alunos no dashboard primeiro"
+            />
+          ) : (
+            <PageEmpty
+              icon={<User className="w-8 h-8 text-muted-foreground" />}
+              title="Nenhum aluno vinculado"
+              description="Adicione alunos no dashboard primeiro"
+            />
+          )}
+        </PageContent>
+      </PageLayout>
     );
   }
 

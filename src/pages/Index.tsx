@@ -3,7 +3,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Zap, Shield, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import fabrikLogo from '@/assets/fabrik-logo.png';
+import { 
+  PageLayout, 
+  PageHeader, 
+  PageContent, 
+  PageFooter 
+} from '@/components/layout/PageLayout';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -34,19 +39,17 @@ export default function Index() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="w-full py-6 px-4 sm:px-8 border-b border-border">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={fabrikLogo} alt="FABRIK" className="h-14 w-auto" />
-          </div>
+    <PageLayout>
+      <PageHeader
+        variant="auth"
+        rightContent={
           <Link to="/auth">
             <Button variant="outline" size="sm">Entrar</Button>
           </Link>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-8 py-16 sm:py-24">
+      <PageContent className="py-16 sm:py-24">
         <div className="text-center max-w-3xl mx-auto animate-fade-in">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-6 text-balance font-display">
             Movement & Performance Screen
@@ -98,11 +101,9 @@ export default function Index() {
             ))}
           </div>
         </div>
-      </main>
+      </PageContent>
 
-      <footer className="py-8 px-4 text-center border-t border-border">
-        <p className="text-xs text-muted-foreground">FABRIK Movement & Performance Screen</p>
-      </footer>
-    </div>
+      <PageFooter />
+    </PageLayout>
   );
 }

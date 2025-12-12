@@ -23,11 +23,12 @@ import type { TestResult } from '@/lib/quickProtocolEngine';
 interface QuickProtocolTestProps {
   test: QuickTestDefinition;
   sessionId: string;
+  affectedSide?: 'left' | 'right' | 'bilateral';
   value?: TestResult;
   onChange: (result: TestResult) => void;
 }
 
-export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickProtocolTestProps) {
+export function QuickProtocolTest({ test, sessionId, affectedSide, value, onChange }: QuickProtocolTestProps) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>(
     value?.specificFindings || []
   );
@@ -197,12 +198,15 @@ export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickPro
       test.options.find(o => o.id === optId)?.isPositive
     );
 
+    // Use affectedSide as fallback if no side selected for bilateral tests
+    const effectiveSide = side || (test.isBilateral && hasPositiveOption ? affectedSide : undefined);
+
     const result: TestResult = {
       testId: test.id,
       hasPain: pain,
       isPositive: hasPositiveOption || pain,
       specificFindings: options,
-      findingSide: side,
+      findingSide: effectiveSide,
     };
 
     // Para testes bilaterais, mapear achados por lado
@@ -348,9 +352,14 @@ export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickPro
             {/* Bilateral Side Selector - Only for bilateral tests with findings */}
             {test.isBilateral && selectedOptions.length > 0 && (
               <div className="pt-2 border-t border-border/50">
-                <Label className="text-xs text-muted-foreground mb-2 block">
-                  Lado afetado
-                </Label>
+                <div className="mb-2">
+                  <Label className="text-xs text-muted-foreground block">
+                    Em qual lado você observou o achado?
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                    (pode ser diferente do lado da dor)
+                  </p>
+                </div>
                 <div className="flex gap-1.5">
                   {(['left', 'right', 'bilateral'] as const).map((side) => {
                     const isSelected = findingSide === side;

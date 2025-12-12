@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Check, Loader2, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
@@ -242,6 +242,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
            result.leftValue !== null || result.rightValue !== null;
   };
 
+  const getCompletedCount = (): number => {
+    return Object.keys(testResults).filter(testId => isTestCompleted(testId)).length;
+  };
+
   if (loading || isLoadingPersistence) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -279,22 +283,31 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const currentTest = !isSummaryStep ? suggestedTests[currentTestIndex] : null;
   const progress = (currentStep / totalSteps) * 100;
   const groupedTests = groupTestsByRegion(suggestedTests);
+  const completedCount = getCompletedCount();
 
-  const steps = suggestedTests.map((test, i) => ({
-    id: i + 1,
-    testId: test.id,
-  }));
+  // Build steps array like global tests
+  const steps = [
+    ...suggestedTests.map((test, i) => ({
+      id: i + 1,
+      title: test.name,
+      shortTitle: test.name.length > 12 ? test.name.substring(0, 10) + '...' : test.name,
+      icon: '🔬',
+      testId: test.id,
+    })),
+    { id: totalSteps, title: 'Resumo', shortTitle: 'Resumo', icon: '📊', testId: null },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Minimal Header */}
+      {/* Progress Header - Same as Global Tests */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <h2 className="text-lg font-semibold cursor-help hover:text-foreground/80 transition-colors">
-                  {isSummaryStep ? 'Resumo' : currentTest?.name}
+                <h2 className="text-lg font-semibold flex items-center gap-2 cursor-help hover:text-foreground/80 transition-colors">
+                  <span>{steps[currentStep - 1].icon}</span>
+                  {steps[currentStep - 1].title}
                 </h2>
               </TooltipTrigger>
               {!isSummaryStep && currentTest?.description && (
@@ -305,15 +318,15 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             </Tooltip>
           </TooltipProvider>
           <span className="text-sm text-muted-foreground">
-            {currentStep} de {totalSteps}
+            Etapa {currentStep} de {totalSteps}
           </span>
         </div>
-        <Progress value={progress} className="h-1.5" />
+        <Progress value={progress} className="h-2" />
 
-        {/* Minimal step indicators */}
-        <div className="flex justify-center gap-2 mt-4">
+        {/* Step indicators - Same as Global Tests */}
+        <div className="flex justify-between mt-4 overflow-x-auto pb-2">
           {steps.map((step) => {
-            const isCompleted = isTestCompleted(step.testId);
+            const isCompleted = step.testId ? isTestCompleted(step.testId) : false;
             const isCurrent = step.id === currentStep;
             
             return (
@@ -321,33 +334,47 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
                 key={step.id}
                 onClick={() => setCurrentStep(step.id)}
                 className={cn(
-                  "w-2.5 h-2.5 rounded-full transition-all",
+                  "flex flex-col items-center min-w-[60px] transition-colors shrink-0",
                   isCurrent
-                    ? "bg-primary scale-125"
+                    ? "text-accent"
                     : isCompleted
-                    ? "bg-success"
-                    : "bg-muted-foreground/30"
+                    ? "text-success"
+                    : "text-muted-foreground"
                 )}
-                aria-label={`Etapa ${step.id}`}
-              />
+              >
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
+                    isCurrent
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : isCompleted
+                      ? "border-success bg-success text-success-foreground"
+                      : "border-muted-foreground/30"
+                  )}
+                >
+                  {isCompleted && !isCurrent ? <Check className="w-5 h-5" /> : step.icon}
+                </div>
+                <span className="text-xs mt-1 hidden sm:block text-center max-w-[60px] truncate">
+                  {step.shortTitle}
+                </span>
+              </button>
             );
           })}
-          {/* Summary step indicator */}
-          <button
-            onClick={() => setCurrentStep(totalSteps)}
-            className={cn(
-              "w-2.5 h-2.5 rounded-full transition-all",
-              isSummaryStep
-                ? "bg-primary scale-125"
-                : "bg-muted-foreground/30"
-            )}
-            aria-label="Resumo"
-          />
         </div>
       </div>
 
-      {/* Content */}
-      <div className="mb-6 animate-fade-in">
+      {/* Completion Counter - Same style as Global Tests */}
+      {currentStep < totalSteps && completedCount > 0 && (
+        <div className="mb-6 p-3 bg-success/10 border border-success/20 rounded-lg flex items-center gap-3">
+          <Check className="w-5 h-5 text-success" />
+          <span className="text-sm">
+            <strong>{completedCount}</strong> de {suggestedTests.length} testes concluídos
+          </span>
+        </div>
+      )}
+
+      {/* Step Content - Card wrapper like Global Tests */}
+      <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
         {isSummaryStep ? (
           <SegmentalTestsSummary 
             results={testResults} 
@@ -365,7 +392,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         ) : null}
       </div>
 
-      {/* Navigation */}
+      {/* Navigation - Same as Global Tests */}
       <div className="flex justify-between">
         <Button
           variant="outline"
@@ -394,7 +421,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
               ) : (
                 <>
                   <Check className="w-4 h-4 mr-2" />
-                  Concluir
+                  Concluir Testes Segmentados
                 </>
               )}
             </Button>

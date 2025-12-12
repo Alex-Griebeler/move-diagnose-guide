@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
-import { Sparkles, Loader2, Check, X, AlertTriangle, Camera, ChevronDown, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Sparkles, Loader2, Check, X, AlertTriangle, ChevronDown, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -51,7 +52,6 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [mediaUrls, setMediaUrls] = useState<{ photoUrl?: string; videoUrl?: string }>({});
-  const [instructionsOpen, setInstructionsOpen] = useState(false);
   
   const { analyzeMovement } = useMovementAnalysis({
     onAnalysisComplete: (aiResult) => {
@@ -255,100 +255,109 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   };
 
   return (
-    <Card className="border-0 shadow-none bg-transparent">
-      <CardContent className="p-0 space-y-6">
-        {/* Collapsible Instructions */}
-        <Collapsible open={instructionsOpen} onOpenChange={setInstructionsOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronDown className={cn("h-4 w-4 transition-transform", instructionsOpen && "rotate-180")} />
-              Instruções
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <p className="text-sm text-muted-foreground mt-2 pl-6">
-              {test.instructions}
-            </p>
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Media Upload */}
-        <div className="space-y-3">
-          <Label className="flex items-center gap-2 text-sm">
-            <Camera className="h-4 w-4" />
-            Capturar (opcional)
-          </Label>
-          <MediaUploader
-            assessmentId={assessmentId}
-            testName={test.id}
-            onUploadComplete={handleMediaUpload}
-            onAnalyze={handleAnalyze}
-            isAnalyzing={isAnalyzing}
-          />
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Header with Instructions Tooltip - Same as Global Tests */}
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🔬</span>
+          <h3 className="text-lg font-medium">{test.name}</h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="p-1 rounded-full hover:bg-muted/80 transition-colors">
+                <Info className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <p className="text-xs">{test.instructions}</p>
+              {test.cutoffValue !== undefined && (
+                <p className="text-xs mt-1 text-muted-foreground">
+                  Cutoff: ≥{test.cutoffValue} {test.unit}
+                </p>
+              )}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* AI Analysis Loading */}
-        {isAnalyzing && (
-          <div className="flex items-center justify-center py-4 gap-2 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Analisando...</span>
-          </div>
-        )}
+        {/* Current View Content - Card wrapper like Global Tests */}
+        <Card className="border-border/50">
+          <CardHeader className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium">
+                {test.isBilateral ? 'Bilateral' : 'Unilateral'}
+              </CardTitle>
+              {analysisResult && (
+                <Badge variant="outline" className="text-[10px] h-5">
+                  {Math.round((analysisResult.confidence || 0) * 100)}% confiança
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">{test.description}</p>
+          </CardHeader>
+          <CardContent className="space-y-4 px-4 pb-4 pt-0">
+            {/* Media Upload */}
+            <MediaUploader
+              assessmentId={assessmentId}
+              testName={test.id}
+              onUploadComplete={handleMediaUpload}
+              onAnalyze={handleAnalyze}
+              isAnalyzing={isAnalyzing}
+            />
 
-        {/* AI Result - Simplified */}
-        {analysisResult && !isAnalyzing && (
-          <div className="p-4 rounded-lg bg-accent/5 border border-accent/20">
-            <div className="flex items-start gap-3">
-              <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-sm">Sugestão da IA</p>
-                  <span className="text-xs text-muted-foreground">
-                    {Math.round((analysisResult.confidence || 0) * 100)}%
-                  </span>
-                </div>
-                {analysisResult.notes && (
-                  <p className="text-sm text-muted-foreground mt-1">
+            {/* AI Analysis Loading */}
+            {isAnalyzing && (
+              <div className="flex items-center justify-center py-3 gap-2 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Analisando...</span>
+              </div>
+            )}
+
+            {/* AI Analysis Result - Compact like Global Tests */}
+            {analysisResult && !isAnalyzing && analysisResult.notes && (
+              <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground italic leading-relaxed">
                     {analysisResult.notes}
                   </p>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Result Inputs */}
-        <div className="space-y-4">
-          {test.isBilateral ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <Label className="font-medium">Esquerdo</Label>
-                {renderResultInput('left')}
-              </div>
-              <div className="space-y-3">
-                <Label className="font-medium">Direito</Label>
-                {renderResultInput('right')}
-              </div>
+            {/* Result Inputs */}
+            <div className="space-y-3">
+              <Label className="text-xs text-muted-foreground">Resultado</Label>
+              {test.isBilateral ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Esquerdo</Label>
+                    {renderResultInput('left')}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Direito</Label>
+                    {renderResultInput('right')}
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-xs">
+                  {renderResultInput('left')}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="max-w-md">
-              {renderResultInput('left')}
-            </div>
-          )}
-        </div>
 
-        {/* Asymmetry Warning */}
-        {test.isBilateral && 
-          result.leftValue !== null && 
-          result.rightValue !== null && 
-          Math.abs(result.leftValue - result.rightValue) > (test.cutoffValue ? test.cutoffValue * 0.15 : 2) && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 text-warning text-sm">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>
-              Assimetria: {Math.abs(result.leftValue - result.rightValue).toFixed(1)} {test.unit}
-            </span>
-          </div>
-        )}
+            {/* Asymmetry Warning */}
+            {test.isBilateral && 
+              result.leftValue !== null && 
+              result.rightValue !== null && 
+              Math.abs(result.leftValue - result.rightValue) > (test.cutoffValue ? test.cutoffValue * 0.15 : 2) && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 text-warning text-sm">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>
+                  Assimetria: {Math.abs(result.leftValue - result.rightValue).toFixed(1)} {test.unit}
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Notes */}
         <Textarea
@@ -358,7 +367,7 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
           rows={2}
           className="resize-none"
         />
-      </CardContent>
-    </Card>
+      </div>
+    </TooltipProvider>
   );
 }

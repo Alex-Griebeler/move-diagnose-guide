@@ -219,10 +219,23 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
 
   // Extract frame from video when no photo available
   const extractFrameFromVideo = async (videoUrl: string): Promise<string> => {
+    // Fetch video as blob to avoid CORS issues with Supabase Storage
+    const response = await fetch(videoUrl);
+    if (!response.ok) {
+      throw new Error('Failed to fetch video');
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
-      video.crossOrigin = 'anonymous';
-      video.src = videoUrl;
+      video.src = blobUrl;
+      video.muted = true;
+      video.playsInline = true;
+      
+      const cleanup = () => {
+        URL.revokeObjectURL(blobUrl);
+      };
       
       video.onloadedmetadata = () => {
         // Seek to middle of video for best frame
@@ -230,20 +243,31 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       };
       
       video.onseeked = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            cleanup();
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          ctx.drawImage(video, 0, 0);
+          const frameUrl = canvas.toDataURL('image/jpeg', 0.8);
+          cleanup();
+          resolve(frameUrl);
+        } catch (error) {
+          cleanup();
+          reject(error);
         }
-        ctx.drawImage(video, 0, 0);
-        const frameUrl = canvas.toDataURL('image/jpeg', 0.8);
-        resolve(frameUrl);
       };
       
-      video.onerror = () => reject(new Error('Failed to load video'));
+      video.onerror = () => {
+        cleanup();
+        reject(new Error('Failed to load video'));
+      };
+      
       video.load();
     });
   };

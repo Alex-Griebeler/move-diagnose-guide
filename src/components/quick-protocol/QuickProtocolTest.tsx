@@ -32,6 +32,9 @@ export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickPro
     value?.specificFindings || []
   );
   const [hasPain, setHasPain] = useState(value?.hasPain || false);
+  const [findingSide, setFindingSide] = useState<'left' | 'right' | 'bilateral' | undefined>(
+    value?.findingSide
+  );
   const [photoUrl, setPhotoUrl] = useState<string | undefined>();
   const [videoUrl, setVideoUrl] = useState<string | undefined>();
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -50,7 +53,25 @@ export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickPro
         
         const pain = result.pain_indicators || false;
         setHasPain(pain);
-        updateResult(validOptions, pain);
+        
+        // Determinar lado do achado a partir da resposta da IA
+        let detectedSide: 'left' | 'right' | 'bilateral' | undefined;
+        const hasLeft = result.left_findings && result.left_findings.length > 0;
+        const hasRight = result.right_findings && result.right_findings.length > 0;
+        
+        if (hasLeft && hasRight) {
+          detectedSide = 'bilateral';
+        } else if (hasLeft) {
+          detectedSide = 'left';
+        } else if (hasRight) {
+          detectedSide = 'right';
+        }
+        
+        if (detectedSide) {
+          setFindingSide(detectedSide);
+        }
+        
+        updateResult(validOptions, pain, detectedSide);
       }
     },
     onError: () => {
@@ -151,16 +172,27 @@ export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickPro
       : [...selectedOptions, optionId];
     
     setSelectedOptions(updated);
-    updateResult(updated, hasPain);
+    updateResult(updated, hasPain, findingSide);
   };
 
   const togglePain = () => {
     const newPain = !hasPain;
     setHasPain(newPain);
-    updateResult(selectedOptions, newPain);
+    updateResult(selectedOptions, newPain, findingSide);
   };
 
-  const updateResult = (options: string[], pain: boolean) => {
+  const handleSideChange = (side: 'left' | 'right' | 'bilateral') => {
+    // Toggle off if clicking same side
+    const newSide = findingSide === side ? undefined : side;
+    setFindingSide(newSide);
+    updateResult(selectedOptions, hasPain, newSide);
+  };
+
+  const updateResult = (
+    options: string[], 
+    pain: boolean, 
+    side?: 'left' | 'right' | 'bilateral'
+  ) => {
     const hasPositiveOption = options.some(optId => 
       test.options.find(o => o.id === optId)?.isPositive
     );
@@ -170,11 +202,19 @@ export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickPro
       hasPain: pain,
       isPositive: hasPositiveOption || pain,
       specificFindings: options,
+      findingSide: side,
     };
 
-    if (test.isBilateral && hasPositiveOption) {
-      result.leftSide = 'limited';
-      result.rightSide = 'limited';
+    // Para testes bilaterais, mapear achados por lado
+    if (test.isBilateral && hasPositiveOption && side) {
+      if (side === 'left' || side === 'bilateral') {
+        result.leftSide = 'limited';
+        result.leftFindings = options;
+      }
+      if (side === 'right' || side === 'bilateral') {
+        result.rightSide = 'limited';
+        result.rightFindings = options;
+      }
     }
 
     onChange(result);
@@ -304,6 +344,48 @@ export function QuickProtocolTest({ test, sessionId, value, onChange }: QuickPro
                 })}
               </div>
             </div>
+
+            {/* Bilateral Side Selector - Only for bilateral tests with findings */}
+            {test.isBilateral && selectedOptions.length > 0 && (
+              <div className="pt-2 border-t border-border/50">
+                <Label className="text-xs text-muted-foreground mb-2 block">
+                  Lado afetado
+                </Label>
+                <div className="flex gap-1.5">
+                  {(['left', 'right', 'bilateral'] as const).map((side) => {
+                    const isSelected = findingSide === side;
+                    const aiDetectedLeft = analysisResult?.left_findings && analysisResult.left_findings.length > 0;
+                    const aiDetectedRight = analysisResult?.right_findings && analysisResult.right_findings.length > 0;
+                    const wasDetectedByAI = 
+                      (side === 'left' && aiDetectedLeft && !aiDetectedRight) ||
+                      (side === 'right' && aiDetectedRight && !aiDetectedLeft) ||
+                      (side === 'bilateral' && aiDetectedLeft && aiDetectedRight);
+                    
+                    const labels = { left: 'Esquerdo', right: 'Direito', bilateral: 'Bilateral' };
+                    
+                    return (
+                      <button
+                        key={side}
+                        onClick={() => handleSideChange(side)}
+                        className={cn(
+                          'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs transition-all',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground'
+                            : wasDetectedByAI
+                              ? 'bg-accent/15 text-accent border border-accent/30'
+                              : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {wasDetectedByAI && !isSelected && (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        {labels[side]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Pain Chip - Same style */}
             <div className="pt-2 border-t border-border/50">

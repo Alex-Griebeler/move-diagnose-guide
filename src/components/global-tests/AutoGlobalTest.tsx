@@ -480,29 +480,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           </CardContent>
         </Card>
 
-      {/* View Navigation Buttons */}
-      <div className="flex justify-between pt-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handlePreviousView}
-          disabled={currentViewIndex === 0}
-          className="gap-1"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Anterior
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleNextView}
-          disabled={currentViewIndex === config.views.length - 1}
-          className="gap-1"
-        >
-          Próxima
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
       {/* Notes - Collapsible */}
       <div className="space-y-2 pt-2 border-t border-border/50">
         <Label className="text-xs text-muted-foreground">Observações (opcional)</Label>

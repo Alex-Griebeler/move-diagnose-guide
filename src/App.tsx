@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import NewAssessment from "./pages/NewAssessment";
 import ContinueAssessment from "./pages/ContinueAssessment";
 import QuickProtocol from "./pages/QuickProtocol";
+import ViewAssessment from "./pages/ViewAssessment";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/assessment/new" element={<NewAssessment />} />
               <Route path="/assessment/continue" element={<ContinueAssessment />} />
+              <Route path="/assessment/view" element={<ViewAssessment />} />
               <Route path="/quick-protocol" element={<QuickProtocol />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

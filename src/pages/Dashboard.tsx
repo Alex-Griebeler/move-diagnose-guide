@@ -435,7 +435,10 @@ function ProfessionalDashboard() {
                   className="flex items-center justify-between py-3 first:pt-0 last:pb-0 group"
                 >
                   <Link 
-                    to={`/assessment/continue?assessmentId=${assessment.id}&studentName=${encodeURIComponent(assessment.student_name)}`}
+                    to={assessment.status === 'completed' 
+                      ? `/assessment/view?assessmentId=${assessment.id}&studentName=${encodeURIComponent(assessment.student_name)}`
+                      : `/assessment/continue?assessmentId=${assessment.id}&studentName=${encodeURIComponent(assessment.student_name)}`
+                    }
                     className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity"
                   >
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">

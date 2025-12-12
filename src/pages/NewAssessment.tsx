@@ -254,9 +254,10 @@ export default function NewAssessment() {
           />
         )}
 
-        {step === 'global-tests' && assessmentId && (
+        {step === 'global-tests' && assessmentId && selectedStudent && (
           <GlobalTestsWizard
             assessmentId={assessmentId}
+            studentId={selectedStudent.id}
             onComplete={handleGlobalTestsComplete}
           />
         )}

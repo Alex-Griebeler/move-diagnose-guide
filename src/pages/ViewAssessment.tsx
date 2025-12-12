@@ -302,9 +302,10 @@ export default function ViewAssessment() {
             />
           )}
 
-          {editMode === 'global-tests' && (
+          {editMode === 'global-tests' && assessment && (
             <GlobalTestsWizard
               assessmentId={assessmentId}
+              studentId={assessment.student_id}
               onComplete={handleEditComplete}
             />
           )}

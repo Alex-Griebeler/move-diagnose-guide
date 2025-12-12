@@ -7,7 +7,7 @@
 // PROTOCOL TYPES
 // ============================================================================
 
-export type ProtocolType = 'knee_pain' | 'hip_pain' | 'low_back_pain' | 'shoulder_pain';
+export type ProtocolType = 'knee_pain' | 'hip_pain' | 'low_back_pain' | 'shoulder_pain' | 'ankle_pain';
 
 export type TestId =
   // Knee tests
@@ -33,7 +33,13 @@ export type TestId =
   | 'shoulder_rotation'
   | 'scapular_control'
   | 'posterior_shoulder'
-  | 'shoulder_motor_control';
+  | 'shoulder_motor_control'
+  // Ankle tests
+  | 'dorsiflexion'
+  | 'posterior_chain_ankle'
+  | 'foot_stability'
+  | 'lateral_stability'
+  | 'ankle_motor_control';
 
 // ============================================================================
 // TEST DEFINITIONS
@@ -497,6 +503,116 @@ export const SHOULDER_PROTOCOL_TESTS: QuickTestDefinition[] = [
 ];
 
 // ============================================================================
+// ANKLE PROTOCOL TESTS
+// ============================================================================
+
+export const ANKLE_PROTOCOL_TESTS: QuickTestDefinition[] = [
+  {
+    id: 'dorsiflexion',
+    name: 'Wall Test - Dorsiflexion',
+    description: 'Avalia a mobilidade de dorsiflexão do tornozelo (5-inch test)',
+    layer: 'mobility',
+    segment: 'ankle',
+    isBilateral: true,
+    instructions: [
+      'Posicione o pé a ~12cm da parede',
+      'Mantenha o calcanhar no chão',
+      'Tente tocar o joelho na parede',
+      'Observe amplitude, assimetria e dor anterior'
+    ],
+    options: [
+      { id: 'normal', label: 'Normal', isPositive: false },
+      { id: 'limited', label: 'Limitada', isPositive: true },
+      { id: 'asymmetric', label: 'Assimetria', isPositive: true },
+      { id: 'anterior_pain', label: 'Dor anterior', isPositive: true },
+      { id: 'heel_lifts', label: 'Calcanhar levanta', isPositive: true }
+    ]
+  },
+  {
+    id: 'posterior_chain_ankle',
+    name: 'Posterior Mobility / Achilles Test',
+    description: 'Avalia tensão posterior e rigidez do tendão de Aquiles',
+    layer: 'mobility',
+    segment: 'ankle',
+    isBilateral: true,
+    instructions: [
+      'Versão rápida do knee-to-wall',
+      'Observe tensão na panturrilha',
+      'Note dor ou desconforto no tendão',
+      'Compare mobilidade entre lados'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'excessive_tension', label: 'Tensão excessiva', isPositive: true },
+      { id: 'tendon_pain', label: 'Dor no tendão', isPositive: true },
+      { id: 'short_mobility', label: 'Mobilidade curta', isPositive: true }
+    ]
+  },
+  {
+    id: 'foot_stability',
+    name: 'Single-Leg Balance (10s)',
+    description: 'Avalia integridade dos estabilizadores intrínsecos do pé',
+    layer: 'stability',
+    segment: 'foot',
+    isBilateral: true,
+    instructions: [
+      'Fique em um pé por ~10 segundos',
+      'Braços relaxados ao lado do corpo',
+      'Observe estabilidade e arco do pé',
+      'Note tremor excessivo ou dor'
+    ],
+    options: [
+      { id: 'stable', label: 'Estável', isPositive: false },
+      { id: 'unstable', label: 'Instável', isPositive: true },
+      { id: 'arch_collapse', label: 'Arco colapsa', isPositive: true },
+      { id: 'excessive_tremor', label: 'Tremor excessivo', isPositive: true },
+      { id: 'pain', label: 'Dor ao estabilizar', isPositive: true }
+    ]
+  },
+  {
+    id: 'lateral_stability',
+    name: 'Lateral Stability Test',
+    description: 'Avalia instabilidade talofibular e controle peroneal',
+    layer: 'stability',
+    segment: 'ankle',
+    isBilateral: true,
+    instructions: [
+      'Inverted foot drop ou lateral step balance',
+      'Observe controle lateral do tornozelo',
+      'Note instabilidade ou perda de eixo',
+      'Observe dor lateral'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'unstable', label: 'Instável', isPositive: true },
+      { id: 'lateral_axis_loss', label: 'Perde eixo lateral', isPositive: true },
+      { id: 'lateral_pain', label: 'Dor lateral', isPositive: true }
+    ]
+  },
+  {
+    id: 'ankle_motor_control',
+    name: 'Mini Hop / Landing Test',
+    description: 'Avalia absorção, alinhamento e padrão de aterrissagem',
+    layer: 'motor_control',
+    segment: 'ankle',
+    isBilateral: false,
+    instructions: [
+      'Faça um pequeno salto unilateral',
+      'Aterrisse de forma controlada',
+      'Observe qualidade da absorção',
+      'Note alinhamento e dor ao pousar'
+    ],
+    options: [
+      { id: 'clean', label: 'Movimento limpo', isPositive: false },
+      { id: 'hard_landing', label: 'Aterrissagem dura', isPositive: true },
+      { id: 'poor_alignment', label: 'Alinhamento ruim', isPositive: true },
+      { id: 'control_loss', label: 'Perde controle', isPositive: true },
+      { id: 'landing_pain', label: 'Dor ao pousar', isPositive: true }
+    ]
+  }
+];
+
+// ============================================================================
 // PROTOCOL METADATA
 // ============================================================================
 
@@ -561,6 +677,18 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
     description: 'Avaliação rápida para identificar se a dor no ombro é causada por mobilidade limitada, estabilidade escapular deficiente ou controle neuromotor inadequado.',
     icon: '💪',
     color: 'blue'
+  },
+  ankle_pain: {
+    id: 'ANKLE_UNIVERSAL_5MIN',
+    type: 'ankle_pain',
+    name: 'Mini Protocolo FABRIK – Dor no Tornozelo',
+    shortName: 'Dor no Tornozelo',
+    estimatedTime: 5,
+    focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
+    targetCondition: 'ankle_pain',
+    description: 'Avaliação rápida para identificar se a dor no tornozelo é causada por mobilidade de dorsiflexão limitada, instabilidade lateral ou controle neuromotor deficiente.',
+    icon: '🦶',
+    color: 'teal'
   }
 };
 
@@ -595,6 +723,8 @@ export function getTestsForProtocol(protocolType: ProtocolType): QuickTestDefini
       return LOW_BACK_PROTOCOL_TESTS;
     case 'shoulder_pain':
       return SHOULDER_PROTOCOL_TESTS;
+    case 'ankle_pain':
+      return ANKLE_PROTOCOL_TESTS;
     default:
       return KNEE_PROTOCOL_TESTS;
   }
@@ -610,11 +740,11 @@ export function getTestById(testId: TestId, protocolType?: ProtocolType): QuickT
     return tests.find(t => t.id === testId);
   }
   // Search all protocols
-  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS].find(t => t.id === testId);
+  return [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS, ...ANKLE_PROTOCOL_TESTS].find(t => t.id === testId);
 }
 
 export function getTestsByLayer(layer: 'mobility' | 'stability' | 'motor_control', protocolType?: ProtocolType): QuickTestDefinition[] {
-  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS];
+  const tests = protocolType ? getTestsForProtocol(protocolType) : [...KNEE_PROTOCOL_TESTS, ...HIP_PROTOCOL_TESTS, ...LOW_BACK_PROTOCOL_TESTS, ...SHOULDER_PROTOCOL_TESTS, ...ANKLE_PROTOCOL_TESTS];
   return tests.filter(t => t.layer === layer);
 }
 

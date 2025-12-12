@@ -36,7 +36,13 @@ export type DeficitType =
   | 'shoulder_rotation_mobility_deficit'
   | 'scapular_control_deficit'
   | 'posterior_shoulder_stability_deficit'
-  | 'shoulder_motor_control_deficit';
+  | 'shoulder_motor_control_deficit'
+  // Ankle deficits
+  | 'ankle_dorsiflexion_mobility_deficit'
+  | 'posterior_ankle_mobility_deficit'
+  | 'foot_arch_stability_deficit'
+  | 'lateral_ankle_stability_deficit'
+  | 'ankle_motor_control_deficit';
 
 export type TestResultStatus = 'normal' | 'limited' | 'asymmetric' | 'unstable' | 'pain';
 
@@ -122,6 +128,14 @@ const SHOULDER_PRIORITY_ORDER: DeficitType[] = [
   'shoulder_motor_control_deficit'
 ];
 
+const ANKLE_PRIORITY_ORDER: DeficitType[] = [
+  'ankle_dorsiflexion_mobility_deficit',
+  'posterior_ankle_mobility_deficit',
+  'foot_arch_stability_deficit',
+  'lateral_ankle_stability_deficit',
+  'ankle_motor_control_deficit'
+];
+
 // ============================================================================
 // TEST TO DEFICIT MAPPINGS
 // ============================================================================
@@ -156,6 +170,14 @@ const SHOULDER_TEST_TO_DEFICIT: Record<string, DeficitType> = {
   scapular_control: 'scapular_control_deficit',
   posterior_shoulder: 'posterior_shoulder_stability_deficit',
   shoulder_motor_control: 'shoulder_motor_control_deficit'
+};
+
+const ANKLE_TEST_TO_DEFICIT: Record<string, DeficitType> = {
+  dorsiflexion: 'ankle_dorsiflexion_mobility_deficit',
+  posterior_chain_ankle: 'posterior_ankle_mobility_deficit',
+  foot_stability: 'foot_arch_stability_deficit',
+  lateral_stability: 'lateral_ankle_stability_deficit',
+  ankle_motor_control: 'ankle_motor_control_deficit'
 };
 
 // ============================================================================
@@ -486,6 +508,87 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       duration: '5-8 reps lentas',
       category: 'technique'
     }
+  ],
+  // Ankle interventions
+  ankle_dorsiflexion_mobility_deficit: [
+    {
+      id: 'calf_release_ankle',
+      name: 'Liberação de Panturrilha',
+      description: 'Liberar gastrocnêmio e sóleo com rolo ou bola',
+      duration: '60-90s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'talocrural_mob_ankle',
+      name: 'Mobilidade Talocrural',
+      description: 'Mobilização em dorsiflexão com banda ou parede',
+      duration: '10-15 reps cada lado',
+      category: 'mobility'
+    }
+  ],
+  posterior_ankle_mobility_deficit: [
+    {
+      id: 'achilles_release',
+      name: 'Mobilidade de Aquiles',
+      description: 'Liberação profunda do tendão de Aquiles e panturrilha',
+      duration: '60-90s cada lado',
+      category: 'release'
+    },
+    {
+      id: 'eccentric_calf',
+      name: 'Alongamento Excêntrico',
+      description: 'Descida lenta em degrau para mobilidade excêntrica',
+      duration: '10-12 reps cada lado',
+      category: 'mobility'
+    }
+  ],
+  foot_arch_stability_deficit: [
+    {
+      id: 'intrinsic_activation',
+      name: 'Ativação Intrínsecos do Pé',
+      description: 'Short-foot e exercícios de pegada de toalha',
+      duration: '10 reps x 5s cada lado',
+      category: 'activation'
+    },
+    {
+      id: 'single_leg_stance_ankle',
+      name: 'Apoio Unilateral',
+      description: 'Ficar em um pé com foco em manter arco ativo',
+      duration: '20-30s cada lado',
+      category: 'activation'
+    }
+  ],
+  lateral_ankle_stability_deficit: [
+    {
+      id: 'peroneal_activation',
+      name: 'Ativação Peroneais',
+      description: 'Eversão resistida com banda ou step lateral',
+      duration: '12-15 reps cada lado',
+      category: 'activation'
+    },
+    {
+      id: 'lateral_step_control',
+      name: 'Step Lateral Controlado',
+      description: 'Controle de eversão em step lateral lento',
+      duration: '8-10 reps cada lado',
+      category: 'activation'
+    }
+  ],
+  ankle_motor_control_deficit: [
+    {
+      id: 'soft_landing_drill',
+      name: 'Drill de Aterrissagem Suave',
+      description: 'Mini hops com foco em absorção silenciosa',
+      duration: '8-10 reps controladas',
+      category: 'technique'
+    },
+    {
+      id: 'alignment_landing',
+      name: 'Ajuste Técnico de Aterrissagem',
+      description: 'Correção de alinhamento e padrão de absorção',
+      duration: '5-8 reps lentas',
+      category: 'technique'
+    }
   ]
 };
 
@@ -576,7 +679,28 @@ const EXPLANATIONS: Record<DeficitType, string> = {
   
   shoulder_motor_control_deficit:
     'Sua técnica está exigindo demasiado do ombro. ' +
-    'Ajustes de amplitude, ritmo e alinhamento podem aliviar a sobrecarga.'
+    'Ajustes de amplitude, ritmo e alinhamento podem aliviar a sobrecarga.',
+
+  // Ankle explanations
+  ankle_dorsiflexion_mobility_deficit:
+    'A mobilidade do seu tornozelo está reduzida, aumentando a tensão na região afetada. ' +
+    'Dorsiflexão limitada é a causa mais comum de dor no tornozelo.',
+  
+  posterior_ankle_mobility_deficit:
+    'A cadeia posterior do tornozelo está tensa e limitando seu movimento. ' +
+    'Rigidez no tendão de Aquiles pode causar compensações dolorosas.',
+  
+  foot_arch_stability_deficit:
+    'O pé não está fornecendo a base estável necessária. ' +
+    'Os estabilizadores intrínsecos do pé precisam de ativação.',
+  
+  lateral_ankle_stability_deficit:
+    'Seu tornozelo está instável lateralmente, o que pode gerar compensações dolorosas. ' +
+    'Os peroneais não estão controlando adequadamente a eversão.',
+  
+  ankle_motor_control_deficit:
+    'Sua mobilidade e estabilidade estão boas, mas o padrão de aterrissagem pode ser melhorado. ' +
+    'Correções técnicas de absorção podem proteger melhor o tornozelo.'
 };
 
 // ============================================================================
@@ -644,6 +768,10 @@ export function calculateDecision(
       testToDeficit = SHOULDER_TEST_TO_DEFICIT;
       priorityOrder = SHOULDER_PRIORITY_ORDER;
       break;
+    case 'ankle_pain':
+      testToDeficit = ANKLE_TEST_TO_DEFICIT;
+      priorityOrder = ANKLE_PRIORITY_ORDER;
+      break;
     default:
       testToDeficit = KNEE_TEST_TO_DEFICIT;
       priorityOrder = KNEE_PRIORITY_ORDER;
@@ -706,7 +834,13 @@ export function formatDeficitName(deficit: DeficitType): string {
     shoulder_rotation_mobility_deficit: 'Mobilidade de Rotação (Ombro)',
     scapular_control_deficit: 'Controle Escapular',
     posterior_shoulder_stability_deficit: 'Estabilidade Posterior (Ombro)',
-    shoulder_motor_control_deficit: 'Controle Neuromotor (Ombro)'
+    shoulder_motor_control_deficit: 'Controle Neuromotor (Ombro)',
+    // Ankle
+    ankle_dorsiflexion_mobility_deficit: 'Mobilidade de Dorsiflexão',
+    posterior_ankle_mobility_deficit: 'Mobilidade Posterior (Tornozelo)',
+    foot_arch_stability_deficit: 'Estabilidade do Arco Plantar',
+    lateral_ankle_stability_deficit: 'Estabilidade Lateral (Tornozelo)',
+    ankle_motor_control_deficit: 'Controle Neuromotor (Tornozelo)'
   };
   return names[deficit] || deficit;
 }

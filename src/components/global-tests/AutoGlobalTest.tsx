@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Info, Sparkles, X, Plus, Check, Loader2 } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Info, Sparkles, X, Plus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { MediaUploader } from '@/components/media/MediaUploader';
 import { useMovementAnalysis, AnalysisResult } from '@/hooks/useMovementAnalysis';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ohsAnteriorCompensations,
   ohsLateralCompensations,
@@ -15,7 +16,6 @@ import {
   slsAnteriorCompensations,
   slsPosteriorCompensations,
   pushupPosteriorCompensations,
-  getAggregatedMuscles,
   CompensationMapping,
 } from '@/data/compensationMappings';
 import { cn } from '@/lib/utils';
@@ -156,6 +156,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const config = TEST_CONFIGS[testType];
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
   const [analysisResults, setAnalysisResults] = useState<Record<ViewType, AnalysisResult | null>>({} as any);
+  const pendingAnalysisRef = useRef<ViewType | null>(null);
 
   // Reset view index when test type changes
   useEffect(() => {
@@ -167,11 +168,17 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const currentViewId = currentView?.id;
 
   const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string; isSlowMotion?: boolean }) => {
-    onUpdate({
+    const newData = {
       ...data,
       mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], ...urls } },
-    });
-  }, [data, onUpdate]);
+    };
+    onUpdate(newData);
+    
+    // Trigger auto-analysis when video is uploaded
+    if (urls.videoUrl && !analysisResults[viewId]) {
+      pendingAnalysisRef.current = viewId;
+    }
+  }, [data, onUpdate, analysisResults]);
 
   const handleSlowMotionChange = useCallback((viewId: ViewType, isSlowMotion: boolean) => {
     onUpdate({
@@ -253,13 +260,19 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     });
   };
 
-  const handleAnalyze = async () => {
-    let imageUrl = currentMedia.photoUrl;
+  const handleAnalyze = async (viewId?: ViewType) => {
+    const targetViewId = viewId || currentViewId;
+    const targetView = viewId ? config.views.find(v => v.id === viewId) : currentView;
+    const media = viewId ? data.mediaUrls[viewId] : currentMedia;
+    
+    if (!targetViewId || !targetView) return;
+    
+    let imageUrl = media?.photoUrl;
     
     // If no photo but video exists, extract a frame
-    if (!imageUrl && currentMedia.videoUrl) {
+    if (!imageUrl && media?.videoUrl) {
       try {
-        imageUrl = await extractFrameFromVideo(currentMedia.videoUrl);
+        imageUrl = await extractFrameFromVideo(media.videoUrl);
       } catch (error) {
         console.error('Failed to extract frame from video:', error);
         toast.error('Erro ao extrair frame do vídeo');
@@ -268,18 +281,26 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     }
     
     if (!imageUrl) {
-      toast.error('Capture uma foto ou vídeo primeiro');
       return;
     }
     
     await analyzeMovement({
       testType: config.aiTestType,
       imageUrl,
-      videoUrl: currentMedia.videoUrl,
-      viewType: currentView.id,
-      isSlowMotion: currentMedia.isSlowMotion,
+      videoUrl: media?.videoUrl,
+      viewType: targetViewId,
+      isSlowMotion: media?.isSlowMotion,
     });
   };
+
+  // Auto-trigger analysis when media is uploaded
+  useEffect(() => {
+    if (pendingAnalysisRef.current && !isAnalyzing) {
+      const viewToAnalyze = pendingAnalysisRef.current;
+      pendingAnalysisRef.current = null;
+      handleAnalyze(viewToAnalyze);
+    }
+  }, [data.mediaUrls, isAnalyzing]);
 
   const toggleCompensation = (compId: string) => {
     const current = currentCompensations;
@@ -301,220 +322,198 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     }
   };
 
-  // Get all compensations across all views for summary
-  const getAllCompensations = () => {
-    const all: string[] = [];
-    config.views.forEach(view => {
-      const comps = data.compensations[view.id] || [];
-      all.push(...comps);
-    });
-    return all;
-  };
-
-  const allSelectedIds = getAllCompensations();
-  const allMappings = config.views.flatMap(v => v.compensations);
-  const uniqueMappings = allMappings.filter((m, i, arr) => 
-    arr.findIndex(x => x.id === m.id) === i
-  );
-  const aggregated = getAggregatedMuscles(uniqueMappings, allSelectedIds);
-
   const currentResult = analysisResults[currentView.id];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          <span>{config.icon}</span> {config.title}
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Capture fotos/vídeos de cada vista e a IA detectará as compensações automaticamente.
-        </p>
-      </div>
-
-      {/* Instructions */}
-      <Card className="bg-muted/50">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-            <div className="text-sm space-y-1">
-              <p className="font-medium">Instruções do teste:</p>
-              <ul className="text-muted-foreground list-disc list-inside space-y-1">
-                {config.instructions.map((instruction, i) => (
-                  <li key={i}>{instruction}</li>
-                ))}
-              </ul>
-            </div>
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Header with Instructions Tooltip */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{config.icon}</span>
+            <h3 className="text-lg font-medium">{config.title}</h3>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="p-1 rounded-full hover:bg-muted/80 transition-colors">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p className="font-medium mb-1">Instruções:</p>
+                <ul className="text-xs space-y-0.5 list-disc list-inside">
+                  {config.instructions.map((instruction, i) => (
+                    <li key={i}>{instruction}</li>
+                  ))}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* View Navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          {config.views.map((view, index) => (
-            <button
-              key={view.id}
-              onClick={() => setCurrentViewIndex(index)}
-              className={cn(
-                'px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                index === currentViewIndex
-                  ? 'bg-primary text-primary-foreground'
-                  : (data.compensations[view.id]?.length || 0) > 0
-                    ? 'bg-success/20 text-success border border-success/30'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              )}
-            >
-              {view.label}
-              {(data.compensations[view.id]?.length || 0) > 0 && (
-                <Badge variant="secondary" className="ml-2 h-5 min-w-5 p-0 justify-center">
-                  {data.compensations[view.id]?.length || 0}
-                </Badge>
-              )}
-            </button>
-          ))}
-        </div>
-        <span className="text-sm text-muted-foreground">
-          {currentViewIndex + 1} de {config.views.length}
-        </span>
-      </div>
-
-      {/* Current View Content */}
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>{currentView.label}</span>
-            {currentResult && (
-              <Badge variant="outline" className="text-xs">
-                Confiança: {Math.round((currentResult.confidence || 0) * 100)}%
-              </Badge>
-            )}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">{currentView.description}</p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Media Upload */}
-          <MediaUploader
-            assessmentId={assessmentId}
-            testName={`${testType}_${currentView.id}`}
-            viewType={currentView.id}
-            initialPhotoUrl={currentMedia.photoUrl}
-            initialVideoUrl={currentMedia.videoUrl}
-            onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
-            onAnalyze={handleAnalyze}
-            isAnalyzing={isAnalyzing}
-            isSlowMotion={currentMedia.isSlowMotion || false}
-            onSlowMotionChange={(value) => handleSlowMotionChange(currentView.id, value)}
-          />
-
-          {/* AI Analysis Result */}
-          {isAnalyzing && (
-            <div className="flex items-center justify-center py-4 gap-2 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Analisando movimento com IA...</span>
-            </div>
-          )}
-
-          {currentResult && !isAnalyzing && (
-            <Card className="border-accent/50 bg-accent/5">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-2 mb-3">
-                  <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Análise da IA</p>
-                    <p className="text-xs text-muted-foreground">
-                      {currentResult.detected_compensations?.length || 0} compensações detectadas
-                    </p>
-                  </div>
-                </div>
-                {currentResult.notes && (
-                  <p className="text-sm text-muted-foreground mb-3 italic">
-                    "{currentResult.notes}"
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Compensation Chips */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              Compensações identificadas
-              <span className="text-muted-foreground font-normal ml-1">
-                (toque para adicionar/remover)
-              </span>
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {currentView.compensations.map((comp) => {
-                const isSelected = currentCompensations.includes(comp.id);
-                const wasDetectedByAI = currentResult?.detected_compensations?.includes(comp.id);
-                
-                return (
-                  <button
-                    key={comp.id}
-                    onClick={() => toggleCompensation(comp.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all',
-                      isSelected
-                        ? 'bg-destructive text-destructive-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    )}
-                  >
-                    {isSelected ? (
-                      <X className="h-3 w-3" />
-                    ) : (
-                      <Plus className="h-3 w-3" />
-                    )}
-                    {comp.label}
-                    {wasDetectedByAI && !isSelected && (
-                      <Sparkles className="h-3 w-3 text-accent" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* View Navigation Buttons */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePreviousView}
-          disabled={currentViewIndex === 0}
-        >
-          Vista Anterior
-        </Button>
-        <Button
-          onClick={handleNextView}
-          disabled={currentViewIndex === config.views.length - 1}
-        >
-          Próxima Vista
-          <Check className="h-4 w-4 ml-2" />
-        </Button>
-      </div>
-
-      {/* Minimal Analysis Indicator */}
-      {allSelectedIds.length > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/20 rounded-lg">
-          <Check className="h-4 w-4 text-success" />
-          <span className="text-sm text-muted-foreground">
-            Análise concluída · <span className="text-foreground font-medium">{allSelectedIds.length} compensações</span> detectadas
+          <span className="text-xs text-muted-foreground">
+            {currentViewIndex + 1}/{config.views.length}
           </span>
         </div>
-      )}
 
-      {/* Notes */}
-      <div className="space-y-2">
-        <Label>Observações adicionais</Label>
+        {/* View Navigation - Compact Pills */}
+        <div className="flex gap-1.5 flex-wrap">
+          {config.views.map((view, index) => {
+            const hasCompensations = (data.compensations[view.id]?.length || 0) > 0;
+            const isActive = index === currentViewIndex;
+            
+            return (
+              <button
+                key={view.id}
+                onClick={() => setCurrentViewIndex(index)}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : hasCompensations
+                      ? 'bg-success/15 text-success'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {view.label.replace('Vista ', '').replace('Esquerda - ', 'E ').replace('Direita - ', 'D ')}
+                {hasCompensations && (
+                  <span className={cn(
+                    'h-4 min-w-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center',
+                    isActive ? 'bg-primary-foreground/20' : 'bg-success/20'
+                  )}>
+                    {data.compensations[view.id]?.length || 0}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Current View Content */}
+        <Card className="border-border/50">
+          <CardHeader className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium">{currentView.label}</CardTitle>
+              {currentResult && (
+                <Badge variant="outline" className="text-[10px] h-5">
+                  {Math.round((currentResult.confidence || 0) * 100)}% confiança
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">{currentView.description}</p>
+          </CardHeader>
+          <CardContent className="space-y-3 px-4 pb-4 pt-0">
+            {/* Media Upload - No analyze button, auto-analyzes */}
+            <MediaUploader
+              assessmentId={assessmentId}
+              testName={`${testType}_${currentView.id}`}
+              viewType={currentView.id}
+              initialPhotoUrl={currentMedia.photoUrl}
+              initialVideoUrl={currentMedia.videoUrl}
+              onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
+              isAnalyzing={isAnalyzing}
+              isSlowMotion={currentMedia.isSlowMotion || false}
+              onSlowMotionChange={(value) => handleSlowMotionChange(currentView.id, value)}
+            />
+
+            {/* AI Analysis Loading */}
+            {isAnalyzing && (
+              <div className="flex items-center justify-center py-3 gap-2 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Analisando...</span>
+              </div>
+            )}
+
+            {/* AI Analysis Result - Compact */}
+            {currentResult && !isAnalyzing && currentResult.notes && (
+              <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground italic leading-relaxed">
+                    {currentResult.notes}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Compensation Chips */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">
+                  Compensações
+                </Label>
+                {currentCompensations.length > 0 && (
+                  <Badge variant="secondary" className="h-5 text-[10px]">
+                    {currentCompensations.length} selecionadas
+                  </Badge>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {currentView.compensations.map((comp) => {
+                  const isSelected = currentCompensations.includes(comp.id);
+                  const wasDetectedByAI = currentResult?.detected_compensations?.includes(comp.id);
+                  
+                  return (
+                    <button
+                      key={comp.id}
+                      onClick={() => toggleCompensation(comp.id)}
+                      className={cn(
+                        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs transition-all',
+                        isSelected
+                          ? 'bg-destructive text-destructive-foreground'
+                          : wasDetectedByAI
+                            ? 'bg-accent/15 text-accent border border-accent/30'
+                            : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      {isSelected ? (
+                        <X className="h-3 w-3" />
+                      ) : wasDetectedByAI ? (
+                        <Sparkles className="h-3 w-3" />
+                      ) : (
+                        <Plus className="h-3 w-3" />
+                      )}
+                      {comp.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+      {/* View Navigation Buttons */}
+      <div className="flex justify-between pt-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handlePreviousView}
+          disabled={currentViewIndex === 0}
+          className="gap-1"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Anterior
+        </Button>
+        <Button
+          size="sm"
+          onClick={handleNextView}
+          disabled={currentViewIndex === config.views.length - 1}
+          className="gap-1"
+        >
+          Próxima
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Notes - Collapsible */}
+      <div className="space-y-2 pt-2 border-t border-border/50">
+        <Label className="text-xs text-muted-foreground">Observações (opcional)</Label>
         <Textarea
-          placeholder="Anote detalhes relevantes sobre o teste..."
+          placeholder="Anote detalhes relevantes..."
           value={data.notes}
           onChange={(e) => onUpdate({ ...data, notes: e.target.value })}
-          rows={3}
+          rows={2}
+          className="text-sm resize-none"
         />
       </div>
     </div>
+    </TooltipProvider>
   );
 }

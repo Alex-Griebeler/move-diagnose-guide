@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Camera, Video, X, Upload, Loader2, CheckCircle, Lightbulb, Gauge } from 'lucide-react';
+import { Camera, Video, X, Loader2, CheckCircle, Lightbulb, Gauge } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -499,33 +499,13 @@ export function MediaUploader({
           </div>
         </div>
 
-        {onAnalyze && hasMedia && (
-          <Button
-            onClick={handleAnalyze}
-            disabled={isAnalyzing}
-            className="w-full min-h-[48px]"
-            variant="default"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analisando movimento...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                Analisar Movimento
-              </>
-            )}
-          </Button>
-        )}
-
-        {hasMedia && onSlowMotionChange && (
-          <div className="flex items-center justify-between py-2 px-1 border-t border-border/50">
+        {/* Slow Motion Toggle - Only show when video exists */}
+        {videoUrl && onSlowMotionChange && (
+          <div className="flex items-center justify-between py-2 px-1">
             <div className="flex items-center gap-2">
               <Gauge className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="slow-motion" className="text-sm text-muted-foreground cursor-pointer">
-                Vídeo em Slow Motion
+              <Label htmlFor="slow-motion" className="text-xs text-muted-foreground cursor-pointer">
+                Slow Motion
               </Label>
             </div>
             <Switch
@@ -540,9 +520,9 @@ export function MediaUploader({
         )}
 
         {!hasMedia && (
-          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-1">
             <Lightbulb className="h-3.5 w-3.5" />
-            <span>Capture pelo menos uma foto para análise</span>
+            <span>Capture mídia para análise automática</span>
           </div>
         )}
       </Card>

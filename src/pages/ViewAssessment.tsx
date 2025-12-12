@@ -72,7 +72,23 @@ interface SegmentalTestData {
   right_value: number | null;
   pass_fail_left: boolean | null;
   pass_fail_right: boolean | null;
+  media_urls: unknown;
 }
+
+// Helper to safely get media URLs array
+const getMediaUrls = (mediaUrls: unknown): string[] => {
+  if (!mediaUrls) return [];
+  if (Array.isArray(mediaUrls)) return mediaUrls as string[];
+  if (typeof mediaUrls === 'string') {
+    try {
+      const parsed = JSON.parse(mediaUrls);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
 
 interface ProtocolData {
   id: string;
@@ -488,11 +504,11 @@ export default function ViewAssessment() {
                         <AccordionContent>
                           <div className="space-y-4 pt-2">
                             {/* Video Section */}
-                            {Array.isArray(test.media_urls) && test.media_urls.length > 0 && (
+                            {getMediaUrls(test.media_urls).length > 0 && (
                               <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground font-medium">Vídeos</p>
                                 <div className="flex flex-wrap gap-2">
-                                  {(test.media_urls as string[]).map((url, idx) => {
+                                  {getMediaUrls(test.media_urls).map((url, idx) => {
                                     const fileName = url.split('/').pop() || `Video ${idx + 1}`;
                                     const viewName = fileName.includes('anterior') ? 'Anterior' 
                                       : fileName.includes('lateral') ? 'Lateral' 
@@ -587,32 +603,80 @@ export default function ViewAssessment() {
                     {segmentalTests.map(test => (
                       <div 
                         key={test.test_name} 
-                        className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                        className="p-3 bg-muted/30 rounded-lg space-y-2"
                       >
-                        <div>
-                          <p className="text-sm font-medium">{test.test_name.replace(/_/g, ' ')}</p>
-                          <p className="text-xs text-muted-foreground">{test.body_region}</p>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="text-center">
-                            <p className="text-xs text-muted-foreground">E</p>
-                            <Badge 
-                              variant={test.pass_fail_left === false ? 'destructive' : test.pass_fail_left === true ? 'secondary' : 'outline'}
-                              className="text-xs"
-                            >
-                              {test.left_value !== null ? test.left_value : (test.pass_fail_left === true ? '✓' : test.pass_fail_left === false ? '✕' : '—')}
-                            </Badge>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{test.test_name.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-muted-foreground">{test.body_region}</p>
                           </div>
-                          <div className="text-center">
-                            <p className="text-xs text-muted-foreground">D</p>
-                            <Badge 
-                              variant={test.pass_fail_right === false ? 'destructive' : test.pass_fail_right === true ? 'secondary' : 'outline'}
-                              className="text-xs"
-                            >
-                              {test.right_value !== null ? test.right_value : (test.pass_fail_right === true ? '✓' : test.pass_fail_right === false ? '✕' : '—')}
-                            </Badge>
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground">E</p>
+                              <Badge 
+                                variant={test.pass_fail_left === false ? 'destructive' : test.pass_fail_left === true ? 'secondary' : 'outline'}
+                                className="text-xs"
+                              >
+                                {test.left_value !== null ? test.left_value : (test.pass_fail_left === true ? '✓' : test.pass_fail_left === false ? '✕' : '—')}
+                              </Badge>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground">D</p>
+                              <Badge 
+                                variant={test.pass_fail_right === false ? 'destructive' : test.pass_fail_right === true ? 'secondary' : 'outline'}
+                                className="text-xs"
+                              >
+                                {test.right_value !== null ? test.right_value : (test.pass_fail_right === true ? '✓' : test.pass_fail_right === false ? '✕' : '—')}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
+                        
+                        {/* Video Section for Segmental Tests */}
+                        {getMediaUrls(test.media_urls).length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {getMediaUrls(test.media_urls).map((url, idx) => (
+                              <Dialog key={url}>
+                                <DialogTrigger asChild>
+                                  <Button variant="outline" size="sm" className="gap-2 h-7 text-xs">
+                                    <Play className="w-3 h-3" />
+                                    Vídeo {idx + 1}
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-3xl">
+                                  <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2">
+                                      <Video className="w-4 h-4" />
+                                      {test.test_name.replace(/_/g, ' ')}
+                                    </DialogTitle>
+                                  </DialogHeader>
+                                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                                    <video 
+                                      controls 
+                                      className="w-full h-full object-contain"
+                                      playsInline
+                                      preload="metadata"
+                                    >
+                                      <source src={url} type="video/quicktime" />
+                                      <source src={url} type="video/mp4" />
+                                      Seu navegador não suporta este formato.
+                                    </video>
+                                  </div>
+                                  <div className="flex justify-center pt-2">
+                                    <a 
+                                      href={url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-muted-foreground hover:text-primary underline"
+                                    >
+                                      Não consegue ver? Clique para abrir em nova aba
+                                    </a>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

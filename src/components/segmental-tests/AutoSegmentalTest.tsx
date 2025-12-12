@@ -146,25 +146,14 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   }) => {
     const isSelected = status === currentStatus;
     
-    const colorMap = {
-      pass: {
-        idle: 'bg-success/5 border-success/20 text-success/50',
-        hover: 'hover:bg-success/10 hover:border-success/30 hover:text-success/70',
-        selected: 'bg-success/15 border-success/40 text-success shadow-sm shadow-success/10',
-      },
-      partial: {
-        idle: 'bg-warning/5 border-warning/20 text-warning/50',
-        hover: 'hover:bg-warning/10 hover:border-warning/30 hover:text-warning/70',
-        selected: 'bg-warning/15 border-warning/40 text-warning shadow-sm shadow-warning/10',
-      },
-      fail: {
-        idle: 'bg-destructive/5 border-destructive/20 text-destructive/50',
-        hover: 'hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive/70',
-        selected: 'bg-destructive/15 border-destructive/40 text-destructive shadow-sm shadow-destructive/10',
-      },
+    // Neutral colors for idle, semantic colors only when selected
+    const selectedColors = {
+      pass: 'bg-success/10 border-success/30 text-success ring-1 ring-success/20',
+      partial: 'bg-warning/10 border-warning/30 text-warning ring-1 ring-warning/20',
+      fail: 'bg-destructive/10 border-destructive/30 text-destructive ring-1 ring-destructive/20',
     };
     
-    const colors = colorMap[status as keyof typeof colorMap];
+    const selectedColor = selectedColors[status as keyof typeof selectedColors];
 
     return (
       <TooltipProvider>
@@ -174,11 +163,12 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
               onClick={onClick}
               className={cn(
                 'h-10 w-10 flex items-center justify-center rounded-lg border transition-all duration-200',
-                isSelected ? colors.selected : [colors.idle, colors.hover],
-                isSelected && 'scale-105'
+                isSelected 
+                  ? [selectedColor, 'scale-105'] 
+                  : 'bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:border-border hover:text-foreground/70'
               )}
             >
-              <Icon className="h-5 w-5" strokeWidth={isSelected ? 2.5 : 2} />
+              <Icon className="h-5 w-5" strokeWidth={isSelected ? 2.5 : 1.5} />
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -327,13 +317,13 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
             <div className="space-y-3">
               <Label className="text-xs text-muted-foreground">Resultado</Label>
               {test.isBilateral ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Esquerdo</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2.5">
+                    <Label className="text-xs text-muted-foreground font-normal tracking-wide uppercase">E</Label>
                     {renderResultInput('left')}
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Direito</Label>
+                  <div className="space-y-2.5">
+                    <Label className="text-xs text-muted-foreground font-normal tracking-wide uppercase">D</Label>
                     {renderResultInput('right')}
                   </div>
                 </div>

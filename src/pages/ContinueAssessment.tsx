@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { createLogger } from '@/lib/logger';
 import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
 import { AssessmentBreadcrumb } from '@/components/assessment/AssessmentBreadcrumb';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  PageLayout, 
+  PageHeader, 
+  PageContent,
+  PageLoading 
+} from '@/components/layout/PageLayout';
+
+const logger = createLogger('ContinueAssessment');
 
 type Step = 'anamnesis' | 'global-tests' | 'segmental-tests' | 'protocol';
 
@@ -104,7 +110,7 @@ export default function ContinueAssessment() {
         navigate('/dashboard');
       }
     } catch (error) {
-      console.error('Error detecting step:', error);
+      logger.error('Error detecting step', error);
       setStep('anamnesis');
     } finally {
       setLoading(false);
@@ -144,47 +150,29 @@ export default function ContinueAssessment() {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b bg-card">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-10 w-10" />
-              <Skeleton className="h-6 w-48" />
-            </div>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Skeleton className="h-64 w-full" />
-        </main>
-      </div>
-    );
+    return <PageLoading variant="minimal" />;
   }
 
   if (!assessmentId) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4 mb-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl font-semibold">Continuar Avaliação</h1>
-          </div>
-          
-          {/* Breadcrumb Navigation */}
-          <AssessmentBreadcrumb 
-            currentStep={step || 'anamnesis'} 
-            studentName={studentName}
-          />
-        </div>
-      </header>
+    <PageLayout>
+      <PageHeader
+        variant="minimal"
+        title="Continuar Avaliação"
+        showBack
+        onBack={() => navigate('/dashboard')}
+        className="border-b"
+      />
+      
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-2 border-b bg-card">
+        <AssessmentBreadcrumb 
+          currentStep={step || 'anamnesis'} 
+          studentName={studentName}
+        />
+      </div>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContent size="lg" className="py-8">
         {step === 'anamnesis' && (
           <AnamnesisWizard
             assessmentId={assessmentId}
@@ -212,7 +200,7 @@ export default function ContinueAssessment() {
             onComplete={handleProtocolComplete}
           />
         )}
-      </main>
-    </div>
+      </PageContent>
+    </PageLayout>
   );
 }

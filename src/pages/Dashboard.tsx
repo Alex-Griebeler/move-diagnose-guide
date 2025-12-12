@@ -27,6 +27,12 @@ import { StudentsList } from '@/components/students/StudentsList';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { 
+  PageLayout, 
+  PageHeader, 
+  PageContent,
+  PageLoading 
+} from '@/components/layout/PageLayout';
 
 interface AssessmentStats {
   pending: number;
@@ -56,61 +62,36 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <Skeleton className="h-10 w-48" />
-            <Skeleton className="h-10 w-24" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-          </div>
-        </div>
-      </div>
-    );
+    return <PageLoading variant="cards" />;
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={fabrikLogo} alt="FABRIK" className="h-14 w-auto" />
-              <div>
-                <h1 className="text-lg font-semibold tracking-tight text-foreground">Movement Screen</h1>
-                <p className="text-xs text-muted-foreground">
-                  {role === 'professional' ? 'Área Profissional' : 'Área do Aluno'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                {user?.email}
-              </span>
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </Button>
-            </div>
+    <PageLayout>
+      <PageHeader
+        showLogo
+        title="Movement Screen"
+        subtitle={role === 'professional' ? 'Área Profissional' : 'Área do Aluno'}
+        rightContent={
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground hidden sm:block">
+              {user?.email}
+            </span>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContent>
         {role === 'professional' ? (
           <ProfessionalDashboard />
         ) : (
           <StudentDashboard />
         )}
-      </main>
-    </div>
+      </PageContent>
+    </PageLayout>
   );
 }
 

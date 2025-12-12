@@ -57,6 +57,7 @@ export const causaToTests: Record<string, string[]> = {
   [CAUSE_IDS.HAMSTRING_TIGHT]: ['hip_flexor_length'],
   [CAUSE_IDS.GLUTE_MAX_TIGHT]: ['hip_flexor_length'],
   [CAUSE_IDS.ADDUCTOR_HYPER]: ['hip_rotation'],
+  [CAUSE_IDS.VASTUS_LAT_HYPER]: ['hip_flexor_length', 'single_leg_squat_control'],
   
   [CAUSE_IDS.QL_HYPER]: ['trunk_endurance_lateral'],
   [CAUSE_IDS.QL_IMBALANCE]: ['trunk_endurance_lateral'],

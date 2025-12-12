@@ -1,12 +1,14 @@
 // ============================================
 // Test Prioritization Engine
 // Integra Priority Engine na seleção de testes segmentados
+// Inclui sistema de eliminação de redundâncias
 // ============================================
 
 import { calcularPrioridades, CausaPriorizada, Anamnese, CompensacaoDetectada } from './priorityEngine';
 import { causaToTests } from '@/data/causaTestMappings';
 import { segmentalTests, SegmentalTest } from '@/data/segmentalTestMappings';
 import { contextosAjuste } from '@/data/weightEngine';
+import { removeRedundantTests } from './testRedundancy';
 
 // ============================================
 // Interfaces
@@ -100,12 +102,16 @@ export function getSuggestedTestsWithPriority(
     });
   });
 
-  // 5. Sort tests by score and apply Pareto
+  // 5. Sort tests by score
   const sortedTests = Array.from(testScoreMap.values())
     .sort((a, b) => b.score - a.score);
 
+  // 5.5 Remove redundant tests (keep only most informative per group)
+  const nonRedundantTestIds = removeRedundantTests(sortedTests.map(t => t.testId));
+  const filteredTests = sortedTests.filter(t => nonRedundantTestIds.includes(t.testId));
+
   // 6. Get test details and assign priorities
-  const allPrioritizedTests: SuggestedTestWithPriority[] = sortedTests
+  const allPrioritizedTests: SuggestedTestWithPriority[] = filteredTests
     .map((t, index) => {
       const test = segmentalTests.find(st => st.id === t.testId);
       if (!test) return null;
@@ -139,6 +145,8 @@ export function getSuggestedTestsWithPriority(
   console.log('📊 Compensações:', compensationIds.length);
   console.log('🎯 Contextos aplicados:', priorityResult.contextosAplicados);
   console.log('📈 Top Causas (Pareto):', topCausas.map(c => `${c.label} (${c.priorityScore})`));
+  console.log('🔄 Testes antes de filtrar redundâncias:', sortedTests.length);
+  console.log('✂️ Testes após remover redundâncias:', filteredTests.length);
   console.log('✅ Testes Priorizados:', prioritizedTests.map(t => 
     `${t.test.name} [${t.priority}] - Score: ${t.score} (${t.coveredCausesCount} causas)`
   ));
@@ -146,7 +154,6 @@ export function getSuggestedTestsWithPriority(
     console.log('➕ Testes Adicionais:', additionalTests.map(t => t.test.name));
   }
   console.groupEnd();
-
   return {
     prioritizedTests,
     additionalTests,

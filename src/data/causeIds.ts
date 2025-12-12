@@ -23,6 +23,7 @@ export const CAUSE_IDS = {
   LUMBAR_ERECTOR_HYPO: 'lumbar_erector_hypo',
   SHOULDER_ER_HYPO: 'shoulder_er_hypo',
   VMO_HYPO: 'vmo_hypo',
+  VASTUS_LAT_HYPER: 'vastus_lat_hyper',
   MUSCLE_FATIGUE: 'muscle_fatigue',
   GLUTE_MED_ASYMMETRY: 'glute_med_asymmetry',
   CORE_ASYMMETRY: 'core_asymmetry',

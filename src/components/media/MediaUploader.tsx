@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Camera, Video, X, Loader2, CheckCircle, Lightbulb } from 'lucide-react';
+import { Camera, Video, X, Loader2, CheckCircle, Lightbulb, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -493,12 +493,35 @@ export function MediaUploader({
           </div>
         </div>
 
-        {/* Removed slow motion toggle - always assumed true */}
+        {/* Analyze Button */}
+        {onAnalyze && hasMedia && (
+          <Button
+            onClick={() => {
+              triggerHaptic('tap');
+              onAnalyze();
+            }}
+            disabled={isAnalyzing}
+            className="w-full"
+            size="sm"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Analisando...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Analisar Movimento
+              </>
+            )}
+          </Button>
+        )}
 
         {!hasMedia && (
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-1">
             <Lightbulb className="h-3.5 w-3.5" />
-            <span>Capture mídia para análise automática</span>
+            <span>Capture mídia para análise</span>
           </div>
         )}
       </Card>

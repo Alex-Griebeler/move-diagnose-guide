@@ -1,9 +1,9 @@
 /**
  * Quick Protocol Intro Screen
- * Tela de introdução do Mini Protocolo FABRIK
+ * Tela de introdução do Protocolo Rápido FABRIK
  */
 
-import { ArrowRight, Clock, Target } from 'lucide-react';
+import { ArrowRight, Clock, Target, Move, Shield, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtocolType, getProtocolMeta, getTestsForProtocol } from '@/data/quickProtocolMappings';
 
@@ -22,13 +22,27 @@ export function QuickProtocolIntro({
 }: QuickProtocolIntroProps) {
   const meta = getProtocolMeta(protocolType);
   const tests = getTestsForProtocol(protocolType);
-  const bodyPart = protocolType === 'knee_pain' ? 'joelho' : 'quadril';
+
+  // Get body part name for description
+  const getBodyPartName = (type: ProtocolType): string => {
+    const names: Record<ProtocolType, string> = {
+      knee_pain: 'joelho',
+      hip_pain: 'quadril',
+      low_back_pain: 'lombar',
+      shoulder_pain: 'ombro',
+      ankle_pain: 'tornozelo',
+      elbow_pain: 'cotovelo'
+    };
+    return names[type];
+  };
+
+  const bodyPart = getBodyPartName(protocolType);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
       {/* Icon */}
-      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-8">
-        <Target className="w-10 h-10 text-primary" />
+      <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-8">
+        <Target className="w-10 h-10 text-muted-foreground" />
       </div>
 
       {/* Title */}
@@ -68,23 +82,23 @@ export function QuickProtocolIntro({
         </div>
       )}
 
-      {/* Pyramid layers preview */}
-      <div className="flex gap-4 mb-10">
+      {/* Pyramid layers preview - Premium minimalist style with Lucide icons */}
+      <div className="flex gap-6 mb-10">
         <div className="flex flex-col items-center">
-          <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-2">
-            <span className="text-lg">🔄</span>
+          <div className="w-12 h-12 rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center mb-2">
+            <Move className="w-5 h-5 text-muted-foreground" />
           </div>
           <span className="text-xs text-muted-foreground">Mobilidade</span>
         </div>
         <div className="flex flex-col items-center">
-          <div className="w-12 h-12 rounded-lg bg-amber-500/10 flex items-center justify-center mb-2">
-            <span className="text-lg">⚖️</span>
+          <div className="w-12 h-12 rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center mb-2">
+            <Shield className="w-5 h-5 text-muted-foreground" />
           </div>
           <span className="text-xs text-muted-foreground">Estabilidade</span>
         </div>
         <div className="flex flex-col items-center">
-          <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-2">
-            <span className="text-lg">🧠</span>
+          <div className="w-12 h-12 rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center mb-2">
+            <Zap className="w-5 h-5 text-muted-foreground" />
           </div>
           <span className="text-xs text-muted-foreground">Controle</span>
         </div>
@@ -96,7 +110,7 @@ export function QuickProtocolIntro({
         onClick={onStart}
         className="px-8 shadow-md hover:shadow-lg transition-shadow"
       >
-        Iniciar Mini Protocolo
+        Iniciar Protocolo Rápido
         <ArrowRight className="w-4 h-4 ml-2" />
       </Button>
     </div>

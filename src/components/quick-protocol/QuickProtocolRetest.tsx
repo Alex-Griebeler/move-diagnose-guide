@@ -1,10 +1,10 @@
 /**
  * Quick Protocol Retest Screen
- * Tela de reteste do Mini Protocolo FABRIK
+ * Tela de reteste do Protocolo Rápido FABRIK
  */
 
 import { useState } from 'react';
-import { Check, ArrowRight, MessageSquare } from 'lucide-react';
+import { Check, ArrowRight, MessageSquare, RotateCcw, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,21 @@ type RetestResult = typeof RETEST_OPTIONS[number]['id'];
 interface QuickProtocolRetestProps {
   onComplete: (result: RetestResult, feedback?: string) => void;
   onSkip: () => void;
+}
+
+// Icon mapping for retest results
+function RetestIcon({ resultId }: { resultId: RetestResult }) {
+  const iconClass = "w-5 h-5";
+  switch (resultId) {
+    case 'improved_much':
+      return <TrendingUp className={cn(iconClass, "text-success")} />;
+    case 'improved_little':
+      return <TrendingUp className={cn(iconClass, "text-success/70")} />;
+    case 'no_change':
+      return <Minus className={cn(iconClass, "text-warning")} />;
+    case 'worse':
+      return <TrendingDown className={cn(iconClass, "text-destructive")} />;
+  }
 }
 
 export function QuickProtocolRetest({ onComplete, onSkip }: QuickProtocolRetestProps) {
@@ -32,8 +47,8 @@ export function QuickProtocolRetest({ onComplete, onSkip }: QuickProtocolRetestP
     <div className="space-y-8 max-w-lg mx-auto">
       {/* Header */}
       <div className="text-center">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <span className="text-3xl">🔄</span>
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+          <RotateCcw className="w-8 h-8 text-muted-foreground" />
         </div>
         <h2 className="text-xl font-display mb-2">Reteste do Movimento</h2>
         <p className="text-muted-foreground">
@@ -67,8 +82,10 @@ export function QuickProtocolRetest({ onComplete, onSkip }: QuickProtocolRetestP
                   : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
               )}
             >
-              {/* Emoji */}
-              <span className="text-2xl">{option.emoji}</span>
+              {/* Icon instead of emoji */}
+              <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center">
+                <RetestIcon resultId={option.id} />
+              </div>
 
               {/* Label */}
               <span className={cn(

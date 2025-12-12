@@ -1,6 +1,6 @@
 /**
  * Quick Protocol Page
- * Página do Mini Protocolo FABRIK
+ * Página do Protocolo Rápido FABRIK
  */
 
 import { useSearchParams, useNavigate } from 'react-router-dom';

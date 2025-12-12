@@ -1,5 +1,5 @@
 /**
- * Quick Protocol Mappings - FABRIK Mini Protocolos
+ * Quick Protocol Mappings - FABRIK Protocolos Rápidos
  * Definições dos testes e critérios para avaliação rápida
  */
 
@@ -750,7 +750,7 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
   knee_pain: {
     id: 'KNEE_UNIVERSAL_5MIN',
     type: 'knee_pain',
-    name: 'Mini Protocolo FABRIK – Dor no Joelho',
+    name: 'Protocolo Rápido – Dor no Joelho',
     shortName: 'Dor no Joelho',
     estimatedTime: 5,
     focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
@@ -762,7 +762,7 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
   hip_pain: {
     id: 'HIP_UNIVERSAL_5MIN',
     type: 'hip_pain',
-    name: 'Mini Protocolo FABRIK – Dor no Quadril',
+    name: 'Protocolo Rápido – Dor no Quadril',
     shortName: 'Dor no Quadril',
     estimatedTime: 5,
     focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
@@ -774,7 +774,7 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
   low_back_pain: {
     id: 'LOW_BACK_UNIVERSAL_5MIN',
     type: 'low_back_pain',
-    name: 'Mini Protocolo FABRIK – Dor Lombar',
+    name: 'Protocolo Rápido – Dor Lombar',
     shortName: 'Dor Lombar',
     estimatedTime: 5,
     focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
@@ -786,7 +786,7 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
   shoulder_pain: {
     id: 'SHOULDER_UNIVERSAL_5MIN',
     type: 'shoulder_pain',
-    name: 'Mini Protocolo FABRIK – Dor no Ombro',
+    name: 'Protocolo Rápido – Dor no Ombro',
     shortName: 'Dor no Ombro',
     estimatedTime: 5,
     focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
@@ -798,7 +798,7 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
   ankle_pain: {
     id: 'ANKLE_UNIVERSAL_5MIN',
     type: 'ankle_pain',
-    name: 'Mini Protocolo FABRIK – Dor no Tornozelo',
+    name: 'Protocolo Rápido – Dor no Tornozelo',
     shortName: 'Dor no Tornozelo',
     estimatedTime: 5,
     focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
@@ -810,7 +810,7 @@ export const PROTOCOL_METAS: Record<ProtocolType, ProtocolMeta> = {
   elbow_pain: {
     id: 'ELBOW_UNIVERSAL_5MIN',
     type: 'elbow_pain',
-    name: 'Mini Protocolo FABRIK – Dor no Cotovelo',
+    name: 'Protocolo Rápido – Dor no Cotovelo',
     shortName: 'Dor no Cotovelo',
     estimatedTime: 5,
     focus: ['mobilidade', 'estabilidade', 'controle_neuromotor'],
@@ -889,10 +889,11 @@ export function getLayerLabel(layer: 'mobility' | 'stability' | 'motor_control')
 }
 
 export function getLayerIcon(layer: 'mobility' | 'stability' | 'motor_control'): string {
+  // Using neutral symbols instead of emojis for premium aesthetic
   const icons = {
-    mobility: '🔄',
-    stability: '⚖️',
-    motor_control: '🧠'
+    mobility: '○',
+    stability: '△',
+    motor_control: '◇'
   };
   return icons[layer];
 }

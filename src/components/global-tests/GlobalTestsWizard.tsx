@@ -7,6 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('GlobalTestsWizard');
 
 import { AutoGlobalTest } from './AutoGlobalTest';
 import { TestSummary, LegacyTestData } from './TestSummary';
@@ -116,7 +119,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     
     // Only clear if switching to a DIFFERENT assessment (not first load)
     if (savedAssessmentId && savedAssessmentId !== assessmentId && prevAssessmentIdRef.current === savedAssessmentId) {
-      console.log(`[GlobalTestsWizard] Switching from ${savedAssessmentId} to ${assessmentId}, clearing old data`);
+      logger.debug(`Switching from ${savedAssessmentId} to ${assessmentId}, clearing old data`);
       clearPersistedData();
       setCurrentStep(1);
     }

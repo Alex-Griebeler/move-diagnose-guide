@@ -119,5 +119,7 @@ export function runDevValidation(): void {
   }
 }
 
-// Auto-executa em desenvolvimento
-runDevValidation();
+// Auto-executa apenas em desenvolvimento
+if (import.meta.env.DEV) {
+  runDevValidation();
+}

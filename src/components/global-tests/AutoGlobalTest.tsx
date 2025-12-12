@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Info, Sparkles, X, Plus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -156,7 +156,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const config = TEST_CONFIGS[testType];
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
   const [analysisResults, setAnalysisResults] = useState<Record<ViewType, AnalysisResult | null>>({} as any);
-  const pendingAnalysisRef = useRef<ViewType | null>(null);
 
   // Reset view index when test type changes
   useEffect(() => {
@@ -167,18 +166,12 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const currentView = config?.views?.[currentViewIndex];
   const currentViewId = currentView?.id;
 
-  const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string; isSlowMotion?: boolean }) => {
-    const newData = {
+  const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string }) => {
+    onUpdate({
       ...data,
       mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], ...urls } },
-    };
-    onUpdate(newData);
-    
-    // Trigger auto-analysis when video is uploaded
-    if (urls.videoUrl && !analysisResults[viewId]) {
-      pendingAnalysisRef.current = viewId;
-    }
-  }, [data, onUpdate, analysisResults]);
+    });
+  }, [data, onUpdate]);
 
   // Slow motion is always assumed true for better analysis
 
@@ -288,15 +281,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     });
   };
 
-  // Auto-trigger analysis when media is uploaded
-  useEffect(() => {
-    if (pendingAnalysisRef.current && !isAnalyzing) {
-      const viewToAnalyze = pendingAnalysisRef.current;
-      pendingAnalysisRef.current = null;
-      handleAnalyze(viewToAnalyze);
-    }
-  }, [data.mediaUrls, isAnalyzing]);
-
   const toggleCompensation = (compId: string) => {
     const current = currentCompensations;
     const updated = current.includes(compId)
@@ -395,7 +379,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
             <p className="text-xs text-muted-foreground">{currentView.description}</p>
           </CardHeader>
           <CardContent className="space-y-3 px-4 pb-4 pt-0">
-            {/* Media Upload - Auto-analyzes on upload */}
+            {/* Media Upload with Analyze Button */}
             <MediaUploader
               assessmentId={assessmentId}
               testName={`${testType}_${currentView.id}`}
@@ -403,6 +387,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               initialPhotoUrl={currentMedia.photoUrl}
               initialVideoUrl={currentMedia.videoUrl}
               onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
+              onAnalyze={() => handleAnalyze()}
               isAnalyzing={isAnalyzing}
             />
 

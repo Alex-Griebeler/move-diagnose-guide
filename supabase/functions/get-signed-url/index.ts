@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const allowedOrigins = [
   'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com',
+  'https://id-preview--5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovable.app',
   'https://fabrik.app',
   'http://localhost:5173',
   'http://localhost:3000',

@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Target } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
@@ -15,6 +15,7 @@ import {
   TestPrioritizationResult,
 } from '@/lib/testPrioritization';
 import { Anamnese } from '@/lib/priorityEngine';
+import { DetectedCompensation } from '@/lib/attentionPointsEngine';
 import { cn } from '@/lib/utils';
 
 interface SegmentalTestsWizardProps {
@@ -43,6 +44,25 @@ interface WizardData {
 const initialWizardData: WizardData = {
   testResults: {},
 };
+
+// Helper to determine test type from test_name
+function getTestTypeFromName(testName: string): 'ohs' | 'sls' | 'pushup' {
+  const name = testName.toLowerCase();
+  if (name.includes('overhead') || name.includes('ohs')) return 'ohs';
+  if (name.includes('single') || name.includes('sls')) return 'sls';
+  if (name.includes('push')) return 'pushup';
+  return 'ohs';
+}
+
+// Helper to determine view from column name
+function getViewFromColumn(column: string): string {
+  if (column.includes('anterior')) return 'anterior';
+  if (column.includes('lateral')) return 'lateral';
+  if (column.includes('posterior')) return 'posterior';
+  if (column.includes('left')) return 'left';
+  if (column.includes('right')) return 'right';
+  return column;
+}
 
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
@@ -101,16 +121,29 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       if (globalResultsResponse.error) throw globalResultsResponse.error;
 
+      // NEW: Collect compensations with details (test type, view) for frequency calculation
       const allCompensations: string[] = [];
+      const detailedCompensations: DetectedCompensation[] = [];
       
       globalResultsResponse.data?.forEach(result => {
+        const testType = getTestTypeFromName(result.test_name);
         const views = ['anterior_view', 'lateral_view', 'posterior_view', 'left_side', 'right_side'];
-        views.forEach(view => {
-          const viewData = result[view as keyof typeof result] as Record<string, unknown> | null;
+        
+        views.forEach(viewColumn => {
+          const viewData = result[viewColumn as keyof typeof result] as Record<string, unknown> | null;
           if (viewData && typeof viewData === 'object' && 'compensations' in viewData) {
             const compensations = viewData.compensations as string[];
             if (Array.isArray(compensations)) {
-              allCompensations.push(...compensations);
+              compensations.forEach(compId => {
+                allCompensations.push(compId);
+                detailedCompensations.push({
+                  id: compId,
+                  testType,
+                  view: getViewFromColumn(viewColumn),
+                  side: viewColumn.includes('left') ? 'left' : 
+                        viewColumn.includes('right') ? 'right' : undefined,
+                });
+              });
             }
           }
         });
@@ -129,7 +162,12 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         objectives: anamnesisData?.objectives || undefined,
       };
 
-      const result = getSuggestedTestsWithPriority(uniqueCompensations, anamnese);
+      // NEW: Pass detailed compensations for frequency calculation
+      const result = getSuggestedTestsWithPriority(uniqueCompensations, anamnese, 5, {
+        useAttentionPoints: true,
+        maxAttentionPoints: 2,
+        detectedCompensationsWithDetails: detailedCompensations,
+      });
       setPrioritizationResult(result);
 
       const allTests = [...result.prioritizedTests, ...result.additionalTests].map(p => p.test);
@@ -362,6 +400,36 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           })}
         </div>
       </div>
+
+      {/* NEW: Attention Points Banner */}
+      {prioritizationResult?.attentionPointsApplied && prioritizationResult.attentionPoints && currentStep === 1 && (
+        <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Target className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">
+                Pontos de Atenção Identificados
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {prioritizationResult.attentionPoints.map((ap, i) => (
+                  <span
+                    key={ap.compensationId}
+                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                  >
+                    {ap.label}
+                    {ap.frequencyScore > 1 && (
+                      <span className="ml-1 opacity-70">×{ap.frequencyScore}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Testes focados nestas {prioritizationResult.attentionPoints.length} compensações mais acentuadas
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Completion Counter - Same style as Global Tests */}
       {currentStep < totalSteps && completedCount > 0 && (

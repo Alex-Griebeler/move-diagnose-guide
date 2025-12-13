@@ -129,18 +129,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     handleUpdateCompensations(currentView.id, updated);
   };
 
-  const handleNextView = () => {
-    if (currentViewIndex < config.views.length - 1) {
-      setCurrentViewIndex(currentViewIndex + 1);
-    }
-  };
-
-  const handlePreviousView = () => {
-    if (currentViewIndex > 0) {
-      setCurrentViewIndex(currentViewIndex - 1);
-    }
-  };
-
   const currentResult = analysisResults[currentView.id];
 
   return (

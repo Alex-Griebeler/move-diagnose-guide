@@ -19,7 +19,7 @@ import {
   CompensationMapping,
 } from '@/data/compensationMappings';
 import { cn } from '@/lib/utils';
-
+import { extractFrameFromVideo } from '@/lib/mediaUtils';
 type TestType = 'ohs' | 'sls' | 'pushup';
 type ViewType = 
   | 'anterior' 
@@ -216,61 +216,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
 
   const currentCompensations = data.compensations[currentView.id] || [];
   const currentMedia = data.mediaUrls[currentView.id] || {};
-
-  // Extract frame from video when no photo available
-  const extractFrameFromVideo = async (videoUrl: string): Promise<string> => {
-    // Fetch video as blob to avoid CORS issues with Supabase Storage
-    const response = await fetch(videoUrl);
-    if (!response.ok) {
-      throw new Error('Failed to fetch video');
-    }
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    
-    return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.src = blobUrl;
-      video.muted = true;
-      video.playsInline = true;
-      
-      const cleanup = () => {
-        URL.revokeObjectURL(blobUrl);
-      };
-      
-      video.onloadedmetadata = () => {
-        // Seek to middle of video for best frame
-        video.currentTime = video.duration / 2;
-      };
-      
-      video.onseeked = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            cleanup();
-            reject(new Error('Could not get canvas context'));
-            return;
-          }
-          ctx.drawImage(video, 0, 0);
-          const frameUrl = canvas.toDataURL('image/jpeg', 0.8);
-          cleanup();
-          resolve(frameUrl);
-        } catch (error) {
-          cleanup();
-          reject(error);
-        }
-      };
-      
-      video.onerror = () => {
-        cleanup();
-        reject(new Error('Failed to load video'));
-      };
-      
-      video.load();
-    });
-  };
 
   const handleAnalyze = async (viewId?: ViewType) => {
     const targetViewId = viewId || currentViewId;

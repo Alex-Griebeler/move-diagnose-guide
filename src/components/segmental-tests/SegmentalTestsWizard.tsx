@@ -1,3 +1,8 @@
+// ============================================
+// Segmental Tests Wizard - Rewritten
+// Uses centralized utilities and modular components
+// ============================================
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -5,18 +10,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Target } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
+import { AttentionPointsBanner } from './AttentionPointsBanner';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
-import { 
-  getSuggestedTestsWithPriority, 
-  TestPrioritizationResult,
-} from '@/lib/testPrioritization';
+import { getSuggestedTestsWithPriority, TestPrioritizationResult } from '@/lib/testPrioritization';
 import { Anamnese } from '@/lib/priorityEngine';
 import { DetectedCompensation } from '@/lib/attentionPointsEngine';
+import { getTestTypeFromName, getViewFromColumn, getSideFromColumn, getViewColumns } from '@/lib/globalTestUtils';
 import { cn } from '@/lib/utils';
+
+// ============================================
+// Types
+// ============================================
 
 interface SegmentalTestsWizardProps {
   assessmentId: string;
@@ -45,24 +53,9 @@ const initialWizardData: WizardData = {
   testResults: {},
 };
 
-// Helper to determine test type from test_name
-function getTestTypeFromName(testName: string): 'ohs' | 'sls' | 'pushup' {
-  const name = testName.toLowerCase();
-  if (name.includes('overhead') || name.includes('ohs')) return 'ohs';
-  if (name.includes('single') || name.includes('sls')) return 'sls';
-  if (name.includes('push')) return 'pushup';
-  return 'ohs';
-}
-
-// Helper to determine view from column name
-function getViewFromColumn(column: string): string {
-  if (column.includes('anterior')) return 'anterior';
-  if (column.includes('lateral')) return 'lateral';
-  if (column.includes('posterior')) return 'posterior';
-  if (column.includes('left')) return 'left';
-  if (column.includes('right')) return 'right';
-  return column;
-}
+// ============================================
+// Component
+// ============================================
 
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
@@ -70,7 +63,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const [saving, setSaving] = useState(false);
   const [prioritizationResult, setPrioritizationResult] = useState<TestPrioritizationResult | null>(null);
   const [detectedCompensations, setDetectedCompensations] = useState<string[]>([]);
-  
+
   const {
     data: wizardData,
     updateData,
@@ -86,20 +79,27 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   const suggestedTests = prioritizationResult?.prioritizedTests.map(p => p.test) || [];
   const totalSteps = suggestedTests.length + 1;
-
   const { testResults } = wizardData;
+
+  // ============================================
+  // Handle assessment ID changes
+  // ============================================
 
   useEffect(() => {
     const savedAssessmentId = localStorage.getItem('segmentalTests_assessmentId');
-    
+
     if (savedAssessmentId && savedAssessmentId !== assessmentId) {
       clearPersistedData();
       setCurrentStep(1);
     }
-    
+
     localStorage.setItem('segmentalTests_assessmentId', assessmentId);
     prevAssessmentIdRef.current = assessmentId;
   }, [assessmentId, clearPersistedData, setCurrentStep]);
+
+  // ============================================
+  // Fetch global test results and calculate priorities
+  // ============================================
 
   useEffect(() => {
     fetchGlobalTestResults();
@@ -121,15 +121,15 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       if (globalResultsResponse.error) throw globalResultsResponse.error;
 
-      // NEW: Collect compensations with details (test type, view) for frequency calculation
+      // Collect compensations with details for frequency calculation
       const allCompensations: string[] = [];
       const detailedCompensations: DetectedCompensation[] = [];
-      
+      const viewColumns = getViewColumns();
+
       globalResultsResponse.data?.forEach(result => {
         const testType = getTestTypeFromName(result.test_name);
-        const views = ['anterior_view', 'lateral_view', 'posterior_view', 'left_side', 'right_side'];
-        
-        views.forEach(viewColumn => {
+
+        viewColumns.forEach(viewColumn => {
           const viewData = result[viewColumn as keyof typeof result] as Record<string, unknown> | null;
           if (viewData && typeof viewData === 'object' && 'compensations' in viewData) {
             const compensations = viewData.compensations as string[];
@@ -140,8 +140,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
                   id: compId,
                   testType,
                   view: getViewFromColumn(viewColumn),
-                  side: viewColumn.includes('left') ? 'left' : 
-                        viewColumn.includes('right') ? 'right' : undefined,
+                  side: getSideFromColumn(viewColumn),
                 });
               });
             }
@@ -162,7 +161,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         objectives: anamnesisData?.objectives || undefined,
       };
 
-      // NEW: Pass detailed compensations for frequency calculation
+      // Calculate prioritized tests
       const result = getSuggestedTestsWithPriority(uniqueCompensations, anamnese, 5, {
         useAttentionPoints: true,
         maxAttentionPoints: 2,
@@ -170,6 +169,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       });
       setPrioritizationResult(result);
 
+      // Initialize results if empty
       const allTests = [...result.prioritizedTests, ...result.additionalTests].map(p => p.test);
       if (Object.keys(testResults).length === 0) {
         initializeResults(allTests);
@@ -181,6 +181,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       setLoading(false);
     }
   };
+
+  // ============================================
+  // Result management
+  // ============================================
 
   const initializeResults = (tests: SegmentalTest[]) => {
     const initialResults: Record<string, TestResult> = {};
@@ -210,6 +214,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     });
   };
 
+  // ============================================
+  // Navigation
+  // ============================================
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
@@ -221,6 +229,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       setCurrentStep(currentStep - 1);
     }
   };
+
+  // ============================================
+  // Submit
+  // ============================================
 
   const collectMediaUrls = (result: TestResult): string[] => {
     const urls: string[] = [];
@@ -255,7 +267,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       clearPersistedData();
       localStorage.removeItem('segmentalTests_assessmentId');
-      
+
       toast.success('Testes segmentados salvos com sucesso!');
       onComplete();
     } catch (error) {
@@ -273,16 +285,24 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     onComplete();
   };
 
+  // ============================================
+  // Helpers
+  // ============================================
+
   const isTestCompleted = (testId: string): boolean => {
     const result = testResults[testId];
     if (!result) return false;
-    return result.passFailLeft !== null || result.passFailRight !== null || 
+    return result.passFailLeft !== null || result.passFailRight !== null ||
            result.leftValue !== null || result.rightValue !== null;
   };
 
   const getCompletedCount = (): number => {
     return Object.keys(testResults).filter(testId => isTestCompleted(testId)).length;
   };
+
+  // ============================================
+  // Loading state
+  // ============================================
 
   if (loading || isLoadingPersistence) {
     return (
@@ -296,6 +316,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       </div>
     );
   }
+
+  // ============================================
+  // No tests state
+  // ============================================
 
   if (suggestedTests.length === 0) {
     return (
@@ -316,6 +340,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     );
   }
 
+  // ============================================
+  // Main render
+  // ============================================
+
   const isSummaryStep = currentStep === totalSteps;
   const currentTestIndex = currentStep - 1;
   const currentTest = !isSummaryStep ? suggestedTests[currentTestIndex] : null;
@@ -323,7 +351,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const groupedTests = groupTestsByRegion(suggestedTests);
   const completedCount = getCompletedCount();
 
-  // Build steps array like global tests
+  // Build steps array
   const steps = [
     ...suggestedTests.map((test, i) => ({
       id: i + 1,
@@ -337,7 +365,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Progress Header - Same as Global Tests */}
+      {/* Progress Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <TooltipProvider>
@@ -361,12 +389,12 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         </div>
         <Progress value={progress} className="h-2" />
 
-        {/* Step indicators - Same as Global Tests */}
+        {/* Step indicators */}
         <div className="flex justify-between mt-4 overflow-x-auto pb-2">
           {steps.map((step) => {
             const isCompleted = step.testId ? isTestCompleted(step.testId) : false;
             const isCurrent = step.id === currentStep;
-            
+
             return (
               <button
                 key={step.id}
@@ -401,37 +429,12 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         </div>
       </div>
 
-      {/* NEW: Attention Points Banner */}
+      {/* Attention Points Banner - only on first step */}
       {prioritizationResult?.attentionPointsApplied && prioritizationResult.attentionPoints && currentStep === 1 && (
-        <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-          <div className="flex items-start gap-3">
-            <Target className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">
-                Pontos de Atenção Identificados
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {prioritizationResult.attentionPoints.map((ap, i) => (
-                  <span
-                    key={ap.compensationId}
-                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                  >
-                    {ap.label}
-                    {ap.frequencyScore > 1 && (
-                      <span className="ml-1 opacity-70">×{ap.frequencyScore}</span>
-                    )}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Testes focados nestas {prioritizationResult.attentionPoints.length} compensações mais acentuadas
-              </p>
-            </div>
-          </div>
-        </div>
+        <AttentionPointsBanner attentionPoints={prioritizationResult.attentionPoints} />
       )}
 
-      {/* Completion Counter - Same style as Global Tests */}
+      {/* Completion Counter */}
       {currentStep < totalSteps && completedCount > 0 && (
         <div className="mb-6 p-3 bg-success/10 border border-success/20 rounded-lg flex items-center gap-3">
           <Check className="w-5 h-5 text-success" />
@@ -441,11 +444,11 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         </div>
       )}
 
-      {/* Step Content - Card wrapper like Global Tests */}
+      {/* Step Content */}
       <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
         {isSummaryStep ? (
-          <SegmentalTestsSummary 
-            results={testResults} 
+          <SegmentalTestsSummary
+            results={testResults}
             tests={suggestedTests}
             groupedTests={groupedTests}
             prioritizedTests={prioritizationResult?.prioritizedTests}
@@ -460,7 +463,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         ) : null}
       </div>
 
-      {/* Navigation - Same as Global Tests */}
+      {/* Navigation */}
       <div className="flex justify-between">
         <Button
           variant="outline"
@@ -479,17 +482,16 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           )}
 
           {isSummaryStep ? (
-            <Button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="bg-success hover:bg-success/90"
-            >
+            <Button onClick={handleSubmit} disabled={saving}>
               {saving ? (
-                <span className="animate-pulse-soft">Salvando...</span>
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
               ) : (
                 <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Concluir Testes Segmentados
+                  Salvar Resultados
+                  <Check className="w-4 h-4 ml-2" />
                 </>
               )}
             </Button>

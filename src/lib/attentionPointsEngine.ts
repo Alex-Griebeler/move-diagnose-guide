@@ -1,10 +1,11 @@
 // ============================================
-// Attention Points Engine
-// Identifies top 1-2 "accentuated" compensations using:
-// Frequency × Clinical Weight × Pain Context
+// Attention Points Engine - Rewritten
+// Identifies top 1-2 "accentuated" compensations
+// Zero duplication - imports from single sources
 // ============================================
 
-import { compensacaoCausas, contextosAjuste } from '@/data/weightEngine';
+import { compensacaoCausas } from '@/data/weightEngine';
+import { getCompensationLabel } from '@/data/compensationLabels';
 import { createLogger } from './logger';
 
 const logger = createLogger('AttentionPointsEngine');
@@ -23,10 +24,10 @@ export interface DetectedCompensation {
 export interface AttentionPoint {
   compensationId: string;
   label: string;
-  frequencyScore: number;      // How many times it appears across tests/views
-  clinicalWeight: number;      // Sum of base weights from causes
-  painContextBonus: number;    // Bonus if related to pain history
-  totalScore: number;          // frequencyScore × clinicalWeight × (1 + painContextBonus)
+  frequencyScore: number;
+  clinicalWeight: number;
+  painContextBonus: number;
+  totalScore: number;
   occurrences: DetectedCompensation[];
   relatedCauseIds: string[];
 }
@@ -37,107 +38,95 @@ export interface AttentionPointsResult {
   maxPointsUsed: number;
 }
 
-// ============================================
-// Compensation Labels (for display)
-// ============================================
-
-const COMPENSATION_LABELS: Record<string, string> = {
-  // OHS Anterior
-  feet_abduction: 'Pés abduzidos',
-  feet_eversion: 'Eversão dos pés',
-  knee_valgus: 'Valgo de joelho',
-  knee_varus: 'Varo de joelho',
-  
-  // OHS Lateral
-  trunk_forward_lean: 'Inclinação do tronco',
-  lumbar_hyperextension: 'Hiperextensão lombar',
-  spine_flexion: 'Flexão da coluna (butt wink)',
-  butt_wink: 'Flexão da coluna (butt wink)',
-  heels_rise: 'Calcanhares sobem',
-  arms_fall_forward: 'Braços caem',
-  arms_fall: 'Braços caem',
-  
-  // OHS Posterior
-  asymmetric_shift: 'Shift assimétrico',
-  trunk_rotation: 'Rotação do tronco',
-  feet_eversion_posterior: 'Eversão (posterior)',
-  heels_rise_posterior: 'Calcanhares sobem (posterior)',
-  
-  // SLS
-  hip_drop: 'Queda do quadril (Trendelenburg)',
-  hip_hike: 'Elevação do quadril',
-  trunk_rotation_medial: 'Rotação medial do tronco',
-  trunk_rotation_lateral: 'Rotação lateral do tronco',
-  trunk_forward_lean_sls: 'Inclinação anterior (SLS)',
-  knee_flexion_insufficient: 'Flexão insuficiente de joelho',
-  instability: 'Instabilidade',
-  tremor: 'Tremor',
-  foot_collapse: 'Colapso do pé',
-  balance_loss: 'Perda de equilíbrio',
-  
-  // Push-up
-  scapular_winging: 'Escápula alada',
-  elbow_flare: 'Flare de cotovelos',
-  shoulder_protraction: 'Protração de ombros',
-  shoulder_retraction_insufficient: 'Retração insuficiente',
-};
-
-// ============================================
-// Pain context mapping (compensation → pain regions)
-// ============================================
-
-const COMPENSATION_PAIN_REGIONS: Record<string, string[]> = {
-  // Ankle-related
-  heels_rise: ['tornozelo', 'pé', 'panturrilha'],
-  heels_rise_posterior: ['tornozelo', 'pé', 'panturrilha'],
-  feet_eversion: ['tornozelo', 'pé'],
-  feet_eversion_posterior: ['tornozelo', 'pé'],
-  foot_collapse: ['tornozelo', 'pé'],
-  feet_abduction: ['tornozelo', 'pé', 'quadril'],
-  
-  // Knee-related
-  knee_valgus: ['joelho', 'patela', 'quadril'],
-  knee_varus: ['joelho', 'patela'],
-  knee_flexion_insufficient: ['joelho', 'patela'],
-  
-  // Hip-related
-  hip_drop: ['quadril', 'glúteo', 'lateral'],
-  hip_hike: ['quadril', 'lombar'],
-  trunk_forward_lean: ['quadril', 'lombar'],
-  trunk_forward_lean_sls: ['quadril', 'lombar'],
-  
-  // Lumbar-related
-  lumbar_hyperextension: ['lombar', 'coluna'],
-  spine_flexion: ['lombar', 'coluna'],
-  butt_wink: ['lombar', 'coluna'],
-  asymmetric_shift: ['lombar', 'sacroilíaca'],
-  trunk_rotation: ['lombar', 'sacroilíaca'],
-  trunk_rotation_medial: ['lombar', 'quadril'],
-  trunk_rotation_lateral: ['lombar', 'quadril'],
-  
-  // Shoulder-related
-  arms_fall_forward: ['ombro', 'torácica', 'cervical'],
-  arms_fall: ['ombro', 'torácica', 'cervical'],
-  scapular_winging: ['ombro', 'escápula'],
-  elbow_flare: ['ombro', 'cotovelo'],
-  shoulder_protraction: ['ombro', 'cervical'],
-  shoulder_retraction_insufficient: ['ombro', 'escápula'],
-  
-  // Stability-related (general)
-  instability: ['tornozelo', 'joelho', 'quadril'],
-  tremor: ['quadril', 'joelho'],
-  balance_loss: ['tornozelo', 'quadril'],
-};
-
-// ============================================
-// Core Function: Calculate Attention Points
-// ============================================
-
 export interface PainHistoryEntry {
   location?: string;
   region?: string;
   intensity?: number;
 }
+
+// ============================================
+// Pain Region Keywords (derived from cause patterns)
+// Maps pain locations to cause ID keywords
+// ============================================
+
+const PAIN_REGION_KEYWORDS: Record<string, string[]> = {
+  tornozelo: ['ankle', 'tib_post', 'dorsiflexion', 'tc_joint', 'foot', 'peroneal', 'gastroc', 'soleus'],
+  pé: ['foot', 'plantar', 'tib_post', 'peroneal'],
+  panturrilha: ['gastroc', 'soleus', 'calf'],
+  joelho: ['knee', 'vmo', 'frontal_instability', 'quad', 'patela', 'popliteus'],
+  patela: ['patela', 'vmo', 'quad'],
+  quadril: ['glute', 'hip', 'tfl', 'piriformis', 'adductor', 'lateral_pelvic', 'iliopsoas'],
+  glúteo: ['glute', 'piriformis'],
+  lombar: ['lumbar', 'core', 'paravertebr', 'ql', 'erector', 'multifid'],
+  coluna: ['spine', 'lumbar', 'thoracic', 'erector'],
+  sacroilíaca: ['si_joint', 'sacroiliac', 'piriformis'],
+  ombro: ['shoulder', 'serratus', 'trap', 'pec', 'rhomboid', 'scapular', 'lat', 'rotator'],
+  escápula: ['scapular', 'serratus', 'rhomboid', 'trap'],
+  cervical: ['neck', 'scm', 'cervical', 'trap_sup'],
+  torácica: ['thoracic', 't_spine', 'trap'],
+  lateral: ['lateral_pelvic', 'glute_med', 'tfl', 'it_band'],
+  cotovelo: ['elbow', 'triceps', 'biceps'],
+};
+
+// ============================================
+// Calculate Pain Context Bonus
+// Derived from cause IDs - no hardcoded mapping
+// ============================================
+
+function getPainBonusForCompensation(
+  compensationId: string,
+  painRegions: Set<string>
+): number {
+  if (painRegions.size === 0) return 0;
+
+  const causes = compensacaoCausas[compensationId] || [];
+  let bonus = 0;
+
+  for (const causa of causes) {
+    const causeIdLower = causa.id.toLowerCase();
+
+    for (const [painRegion, keywords] of Object.entries(PAIN_REGION_KEYWORDS)) {
+      if (painRegions.has(painRegion)) {
+        if (keywords.some(kw => causeIdLower.includes(kw))) {
+          bonus = Math.min(bonus + 1, 2);
+          break;
+        }
+      }
+    }
+  }
+
+  return bonus;
+}
+
+// ============================================
+// Extract Pain Regions from History
+// ============================================
+
+function extractPainRegions(painHistory?: PainHistoryEntry[]): Set<string> {
+  const painRegions = new Set<string>();
+
+  if (!painHistory || painHistory.length === 0) {
+    return painRegions;
+  }
+
+  painHistory.forEach(entry => {
+    const location = (entry.location?.toLowerCase() || entry.region?.toLowerCase() || '');
+    if (location) {
+      painRegions.add(location);
+      // Add common synonyms
+      if (location.includes('joelho')) painRegions.add('patela');
+      if (location.includes('quadril')) painRegions.add('glúteo');
+      if (location.includes('lombar')) painRegions.add('coluna');
+      if (location.includes('ombro')) painRegions.add('escápula');
+    }
+  });
+
+  return painRegions;
+}
+
+// ============================================
+// Main Function: Calculate Attention Points
+// ============================================
 
 export function calculateAttentionPoints(
   detectedCompensations: DetectedCompensation[],
@@ -152,59 +141,30 @@ export function calculateAttentionPoints(
     };
   }
 
-  // 1. Group compensations by ID to calculate frequency
-  const compensationGroups: Map<string, DetectedCompensation[]> = new Map();
-  
+  // 1. Group compensations by ID for frequency calculation
+  const groups = new Map<string, DetectedCompensation[]>();
   detectedCompensations.forEach(comp => {
-    const existing = compensationGroups.get(comp.id) || [];
+    const existing = groups.get(comp.id) || [];
     existing.push(comp);
-    compensationGroups.set(comp.id, existing);
+    groups.set(comp.id, existing);
   });
 
-  // 2. Extract pain regions from history for context bonus
-  const painRegions = new Set<string>();
-  if (painHistory && painHistory.length > 0) {
-    painHistory.forEach(entry => {
-      const location = entry.location?.toLowerCase() || entry.region?.toLowerCase() || '';
-      if (location) {
-        painRegions.add(location);
-        // Add common synonyms
-        if (location.includes('joelho')) painRegions.add('patela');
-        if (location.includes('quadril')) painRegions.add('glúteo');
-        if (location.includes('lombar')) painRegions.add('coluna');
-        if (location.includes('ombro')) painRegions.add('escápula');
-      }
-    });
-  }
+  // 2. Extract pain regions
+  const painRegions = extractPainRegions(painHistory);
 
   // 3. Calculate scores for each compensation
   const attentionPoints: AttentionPoint[] = [];
 
-  compensationGroups.forEach((occurrences, compensationId) => {
-    // Frequency score (1 = single occurrence, 2+ = appears in multiple views/tests)
-    const frequencyScore = Math.min(occurrences.length, 3); // Cap at 3
-
-    // Clinical weight (sum of base weights from all causes)
+  groups.forEach((occurrences, compensationId) => {
+    const frequencyScore = Math.min(occurrences.length, 3);
     const causes = compensacaoCausas[compensationId] || [];
     const clinicalWeight = causes.reduce((sum, c) => sum + c.baseWeight, 0);
-
-    // Pain context bonus (0-2 based on overlap with pain regions)
-    let painContextBonus = 0;
-    const compensationPainRegions = COMPENSATION_PAIN_REGIONS[compensationId] || [];
-    compensationPainRegions.forEach(region => {
-      painRegions.forEach(painRegion => {
-        if (painRegion.includes(region) || region.includes(painRegion)) {
-          painContextBonus = Math.min(painContextBonus + 1, 2);
-        }
-      });
-    });
-
-    // Total score formula: frequency × clinicalWeight × (1 + painBonus)
+    const painContextBonus = getPainBonusForCompensation(compensationId, painRegions);
     const totalScore = frequencyScore * clinicalWeight * (1 + painContextBonus);
 
     attentionPoints.push({
       compensationId,
-      label: COMPENSATION_LABELS[compensationId] || compensationId,
+      label: getCompensationLabel(compensationId),
       frequencyScore,
       clinicalWeight,
       painContextBonus,
@@ -222,10 +182,9 @@ export function calculateAttentionPoints(
 
   // Logging
   logger.group('Attention Points Engine');
-  logger.debug(`Total compensations detected: ${detectedCompensations.length}`);
-  logger.debug(`Unique compensations: ${compensationGroups.size}`);
-  logger.debug(`Pain regions: ${Array.from(painRegions).join(', ') || 'none'}`);
-  logger.debug('Top Attention Points:', topAttentionPoints.map(ap => 
+  logger.debug(`Unique compensations: ${groups.size}`);
+  logger.debug(`Pain regions: ${[...painRegions].join(', ') || 'none'}`);
+  logger.debug('Top:', topAttentionPoints.map(ap =>
     `${ap.label} (freq=${ap.frequencyScore}, weight=${ap.clinicalWeight}, pain=${ap.painContextBonus}, total=${ap.totalScore.toFixed(1)})`
   ));
   logger.groupEnd();
@@ -242,11 +201,7 @@ export function calculateAttentionPoints(
 // ============================================
 
 export function getCauseIdsFromAttentionPoints(attentionPoints: AttentionPoint[]): string[] {
-  const causeIds = new Set<string>();
-  attentionPoints.forEach(ap => {
-    ap.relatedCauseIds.forEach(id => causeIds.add(id));
-  });
-  return Array.from(causeIds);
+  return [...new Set(attentionPoints.flatMap(ap => ap.relatedCauseIds))];
 }
 
 // ============================================
@@ -261,18 +216,12 @@ export function extractCompensationsFromTestResults(
     side?: 'left' | 'right';
   }>
 ): DetectedCompensation[] {
-  const detected: DetectedCompensation[] = [];
-  
-  Object.entries(testResults).forEach(([key, result]) => {
-    result.compensations.forEach(compensationId => {
-      detected.push({
-        id: compensationId,
-        testType: result.testType,
-        view: result.view || key,
-        side: result.side,
-      });
-    });
-  });
-  
-  return detected;
+  return Object.entries(testResults).flatMap(([key, result]) =>
+    result.compensations.map(id => ({
+      id,
+      testType: result.testType,
+      view: result.view || key,
+      side: result.side,
+    }))
+  );
 }

@@ -7,10 +7,8 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
+import { ChevronRight, Check } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
@@ -20,7 +18,14 @@ import { getSuggestedTestsWithPriority, TestPrioritizationResult } from '@/lib/t
 import { Anamnese } from '@/lib/priorityEngine';
 import { DetectedCompensation } from '@/lib/attentionPointsEngine';
 import { getTestTypeFromName, getViewFromColumn, getSideFromColumn, getViewColumns } from '@/lib/globalTestUtils';
-import { cn } from '@/lib/utils';
+import { 
+  WizardProgress, 
+  WizardStep, 
+  WizardNavigation, 
+  WizardContainer, 
+  WizardContentCard, 
+  WizardLoading 
+} from '@/components/wizard';
 
 // ============================================
 // Types
@@ -47,6 +52,10 @@ interface TestResult {
 
 interface WizardData {
   testResults: Record<string, TestResult>;
+}
+
+interface StepWithTestId extends WizardStep {
+  testId: string | null;
 }
 
 const initialWizardData: WizardData = {
@@ -300,20 +309,23 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     return Object.keys(testResults).filter(testId => isTestCompleted(testId)).length;
   };
 
+  const isStepCompleted = (step: WizardStep): boolean => {
+    const stepWithTestId = step as StepWithTestId;
+    if (stepWithTestId.testId) {
+      return isTestCompleted(stepWithTestId.testId);
+    }
+    return false;
+  };
+
   // ============================================
   // Loading state
   // ============================================
 
   if (loading || isLoadingPersistence) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mr-3" />
-          <span className="text-muted-foreground">
-            {isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações...'}
-          </span>
-        </div>
-      </div>
+      <WizardLoading 
+        message={isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações...'} 
+      />
     );
   }
 
@@ -323,7 +335,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   if (suggestedTests.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <WizardContainer>
         <Card>
           <CardContent className="py-12 text-center">
             <Check className="w-12 h-12 text-success mx-auto mb-4" />
@@ -336,7 +348,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </WizardContainer>
     );
   }
 
@@ -347,12 +359,11 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const isSummaryStep = currentStep === totalSteps;
   const currentTestIndex = currentStep - 1;
   const currentTest = !isSummaryStep ? suggestedTests[currentTestIndex] : null;
-  const progress = (currentStep / totalSteps) * 100;
   const groupedTests = groupTestsByRegion(suggestedTests);
   const completedCount = getCompletedCount();
 
   // Build steps array
-  const steps = [
+  const steps: StepWithTestId[] = [
     ...suggestedTests.map((test, i) => ({
       id: i + 1,
       title: test.name,
@@ -363,71 +374,21 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     { id: totalSteps, title: 'Resumo', shortTitle: 'Resumo', icon: '📊', testId: null },
   ];
 
+  const currentStepData = steps[currentStep - 1];
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <WizardContainer>
       {/* Progress Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <h2 className="text-lg font-semibold flex items-center gap-2 cursor-help hover:text-foreground/80 transition-colors">
-                  <span>{steps[currentStep - 1].icon}</span>
-                  {steps[currentStep - 1].title}
-                </h2>
-              </TooltipTrigger>
-              {!isSummaryStep && currentTest?.description && (
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p>{currentTest.description}</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-          <span className="text-sm text-muted-foreground">
-            Etapa {currentStep} de {totalSteps}
-          </span>
-        </div>
-        <Progress value={progress} className="h-2" />
-
-        {/* Step indicators */}
-        <div className="flex justify-between mt-4 overflow-x-auto pb-2">
-          {steps.map((step) => {
-            const isCompleted = step.testId ? isTestCompleted(step.testId) : false;
-            const isCurrent = step.id === currentStep;
-
-            return (
-              <button
-                key={step.id}
-                onClick={() => setCurrentStep(step.id)}
-                className={cn(
-                  "flex flex-col items-center min-w-[60px] transition-colors shrink-0",
-                  isCurrent
-                    ? "text-accent"
-                    : isCompleted
-                    ? "text-success"
-                    : "text-muted-foreground"
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
-                    isCurrent
-                      ? "border-accent bg-accent text-accent-foreground"
-                      : isCompleted
-                      ? "border-success bg-success text-success-foreground"
-                      : "border-muted-foreground/30"
-                  )}
-                >
-                  {isCompleted && !isCurrent ? <Check className="w-5 h-5" /> : step.icon}
-                </div>
-                <span className="text-xs mt-1 hidden sm:block text-center max-w-[60px] truncate">
-                  {step.shortTitle}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <WizardProgress
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        steps={steps}
+        currentTitle={currentStepData.title}
+        currentIcon={currentStepData.icon}
+        onStepClick={setCurrentStep}
+        isStepCompleted={isStepCompleted}
+        tooltip={!isSummaryStep && currentTest?.description ? currentTest.description : undefined}
+      />
 
       {/* Attention Points Banner - only on first step */}
       {prioritizationResult?.attentionPointsApplied && prioritizationResult.attentionPoints && currentStep === 1 && (
@@ -445,7 +406,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       )}
 
       {/* Step Content */}
-      <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
+      <WizardContentCard>
         {isSummaryStep ? (
           <SegmentalTestsSummary
             results={testResults}
@@ -461,48 +422,19 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             onUpdate={(result) => handleTestResult(currentTest.id, result)}
           />
         ) : null}
-      </div>
+      </WizardContentCard>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentStep === 1}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Anterior
-        </Button>
-
-        <div className="flex gap-2">
-          {!isSummaryStep && (
-            <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
-              Pular
-            </Button>
-          )}
-
-          {isSummaryStep ? (
-            <Button onClick={handleSubmit} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  Salvar Resultados
-                  <Check className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button onClick={handleNext}>
-              Próximo
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
+      <WizardNavigation
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onSubmit={handleSubmit}
+        onSkip={!isSummaryStep ? handleSkip : undefined}
+        isSubmitting={saving}
+        submitLabel="Salvar Resultados"
+      />
+    </WizardContainer>
   );
 }

@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check, AlertCircle, Info } from 'lucide-react';
+import { AlertCircle, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
 import { 
   getRelevantGlobalTestsWithHistory, 
@@ -18,6 +15,14 @@ import {
 
 import { AutoGlobalTest } from './AutoGlobalTest';
 import { TestSummary, LegacyTestData } from './TestSummary';
+import { 
+  WizardProgress, 
+  WizardStep, 
+  WizardNavigation, 
+  WizardContainer, 
+  WizardContentCard, 
+  WizardLoading 
+} from '@/components/wizard';
 
 const logger = createLogger('GlobalTestsWizard');
 
@@ -46,12 +51,8 @@ export interface GlobalTestData {
   pushup: AutoTestData;
 }
 
-interface Step {
-  id: number;
+interface Step extends WizardStep {
   testType: GlobalTestType | 'summary';
-  title: string;
-  shortTitle: string;
-  icon: string;
 }
 
 interface GlobalTestsWizardProps {
@@ -339,8 +340,6 @@ export function GlobalTestsWizard({ assessmentId, studentId, onComplete }: Globa
   // ============================================
   // Computed Values
   // ============================================
-  
-  const progress = (currentStep / totalSteps) * 100;
 
   const getTotalCompensations = (): number => {
     const legacyData = toLegacyFormat(data);
@@ -352,6 +351,10 @@ export function GlobalTestsWizard({ assessmentId, studentId, onComplete }: Globa
       legacyData.sls.rightSide.length +
       legacyData.pushup.compensations.length
     );
+  };
+
+  const isStepCompleted = (step: WizardStep): boolean => {
+    return step.id < currentStep;
   };
 
   // ============================================
@@ -401,13 +404,7 @@ export function GlobalTestsWizard({ assessmentId, studentId, onComplete }: Globa
   // ============================================
   
   if (isLoadingPersistence || isLoadingMilo) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-pulse text-muted-foreground">Carregando dados...</div>
-        </div>
-      </div>
-    );
+    return <WizardLoading message="Carregando dados..." />;
   }
 
   // ============================================
@@ -415,7 +412,7 @@ export function GlobalTestsWizard({ assessmentId, studentId, onComplete }: Globa
   // ============================================
   
   return (
-    <div className="max-w-4xl mx-auto">
+    <WizardContainer>
       {/* MILO Info Banner */}
       {miloResult && miloResult.testsSkipped.length > 0 && (
         <div className="mb-6 p-3 bg-muted/50 border border-border/50 rounded-lg flex items-start gap-3">
@@ -430,50 +427,15 @@ export function GlobalTestsWizard({ assessmentId, studentId, onComplete }: Globa
       )}
 
       {/* Progress Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span>{currentStepData?.icon}</span>
-            {currentStepData?.title}
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            Etapa {currentStep} de {totalSteps}
-          </span>
-        </div>
-        <Progress value={progress} className="h-2" />
-
-        {/* Step indicators */}
-        <div className="flex justify-between mt-4">
-          {activeSteps.map((step) => (
-            <button
-              key={step.id}
-              onClick={() => setCurrentStep(step.id)}
-              className={cn(
-                "flex flex-col items-center min-w-[70px] transition-colors",
-                step.id === currentStep
-                  ? "text-accent"
-                  : step.id < currentStep
-                  ? "text-success"
-                  : "text-muted-foreground"
-              )}
-            >
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
-                  step.id === currentStep
-                    ? "border-accent bg-accent text-accent-foreground"
-                    : step.id < currentStep
-                    ? "border-success bg-success text-success-foreground"
-                    : "border-muted-foreground/30"
-                )}
-              >
-                {step.id < currentStep ? <Check className="w-5 h-5" /> : step.icon}
-              </div>
-              <span className="text-xs mt-1 hidden sm:block">{step.shortTitle}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <WizardProgress
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        steps={activeSteps}
+        currentTitle={currentStepData?.title || ''}
+        currentIcon={currentStepData?.icon || ''}
+        onStepClick={setCurrentStep}
+        isStepCompleted={isStepCompleted}
+      />
 
       {/* Compensation Counter */}
       {currentStepData?.testType !== 'summary' && getTotalCompensations() > 0 && (
@@ -486,43 +448,21 @@ export function GlobalTestsWizard({ assessmentId, studentId, onComplete }: Globa
       )}
 
       {/* Step Content */}
-      <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
+      <WizardContentCard>
         {renderStep()}
-      </div>
+      </WizardContentCard>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentStep === 1}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Anterior
-        </Button>
-
-        {currentStep < totalSteps ? (
-          <Button onClick={handleNext}>
-            Próximo
-            <ChevronRight className="w-4 h-4 ml-2" />
-          </Button>
-        ) : (
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="bg-success hover:bg-success/90"
-          >
-            {isSubmitting ? (
-              <span className="animate-pulse-soft">Salvando...</span>
-            ) : (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                Concluir Testes Globais
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-    </div>
+      <WizardNavigation
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+        submitLabel="Concluir Testes Globais"
+        submitClassName="bg-success hover:bg-success/90"
+      />
+    </WizardContainer>
   );
 }

@@ -102,12 +102,19 @@ export default function ViewAssessment() {
   }, [user, role, authLoading, navigate]);
 
   useEffect(() => {
+    if (authLoading) return;
+    
+    if (!user || role !== 'professional') {
+      return;
+    }
+    
     if (!assessmentId) {
       navigate('/dashboard');
       return;
     }
+    
     fetchAssessmentData();
-  }, [assessmentId]);
+  }, [assessmentId, user, role, authLoading]);
 
   const fetchAssessmentData = async () => {
     if (!assessmentId) return;

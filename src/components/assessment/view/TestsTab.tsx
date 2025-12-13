@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Video, ExternalLink } from 'lucide-react';
 import { getTestLabel, countCompensations, getMediaUrls } from '@/lib/assessmentUtils';
+import { VideoLink } from './VideoLink';
 
 interface GlobalTestData {
   test_name: string;
@@ -27,6 +27,16 @@ interface SegmentalTestData {
 interface TestsTabProps {
   globalTests: GlobalTestData[];
   segmentalTests: SegmentalTestData[];
+}
+
+function getViewNameFromUrl(url: string, idx: number): string {
+  const fileName = url.split('/').pop() || '';
+  if (fileName.includes('anterior')) return 'Anterior';
+  if (fileName.includes('lateral')) return 'Lateral';
+  if (fileName.includes('posterior')) return 'Posterior';
+  if (fileName.includes('left')) return 'Esquerdo';
+  if (fileName.includes('right')) return 'Direito';
+  return `Vídeo ${idx + 1}`;
 }
 
 export function TestsTab({ globalTests, segmentalTests }: TestsTabProps) {
@@ -57,29 +67,14 @@ export function TestsTab({ globalTests, segmentalTests }: TestsTabProps) {
                         <div className="space-y-2">
                           <p className="text-xs text-muted-foreground font-medium">Vídeos</p>
                           <div className="flex flex-wrap gap-2">
-                            {getMediaUrls(test.media_urls).map((url, idx) => {
-                              const fileName = url.split('/').pop() || `Video ${idx + 1}`;
-                              const viewName = fileName.includes('anterior') ? 'Anterior' 
-                                : fileName.includes('lateral') ? 'Lateral' 
-                                : fileName.includes('posterior') ? 'Posterior'
-                                : fileName.includes('left') ? 'Esquerdo'
-                                : fileName.includes('right') ? 'Direito'
-                                : `Vídeo ${idx + 1}`;
-                              
-                              return (
-                                <a
-                                  key={url}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-muted hover:bg-muted/80 transition-colors text-sm"
-                                >
-                                  <Video className="w-4 h-4" />
-                                  <span>{viewName}</span>
-                                  <ExternalLink className="w-3 h-3 text-muted-foreground" />
-                                </a>
-                              );
-                            })}
+                            {getMediaUrls(test.media_urls).map((url, idx) => (
+                              <VideoLink
+                                key={url}
+                                publicUrl={url}
+                                label={getViewNameFromUrl(url, idx)}
+                                size="md"
+                              />
+                            ))}
                           </div>
                         </div>
                       )}
@@ -158,17 +153,12 @@ export function TestsTab({ globalTests, segmentalTests }: TestsTabProps) {
                   {getMediaUrls(test.media_urls).length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-1">
                       {getMediaUrls(test.media_urls).map((url, idx) => (
-                        <a
+                        <VideoLink
                           key={url}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted hover:bg-muted/80 transition-colors text-xs"
-                        >
-                          <Video className="w-3 h-3" />
-                          <span>Vídeo {idx + 1}</span>
-                          <ExternalLink className="w-2.5 h-2.5 text-muted-foreground" />
-                        </a>
+                          publicUrl={url}
+                          label={`Vídeo ${idx + 1}`}
+                          size="sm"
+                        />
                       ))}
                     </div>
                   )}

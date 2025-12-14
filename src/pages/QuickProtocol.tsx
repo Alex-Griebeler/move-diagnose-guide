@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { createLogger } from '@/lib/logger';
 import { QuickProtocolWizard } from '@/components/quick-protocol/QuickProtocolWizard';
+import { QuickProtocolWizardV2 } from '@/components/quick-protocol/QuickProtocolWizardV2';
 import { PROTOCOL_METAS, type ProtocolType } from '@/data/quickProtocolMappings';
 import { StudentSearchList, type StudentItem } from '@/components/students/StudentSearchList';
 import { 
@@ -154,6 +155,19 @@ export default function QuickProtocol() {
 
   if (!studentData) {
     return null;
+  }
+
+  // Usar novo fluxo AI para knee_pain, fallback para outros
+  if (protocolType === 'knee_pain') {
+    return (
+      <QuickProtocolWizardV2
+        studentId={studentData.studentId}
+        studentName={studentData.studentName}
+        protocolType={protocolType}
+        onComplete={handleComplete}
+        onClose={handleClose}
+      />
+    );
   }
 
   return (

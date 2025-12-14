@@ -39,48 +39,87 @@ export default function NewAssessment() {
 
   // Restore state from localStorage or URL params on mount
   useEffect(() => {
-    const studentIdParam = searchParams.get('studentId');
-    const assessmentIdParam = searchParams.get('assessmentId');
-    const studentNameParam = searchParams.get('studentName');
+    const restoreState = async () => {
+      const studentIdParam = searchParams.get('studentId');
+      const assessmentIdParam = searchParams.get('assessmentId');
+      const studentNameParam = searchParams.get('studentName');
 
-    // Priority 1: URL parameters (from in-person registration or continue)
-    if (studentIdParam && assessmentIdParam) {
-      setSelectedStudent({
-        id: studentIdParam,
-        full_name: studentNameParam ? decodeURIComponent(studentNameParam) : 'Aluno',
-        email: '',
-      });
-      setAssessmentId(assessmentIdParam);
-      
-      // Check saved step for this assessment
-      const savedStep = localStorage.getItem(`assessment_step_${assessmentIdParam}`);
-      if (savedStep && ['anamnesis', 'global-tests', 'segmental-tests', 'protocol'].includes(savedStep)) {
-        setStep(savedStep as Step);
-      } else {
-        setStep('anamnesis');
+      // Priority 1: URL parameters (from in-person registration or continue)
+      if (studentIdParam && assessmentIdParam) {
+        // Validate assessment exists in database
+        const { data: existingAssessment } = await supabase
+          .from('assessments')
+          .select('id')
+          .eq('id', assessmentIdParam)
+          .maybeSingle();
+
+        if (existingAssessment) {
+          setSelectedStudent({
+            id: studentIdParam,
+            full_name: studentNameParam ? decodeURIComponent(studentNameParam) : 'Aluno',
+            email: '',
+          });
+          setAssessmentId(assessmentIdParam);
+          
+          const savedStep = localStorage.getItem(`assessment_step_${assessmentIdParam}`);
+          if (savedStep && ['anamnesis', 'global-tests', 'segmental-tests', 'protocol'].includes(savedStep)) {
+            setStep(savedStep as Step);
+          } else {
+            setStep('anamnesis');
+          }
+        } else {
+          logger.warn('Assessment from URL not found, clearing invalid state');
+          toast({
+            title: 'Avaliação não encontrada',
+            description: 'A avaliação solicitada não existe mais. Inicie uma nova.',
+          });
+        }
+        setIsRestoringState(false);
+        return;
       }
-      setIsRestoringState(false);
-      return;
-    }
 
-    // Priority 2: Check localStorage for in-progress assessment
-    const savedAssessmentId = localStorage.getItem('current_assessment_id');
-    const savedStudentId = localStorage.getItem('current_student_id');
-    const savedStudentName = localStorage.getItem('current_student_name');
-    const savedStep = savedAssessmentId ? localStorage.getItem(`assessment_step_${savedAssessmentId}`) : null;
-    
-    if (savedAssessmentId && savedStudentId && savedStep) {
-      setAssessmentId(savedAssessmentId);
-      setSelectedStudent({
-        id: savedStudentId,
-        full_name: savedStudentName || 'Aluno',
-        email: '',
-      });
-      setStep(savedStep as Step);
-    }
-    
-    setIsRestoringState(false);
-  }, [searchParams]);
+      // Priority 2: Check localStorage for in-progress assessment
+      const savedAssessmentId = localStorage.getItem('current_assessment_id');
+      const savedStudentId = localStorage.getItem('current_student_id');
+      const savedStudentName = localStorage.getItem('current_student_name');
+      const savedStep = savedAssessmentId ? localStorage.getItem(`assessment_step_${savedAssessmentId}`) : null;
+      
+      if (savedAssessmentId && savedStudentId && savedStep) {
+        // Validate assessment exists in database before restoring
+        const { data: existingAssessment } = await supabase
+          .from('assessments')
+          .select('id')
+          .eq('id', savedAssessmentId)
+          .maybeSingle();
+
+        if (existingAssessment) {
+          setAssessmentId(savedAssessmentId);
+          setSelectedStudent({
+            id: savedStudentId,
+            full_name: savedStudentName || 'Aluno',
+            email: '',
+          });
+          setStep(savedStep as Step);
+        } else {
+          // Assessment doesn't exist - clear orphaned localStorage data
+          logger.warn('Assessment from localStorage not found, clearing orphaned data');
+          localStorage.removeItem('current_assessment_id');
+          localStorage.removeItem('current_student_id');
+          localStorage.removeItem('current_student_name');
+          localStorage.removeItem(`assessment_step_${savedAssessmentId}`);
+          
+          toast({
+            title: 'Sessão anterior expirada',
+            description: 'A avaliação anterior não está mais disponível. Inicie uma nova.',
+          });
+        }
+      }
+      
+      setIsRestoringState(false);
+    };
+
+    restoreState();
+  }, [searchParams, toast]);
 
   useEffect(() => {
     if (!loading && (!user || role !== 'professional')) {

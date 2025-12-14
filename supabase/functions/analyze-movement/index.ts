@@ -391,6 +391,21 @@ Analise esta imagem de OVERHEAD SQUAT - VISTA POSTERIOR (de trás).
 
 OBJETIVO: Identificar assimetrias, rotações e compensações no plano frontal/transversal.
 
+═══════════════════════════════════════════════════════════════
+REFERÊNCIA DE LATERALIDADE - REGRA FUNDAMENTAL (LEIA PRIMEIRO):
+═══════════════════════════════════════════════════════════════
+Na vista POSTERIOR, você observa as COSTAS do paciente. A lateralidade deve ser SEMPRE do ponto de vista ANATÔMICO do paciente, NÃO da perspectiva da imagem.
+
+REGRA DE CONVERSÃO:
+- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
+- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
+
+EXEMPLOS PRÁTICOS:
+- Se a pelve desvia para a ESQUERDA DA IMAGEM → reporte "shift pélvico para DIREITA" (lado direito do paciente)
+- Se o ombro ESQUERDO DA IMAGEM está mais elevado → reporte "ombro DIREITO mais elevado"
+- Se há mais peso na perna ESQUERDA DA IMAGEM → reporte "sobrecarga no membro inferior DIREITO"
+═══════════════════════════════════════════════════════════════
+
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
 
 ${getCompensationContext(['asymmetric_shift', 'trunk_rotation', 'feet_eversion'])}
@@ -411,12 +426,12 @@ INDICADORES DE ASSIMETRIA:
 CRITÉRIOS DE REPORTE:
 - Shift pélvico só é significativo se CLARAMENTE VISÍVEL (desvio evidente)
 - Rotação de tronco deve ser EVIDENTE, não sutil
-- Documente qual LADO apresenta a disfunção (side_bias)
+- SEMPRE use lateralidade ANATÔMICA do paciente no side_bias e technical_note
 
 VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos/medidas):
 - Assimetria: "leve assimetria", "assimetria moderada", "assimetria marcante"
-- Lateralidade: "desvio para esquerda", "desvio para direita", "rotação com ombro direito mais anterior"
-- Exemplos: "shift pélvico moderado para esquerda", "rotação de tronco leve com ombro esquerdo mais protraído"
+- Lateralidade ANATÔMICA: "desvio para direita (lado direito do paciente)", "ombro esquerdo mais elevado"
+- Exemplos: "shift pélvico moderado para direita com sobrecarga no membro inferior direito", "rotação de tronco com ombro esquerdo mais protraído"
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };
@@ -459,6 +474,21 @@ Analise esta imagem de SINGLE-LEG SQUAT - VISTA POSTERIOR (de trás).
 
 OBJETIVO: Avaliar controle do quadril, estabilidade pélvica e padrões compensatórios.
 
+═══════════════════════════════════════════════════════════════
+REFERÊNCIA DE LATERALIDADE - REGRA FUNDAMENTAL (LEIA PRIMEIRO):
+═══════════════════════════════════════════════════════════════
+Na vista POSTERIOR, você observa as COSTAS do paciente. A lateralidade deve ser SEMPRE do ponto de vista ANATÔMICO do paciente, NÃO da perspectiva da imagem.
+
+REGRA DE CONVERSÃO:
+- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
+- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
+
+EXEMPLOS PRÁTICOS:
+- Se a perna de APOIO está à ESQUERDA da imagem → paciente está apoiando na perna DIREITA
+- Se a pelve CAI para a ESQUERDA da imagem → reporte "hip_drop no lado DIREITO" (pelve direita caiu)
+- Se o tronco ROTA para a ESQUERDA da imagem → reporte rotação para o lado DIREITO do paciente
+═══════════════════════════════════════════════════════════════
+
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
 
 ${getCompensationContext(['hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral', 'trunk_forward_lean_sls', 'knee_flexion_insufficient'])}
@@ -472,18 +502,18 @@ ANÁLISE BIOMECÂNICA:
 TESTE DE TRENDELENBURG:
 - POSITIVO: pelve contralateral CAI >5° (hip_drop)
 - NEGATIVO: pelve mantém nível ou eleva levemente
-- Queda indica fraqueza de glúteo médio do lado de apoio
+- Queda indica fraqueza de glúteo médio do lado de APOIO
 
 CRITÉRIOS DE REPORTE:
 - hip_drop é clinicamente RELEVANTE - indica déficit glúteo médio
 - Rotação de tronco deve ser CLARAMENTE VISÍVEL para ser significativa
-- knee_flexion_insufficient: agachamento visivelmente raso/limitado
+- SEMPRE use lateralidade ANATÔMICA do paciente no side_bias e technical_note
 
 VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
-- Trendelenburg: "queda pélvica leve", "Trendelenburg moderado", "queda pélvica acentuada"
-- Rotação: "rotação discreta", "rotação moderada para medial/lateral"
-- Amplitude: "amplitude adequada", "amplitude limitada", "amplitude severamente restrita"
-- Exemplos: "Trendelenburg positivo moderado com rotação medial do tronco", "amplitude de flexão limitada com compensação em inclinação anterior"
+- Trendelenburg: "queda pélvica leve no lado [direito/esquerdo]", "Trendelenburg moderado"
+- Rotação: "rotação discreta para medial/lateral"
+- Lateralidade ANATÔMICA: "apoio unipodal direito", "pelve esquerda elevada"
+- Exemplos: "Trendelenburg positivo moderado no apoio direito", "rotação medial do tronco durante apoio esquerdo"
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };
@@ -493,6 +523,21 @@ const PUSHUP_PROMPTS: Record<string, string> = {
 Analise esta imagem de PUSH-UP - VISTA POSTERIOR (de trás).
 
 OBJETIVO: Avaliar controle escapular, estabilidade de core e padrões compensatórios.
+
+═══════════════════════════════════════════════════════════════
+REFERÊNCIA DE LATERALIDADE - REGRA FUNDAMENTAL (LEIA PRIMEIRO):
+═══════════════════════════════════════════════════════════════
+Na vista POSTERIOR, você observa as COSTAS do paciente. A lateralidade deve ser SEMPRE do ponto de vista ANATÔMICO do paciente, NÃO da perspectiva da imagem.
+
+REGRA DE CONVERSÃO:
+- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
+- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
+
+EXEMPLOS PRÁTICOS:
+- Se a escápula ESQUERDA da imagem apresenta winging → reporte "winging na escápula DIREITA"
+- Se o ombro ESQUERDO da imagem está mais protraído → reporte "protração do ombro DIREITO"
+- Para assimetrias unilaterais, especifique qual lado ANATÔMICO está afetado
+═══════════════════════════════════════════════════════════════
 
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
 
@@ -516,13 +561,14 @@ SCAPULAR WINGING:
 CRITÉRIOS DE REPORTE:
 - Cotovelos devem formar "seta" com o tronco, não "T" (flare excessivo)
 - Escápula alada é compensação importante
-- hip_drop ou hip_elevation indicam déficit de core
+- SEMPRE use lateralidade ANATÔMICA para assimetrias unilaterais
 
 VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
-- Escápula: "winging discreto", "winging moderado", "winging acentuado bilateral/unilateral"
+- Escápula: "winging discreto bilateral", "winging moderado na escápula direita/esquerda"
 - Cotovelos: "posição adequada", "flare moderado", "flare excessivo formando T"
 - Core: "alinhamento mantido", "leve perda de alinhamento", "pike/drop evidente"
-- Exemplos: "escápula alada moderada bilateral com flare de cotovelos", "queda do quadril acentuada indicando déficit de core"
+- Lateralidade ANATÔMICA: "escápula direita", "ombro esquerdo", "bilateral"
+- Exemplos: "winging moderado na escápula direita com flare de cotovelos", "protração acentuada do ombro esquerdo"
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };

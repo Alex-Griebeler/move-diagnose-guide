@@ -230,58 +230,6 @@ interface SegmentalTestParams {
   instructions?: string;
 }
 
-// Build prompt for quick protocol tests
-interface QuickProtocolTestParams {
-  testName: string;
-  testId: string;
-  options: Array<{ id: string; label: string; isPositive: boolean }>;
-  instructions: string;
-  layer: 'mobility' | 'stability' | 'motor_control';
-  isBilateral: boolean;
-}
-
-function buildQuickProtocolPrompt(params: QuickProtocolTestParams): string {
-  const { testName, testId, options, instructions, layer, isBilateral } = params;
-  
-  const layerContext = {
-    mobility: 'Este é um teste de MOBILIDADE. Avalie amplitude de movimento, restrições e assimetrias.',
-    stability: 'Este é um teste de ESTABILIDADE. Avalie controle dinâmico, ativação muscular e manutenção de posição.',
-    motor_control: 'Este é um teste de CONTROLE NEUROMOTOR. Avalie qualidade do movimento, coordenação e padrões de compensação.',
-  };
-
-  const optionsDescription = options
-    .map(o => `- "${o.id}": ${o.label} ${o.isPositive ? '(ACHADO POSITIVO - indica disfunção)' : '(normal/esperado)'}`)
-    .join('\n');
-
-  return `Você é um especialista em análise biomecânica. Analise esta imagem/vídeo do teste "${testName}".
-
-${layerContext[layer]}
-
-INSTRUÇÕES DO TESTE:
-${instructions}
-
-${isBilateral ? 'Este é um teste BILATERAL. Compare ambos os lados e reporte assimetrias significativas.' : ''}
-
-OPÇÕES POSSÍVEIS A DETECTAR:
-${optionsDescription}
-
-CRITÉRIOS DE ANÁLISE:
-1. Reporte APENAS achados CLARAMENTE visíveis e CONSISTENTES
-2. Foque em disfunções funcionais reais, não variações normais
-3. Para achados positivos, deve haver evidência CLARA na imagem/vídeo
-4. Se a qualidade não permite avaliação precisa, reporte com confiança menor
-
-Responda APENAS em JSON válido:
-{
-  "detected_options": ["ids_das_opcoes_detectadas"],
-  "pain_indicators": false,
-  "left_findings": ${isBilateral ? '["achados_lado_esquerdo"]' : 'null'},
-  "right_findings": ${isBilateral ? '["achados_lado_direito"]' : 'null'},
-  "confidence": 0.85,
-  "notes": "Descrição objetiva das observações"
-}`;
-}
-
 function buildSegmentalPrompt(params: SegmentalTestParams): string {
   const { testName, cutoffValue, unit, resultType, isBilateral, instructions } = params;
 
@@ -357,11 +305,7 @@ serve(async (req) => {
       unit,
       resultType,
       isBilateral,
-      instructions,
-      // Quick protocol parameters
-      testId,
-      options,
-      layer
+      instructions
     } = await req.json();
 
     if (!testType || !imageUrl) {
@@ -383,24 +327,7 @@ serve(async (req) => {
     // Select appropriate prompt
     let prompt: string;
     
-    if (testType === 'quick_protocol') {
-      // Use dynamic prompt builder for quick protocol tests
-      if (!testId || !options || !layer) {
-        return new Response(
-          JSON.stringify({ error: 'testId, options, and layer are required for quick_protocol tests' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      prompt = buildQuickProtocolPrompt({
-        testName: testName || 'Teste Rápido',
-        testId,
-        options,
-        instructions: instructions || '',
-        layer,
-        isBilateral: isBilateral || false
-      });
-      console.log(`Built dynamic prompt for quick protocol test: ${testName} (${testId}), layer: ${layer}, bilateral: ${isBilateral}`);
-    } else if (testType === 'segmental') {
+    if (testType === 'segmental') {
       // Use dynamic prompt builder for segmental tests
       prompt = buildSegmentalPrompt({
         testName: testName || 'Teste Segmentado',

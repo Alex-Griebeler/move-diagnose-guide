@@ -1,26 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const allowedOrigins = [
-  'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com',
-  'https://id-preview--5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovable.app',
-  'https://fabrik.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-];
-
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const isAllowed = origin && allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')));
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  };
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 Deno.serve(async (req) => {
-  const origin = req.headers.get('origin');
-  const corsHeaders = getCorsHeaders(origin);
-
   console.log("get-signed-url called, method:", req.method, "url:", req.url);
 
   if (req.method === "OPTIONS") {
@@ -82,16 +68,11 @@ Deno.serve(async (req) => {
     const assessmentId = pathParts[0];
     console.log("Checking ownership for assessment:", assessmentId);
 
-    // Use service role to bypass RLS for ownership check
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const { data: assessment, error: assessmentError } = await supabaseAdmin
+    const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
-      .select('id, professional_id, student_id')
+      .select('id')
       .eq('id', assessmentId)
+      .or(`professional_id.eq.${user.id},student_id.eq.${user.id}`)
       .maybeSingle();
 
     if (assessmentError) {
@@ -103,16 +84,6 @@ Deno.serve(async (req) => {
     }
 
     if (!assessment) {
-      console.error("Assessment not found:", assessmentId);
-      return new Response(JSON.stringify({ error: "Assessment not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Verify user has access to this assessment
-    const hasAccess = assessment.professional_id === user.id || assessment.student_id === user.id;
-    if (!hasAccess) {
       console.error("Access denied: user", user.id, "attempted to access", filePath);
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
@@ -121,6 +92,11 @@ Deno.serve(async (req) => {
     }
 
     console.log("Access granted, generating signed URL...");
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
     const { data, error } = await supabaseAdmin.storage
       .from("assessment-media")

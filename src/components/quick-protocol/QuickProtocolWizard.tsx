@@ -290,8 +290,6 @@ export function QuickProtocolWizard({
         return (
           <QuickProtocolTest
             test={currentTest}
-            sessionId={sessionId || studentId}
-            affectedSide={affectedSide || undefined}
             value={testResults[currentTest.id]}
             onChange={handleTestResult}
           />

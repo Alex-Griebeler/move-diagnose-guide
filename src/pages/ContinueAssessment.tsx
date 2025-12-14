@@ -28,7 +28,6 @@ export default function ContinueAssessment() {
     : 'Aluno';
 
   const [step, setStep] = useState<Step | null>(null);
-  const [studentId, setStudentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const { user, role, loading: authLoading } = useAuth();
@@ -54,17 +53,6 @@ export default function ContinueAssessment() {
     setLoading(true);
 
     try {
-      // Fetch assessment to get student_id
-      const { data: assessmentData } = await supabase
-        .from('assessments')
-        .select('student_id')
-        .eq('id', assessmentId)
-        .maybeSingle();
-      
-      if (assessmentData?.student_id) {
-        setStudentId(assessmentData.student_id);
-      }
-
       // Check if anamnesis exists
       const { data: anamnesis } = await supabase
         .from('anamnesis_responses')
@@ -192,10 +180,9 @@ export default function ContinueAssessment() {
           />
         )}
 
-        {step === 'global-tests' && studentId && (
+        {step === 'global-tests' && (
           <GlobalTestsWizard
             assessmentId={assessmentId}
-            studentId={studentId}
             onComplete={handleGlobalTestsComplete}
           />
         )}

@@ -4,12 +4,6 @@ import { toast } from 'sonner';
 
 export interface AnalysisResult {
   detected_compensations?: string[];
-  // Quick protocol specific
-  detected_options?: string[];
-  pain_indicators?: boolean;
-  left_findings?: string[];
-  right_findings?: string[];
-  // Common
   side?: 'left' | 'right';
   result?: 'pass' | 'partial' | 'fail';
   left_result?: 'pass' | 'partial' | 'fail';
@@ -32,7 +26,7 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
   const [lastResult, setLastResult] = useState<AnalysisResult | null>(null);
 
   const analyzeMovement = async (params: {
-    testType: 'overhead_squat' | 'single_leg_squat' | 'pushup' | 'segmental' | 'quick_protocol';
+    testType: 'overhead_squat' | 'single_leg_squat' | 'pushup' | 'segmental';
     testName?: string;
     imageUrl: string;
     videoUrl?: string;
@@ -43,10 +37,6 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
     resultType?: 'quantitative' | 'qualitative';
     isBilateral?: boolean;
     instructions?: string;
-    // Quick protocol specific parameters
-    testId?: string;
-    options?: Array<{ id: string; label: string; isPositive: boolean }>;
-    layer?: 'mobility' | 'stability' | 'motor_control';
   }): Promise<AnalysisResult | null> => {
     setIsAnalyzing(true);
     

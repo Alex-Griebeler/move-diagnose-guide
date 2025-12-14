@@ -1,35 +1,21 @@
-// ============================================
-// Segmental Tests Wizard - Rewritten
-// Uses centralized utilities and modular components
-// ============================================
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { ChevronRight, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
-import { AttentionPointsBanner } from './AttentionPointsBanner';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
-import { getSuggestedTestsWithPriority, TestPrioritizationResult } from '@/lib/testPrioritization';
-import { Anamnese } from '@/lib/priorityEngine';
-import { DetectedCompensation } from '@/lib/attentionPointsEngine';
-import { getTestTypeFromName, getViewFromColumn, getSideFromColumn, getViewColumns } from '@/lib/globalTestUtils';
 import { 
-  WizardProgress, 
-  WizardStep, 
-  WizardNavigation, 
-  WizardContainer, 
-  WizardContentCard, 
-  WizardLoading 
-} from '@/components/wizard';
-
-// ============================================
-// Types
-// ============================================
+  getSuggestedTestsWithPriority, 
+  TestPrioritizationResult,
+} from '@/lib/testPrioritization';
+import { Anamnese } from '@/lib/priorityEngine';
+import { cn } from '@/lib/utils';
 
 interface SegmentalTestsWizardProps {
   assessmentId: string;
@@ -54,17 +40,9 @@ interface WizardData {
   testResults: Record<string, TestResult>;
 }
 
-interface StepWithTestId extends WizardStep {
-  testId: string | null;
-}
-
 const initialWizardData: WizardData = {
   testResults: {},
 };
-
-// ============================================
-// Component
-// ============================================
 
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
@@ -72,7 +50,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const [saving, setSaving] = useState(false);
   const [prioritizationResult, setPrioritizationResult] = useState<TestPrioritizationResult | null>(null);
   const [detectedCompensations, setDetectedCompensations] = useState<string[]>([]);
-
+  
   const {
     data: wizardData,
     updateData,
@@ -88,27 +66,20 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   const suggestedTests = prioritizationResult?.prioritizedTests.map(p => p.test) || [];
   const totalSteps = suggestedTests.length + 1;
-  const { testResults } = wizardData;
 
-  // ============================================
-  // Handle assessment ID changes
-  // ============================================
+  const { testResults } = wizardData;
 
   useEffect(() => {
     const savedAssessmentId = localStorage.getItem('segmentalTests_assessmentId');
-
+    
     if (savedAssessmentId && savedAssessmentId !== assessmentId) {
       clearPersistedData();
       setCurrentStep(1);
     }
-
+    
     localStorage.setItem('segmentalTests_assessmentId', assessmentId);
     prevAssessmentIdRef.current = assessmentId;
   }, [assessmentId, clearPersistedData, setCurrentStep]);
-
-  // ============================================
-  // Fetch global test results and calculate priorities
-  // ============================================
 
   useEffect(() => {
     fetchGlobalTestResults();
@@ -130,28 +101,16 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       if (globalResultsResponse.error) throw globalResultsResponse.error;
 
-      // Collect compensations with details for frequency calculation
       const allCompensations: string[] = [];
-      const detailedCompensations: DetectedCompensation[] = [];
-      const viewColumns = getViewColumns();
-
+      
       globalResultsResponse.data?.forEach(result => {
-        const testType = getTestTypeFromName(result.test_name);
-
-        viewColumns.forEach(viewColumn => {
-          const viewData = result[viewColumn as keyof typeof result] as Record<string, unknown> | null;
+        const views = ['anterior_view', 'lateral_view', 'posterior_view', 'left_side', 'right_side'];
+        views.forEach(view => {
+          const viewData = result[view as keyof typeof result] as Record<string, unknown> | null;
           if (viewData && typeof viewData === 'object' && 'compensations' in viewData) {
             const compensations = viewData.compensations as string[];
             if (Array.isArray(compensations)) {
-              compensations.forEach(compId => {
-                allCompensations.push(compId);
-                detailedCompensations.push({
-                  id: compId,
-                  testType,
-                  view: getViewFromColumn(viewColumn),
-                  side: getSideFromColumn(viewColumn),
-                });
-              });
+              allCompensations.push(...compensations);
             }
           }
         });
@@ -170,15 +129,9 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         objectives: anamnesisData?.objectives || undefined,
       };
 
-      // Calculate prioritized tests
-      const result = getSuggestedTestsWithPriority(uniqueCompensations, anamnese, 5, {
-        useAttentionPoints: true,
-        maxAttentionPoints: 2,
-        detectedCompensationsWithDetails: detailedCompensations,
-      });
+      const result = getSuggestedTestsWithPriority(uniqueCompensations, anamnese);
       setPrioritizationResult(result);
 
-      // Initialize results if empty
       const allTests = [...result.prioritizedTests, ...result.additionalTests].map(p => p.test);
       if (Object.keys(testResults).length === 0) {
         initializeResults(allTests);
@@ -190,10 +143,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       setLoading(false);
     }
   };
-
-  // ============================================
-  // Result management
-  // ============================================
 
   const initializeResults = (tests: SegmentalTest[]) => {
     const initialResults: Record<string, TestResult> = {};
@@ -223,10 +172,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     });
   };
 
-  // ============================================
-  // Navigation
-  // ============================================
-
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
@@ -238,10 +183,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       setCurrentStep(currentStep - 1);
     }
   };
-
-  // ============================================
-  // Submit
-  // ============================================
 
   const collectMediaUrls = (result: TestResult): string[] => {
     const urls: string[] = [];
@@ -276,7 +217,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
       clearPersistedData();
       localStorage.removeItem('segmentalTests_assessmentId');
-
+      
       toast.success('Testes segmentados salvos com sucesso!');
       onComplete();
     } catch (error) {
@@ -294,14 +235,10 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     onComplete();
   };
 
-  // ============================================
-  // Helpers
-  // ============================================
-
   const isTestCompleted = (testId: string): boolean => {
     const result = testResults[testId];
     if (!result) return false;
-    return result.passFailLeft !== null || result.passFailRight !== null ||
+    return result.passFailLeft !== null || result.passFailRight !== null || 
            result.leftValue !== null || result.rightValue !== null;
   };
 
@@ -309,33 +246,22 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     return Object.keys(testResults).filter(testId => isTestCompleted(testId)).length;
   };
 
-  const isStepCompleted = (step: WizardStep): boolean => {
-    const stepWithTestId = step as StepWithTestId;
-    if (stepWithTestId.testId) {
-      return isTestCompleted(stepWithTestId.testId);
-    }
-    return false;
-  };
-
-  // ============================================
-  // Loading state
-  // ============================================
-
   if (loading || isLoadingPersistence) {
     return (
-      <WizardLoading 
-        message={isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações...'} 
-      />
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mr-3" />
+          <span className="text-muted-foreground">
+            {isLoadingPersistence ? 'Carregando dados salvos...' : 'Analisando compensações...'}
+          </span>
+        </div>
+      </div>
     );
   }
 
-  // ============================================
-  // No tests state
-  // ============================================
-
   if (suggestedTests.length === 0) {
     return (
-      <WizardContainer>
+      <div className="max-w-4xl mx-auto">
         <Card>
           <CardContent className="py-12 text-center">
             <Check className="w-12 h-12 text-success mx-auto mb-4" />
@@ -348,22 +274,19 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             </Button>
           </CardContent>
         </Card>
-      </WizardContainer>
+      </div>
     );
   }
-
-  // ============================================
-  // Main render
-  // ============================================
 
   const isSummaryStep = currentStep === totalSteps;
   const currentTestIndex = currentStep - 1;
   const currentTest = !isSummaryStep ? suggestedTests[currentTestIndex] : null;
+  const progress = (currentStep / totalSteps) * 100;
   const groupedTests = groupTestsByRegion(suggestedTests);
   const completedCount = getCompletedCount();
 
-  // Build steps array
-  const steps: StepWithTestId[] = [
+  // Build steps array like global tests
+  const steps = [
     ...suggestedTests.map((test, i) => ({
       id: i + 1,
       title: test.name,
@@ -374,28 +297,73 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     { id: totalSteps, title: 'Resumo', shortTitle: 'Resumo', icon: '📊', testId: null },
   ];
 
-  const currentStepData = steps[currentStep - 1];
-
   return (
-    <WizardContainer>
-      {/* Progress Header */}
-      <WizardProgress
-        currentStep={currentStep}
-        totalSteps={totalSteps}
-        steps={steps}
-        currentTitle={currentStepData.title}
-        currentIcon={currentStepData.icon}
-        onStepClick={setCurrentStep}
-        isStepCompleted={isStepCompleted}
-        tooltip={!isSummaryStep && currentTest?.description ? currentTest.description : undefined}
-      />
+    <div className="max-w-4xl mx-auto">
+      {/* Progress Header - Same as Global Tests */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h2 className="text-lg font-semibold flex items-center gap-2 cursor-help hover:text-foreground/80 transition-colors">
+                  <span>{steps[currentStep - 1].icon}</span>
+                  {steps[currentStep - 1].title}
+                </h2>
+              </TooltipTrigger>
+              {!isSummaryStep && currentTest?.description && (
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p>{currentTest.description}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+          <span className="text-sm text-muted-foreground">
+            Etapa {currentStep} de {totalSteps}
+          </span>
+        </div>
+        <Progress value={progress} className="h-2" />
 
-      {/* Attention Points Banner - only on first step */}
-      {prioritizationResult?.attentionPointsApplied && prioritizationResult.attentionPoints && currentStep === 1 && (
-        <AttentionPointsBanner attentionPoints={prioritizationResult.attentionPoints} />
-      )}
+        {/* Step indicators - Same as Global Tests */}
+        <div className="flex justify-between mt-4 overflow-x-auto pb-2">
+          {steps.map((step) => {
+            const isCompleted = step.testId ? isTestCompleted(step.testId) : false;
+            const isCurrent = step.id === currentStep;
+            
+            return (
+              <button
+                key={step.id}
+                onClick={() => setCurrentStep(step.id)}
+                className={cn(
+                  "flex flex-col items-center min-w-[60px] transition-colors shrink-0",
+                  isCurrent
+                    ? "text-accent"
+                    : isCompleted
+                    ? "text-success"
+                    : "text-muted-foreground"
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
+                    isCurrent
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : isCompleted
+                      ? "border-success bg-success text-success-foreground"
+                      : "border-muted-foreground/30"
+                  )}
+                >
+                  {isCompleted && !isCurrent ? <Check className="w-5 h-5" /> : step.icon}
+                </div>
+                <span className="text-xs mt-1 hidden sm:block text-center max-w-[60px] truncate">
+                  {step.shortTitle}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      {/* Completion Counter */}
+      {/* Completion Counter - Same style as Global Tests */}
       {currentStep < totalSteps && completedCount > 0 && (
         <div className="mb-6 p-3 bg-success/10 border border-success/20 rounded-lg flex items-center gap-3">
           <Check className="w-5 h-5 text-success" />
@@ -405,11 +373,11 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         </div>
       )}
 
-      {/* Step Content */}
-      <WizardContentCard>
+      {/* Step Content - Card wrapper like Global Tests */}
+      <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
         {isSummaryStep ? (
-          <SegmentalTestsSummary
-            results={testResults}
+          <SegmentalTestsSummary 
+            results={testResults} 
             tests={suggestedTests}
             groupedTests={groupedTests}
             prioritizedTests={prioritizationResult?.prioritizedTests}
@@ -422,19 +390,49 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             onUpdate={(result) => handleTestResult(currentTest.id, result)}
           />
         ) : null}
-      </WizardContentCard>
+      </div>
 
-      {/* Navigation */}
-      <WizardNavigation
-        currentStep={currentStep}
-        totalSteps={totalSteps}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onSubmit={handleSubmit}
-        onSkip={!isSummaryStep ? handleSkip : undefined}
-        isSubmitting={saving}
-        submitLabel="Salvar Resultados"
-      />
-    </WizardContainer>
+      {/* Navigation - Same as Global Tests */}
+      <div className="flex justify-between">
+        <Button
+          variant="outline"
+          onClick={handlePrevious}
+          disabled={currentStep === 1}
+        >
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Anterior
+        </Button>
+
+        <div className="flex gap-2">
+          {!isSummaryStep && (
+            <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
+              Pular
+            </Button>
+          )}
+
+          {isSummaryStep ? (
+            <Button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="bg-success hover:bg-success/90"
+            >
+              {saving ? (
+                <span className="animate-pulse-soft">Salvando...</span>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Concluir Testes Segmentados
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button onClick={handleNext}>
+              Próximo
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

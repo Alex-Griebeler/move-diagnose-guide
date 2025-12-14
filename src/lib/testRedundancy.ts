@@ -2,79 +2,24 @@
 // Sistema de Redundância de Testes
 // Elimina testes que avaliam a mesma função/região
 // Mantém apenas o teste mais informativo de cada grupo
-// Baseado na metodologia Rebuilding MILO
 // ============================================
 
-import { segmentalTests } from '@/data/segmentalTestMappings';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('TestRedundancy');
-
 // Grupos de testes redundantes - o primeiro de cada array é o preferido
-// Justificativas clínicas baseadas no Rebuilding MILO
 export const REDUNDANT_TEST_GROUPS: Record<string, string[]> = {
-  // ============================================
-  // TORNOZELO
-  // ============================================
-  // ankle_dorsiflexion (Knee-to-wall) é mais funcional que calf_flexibility (passivo)
-  // Ambos avaliam mobilidade de dorsiflexão do tornozelo
+  // Mobilidade de tornozelo - ankle_dorsiflexion é mais preciso que calf_flexibility
   ankle_mobility: ['ankle_dorsiflexion', 'calf_flexibility'],
   
-  // ============================================
-  // QUADRIL - CONTROLE UNIPODAL
-  // ============================================
-  // Todos avaliam função do glúteo médio em diferentes contextos
-  // Trendelenburg é mais funcional (cadeia fechada, contexto de carga real)
-  // hip_abduction_strength é analítico (cadeia aberta, força isolada)
-  // single_leg_squat_control é funcional mas menos específico para glúteo médio
-  hip_unipodal_control: ['trendelenburg', 'hip_abduction_strength', 'single_leg_squat_control'],
+  // Controle de quadril unipodal - trendelenburg é mais específico
+  hip_unipodal_control: ['trendelenburg', 'single_leg_squat_control'],
   
-  // ============================================
-  // QUADRIL - CADEIA FLEXORA
-  // ============================================
-  // Thomas Modificado (hip_flexor_length) avalia iliopsoas + reto femoral + TFL
-  // Ober Test avalia apenas TFL/IT band (já incluído no Thomas)
-  // Thomas é mais completo e informativo
-  hip_flexor_chain: ['hip_flexor_length', 'ober_test'],
-  
-  // ============================================
-  // CORE/LOMBAR - ESTABILIDADE
-  // ============================================
-  // dead_bug avalia controle motor anti-extensão (mais funcional)
-  // prone_instability avalia estabilidade segmentar (mais analítico)
-  // dead_bug é preferido por ser funcional e reproduzível
+  // Estabilidade lombar - dead_bug é mais funcional que prone_instability
   lumbar_stability: ['dead_bug', 'prone_instability'],
   
-  // ============================================
-  // CORE/LOMBAR - ENDURANCE
-  // ============================================
-  // trunk_endurance_flexor (McGill) mais relevante clinicamente para disfunções lombares
-  // trunk_endurance_lateral (Side Bridge) é complementar mas secundário
-  core_endurance: ['trunk_endurance_flexor', 'trunk_endurance_lateral'],
+  // Comprimento de flexores de quadril - hip_flexor_length cobre glúteo max
+  hip_flexor_chain: ['hip_flexor_length'],
   
-  // ============================================
-  // OMBRO - MOBILIDADE
-  // ============================================
-  // shoulder_flexion ativa já inclui influência do peitoral menor
-  // pec_minor_length é analítico e mais específico
-  // Flexão ativa é mais funcional e informativa
-  shoulder_mobility: ['shoulder_flexion', 'pec_minor_length'],
-  
-  // ============================================
-  // ESCÁPULA - FUNÇÃO
-  // ============================================
-  // scapular_dyskinesis é avaliação dinâmica (mais informativa)
-  // serratus_strength é analítico (força isolada)
-  // Discinesia mostra padrão funcional real
-  scapular_function: ['scapular_dyskinesis', 'serratus_strength'],
-  
-  // ============================================
-  // NOTA: cervical_function REMOVIDO
-  // ============================================
-  // cervical_flexion_endurance e upper_trap_length avaliam funções COMPLEMENTARES,
-  // NÃO redundantes. Trapézio superior hiperativo frequentemente compensa 
-  // flexores cervicais profundos hipoativos. Ambos precisam ser avaliados 
-  // para entender o padrão cervical completo.
+  // Endurance de core - trunk_endurance_flexor e lateral são complementares, não redundantes
+  // (não incluídos aqui pois avaliam planos diferentes)
 };
 
 // Mapa inverso: testId → groupId
@@ -145,41 +90,4 @@ export function getPreferredTest(testId: string): string {
   if (!group) return testId;
   
   return REDUNDANT_TEST_GROUPS[group][0];
-}
-
-/**
- * Retorna o grupo de redundância de um teste
- */
-export function getRedundancyGroup(testId: string): string | undefined {
-  return testToGroup.get(testId);
-}
-
-/**
- * Valida que todos os testes nos grupos de redundância existem em segmentalTests
- * Deve ser executado apenas em desenvolvimento
- */
-export function validateRedundancyGroups(): { valid: boolean; issues: string[] } {
-  const allTestIds = new Set(segmentalTests.map(t => t.id));
-  const issues: string[] = [];
-  
-  Object.entries(REDUNDANT_TEST_GROUPS).forEach(([group, tests]) => {
-    tests.forEach(testId => {
-      if (!allTestIds.has(testId)) {
-        issues.push(`Grupo "${group}": teste "${testId}" não existe em segmentalTests`);
-      }
-    });
-  });
-  
-  if (issues.length > 0) {
-    logger.warn('Problemas encontrados na validação de grupos de redundância:', issues);
-  } else {
-    logger.debug('Validação de grupos de redundância: OK');
-  }
-  
-  return { valid: issues.length === 0, issues };
-}
-
-// Executar validação automaticamente em desenvolvimento
-if (import.meta.env.DEV) {
-  validateRedundancyGroups();
 }

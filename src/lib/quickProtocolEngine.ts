@@ -56,9 +56,6 @@ export interface TestResult {
   testId: TestId;
   leftSide?: TestResultStatus | string;
   rightSide?: TestResultStatus | string;
-  leftFindings?: string[];  // Achados específicos do lado esquerdo
-  rightFindings?: string[]; // Achados específicos do lado direito
-  findingSide?: 'left' | 'right' | 'bilateral'; // Lado onde o achado foi detectado
   hasPain: boolean;
   isPositive: boolean;
   specificFindings?: string[];
@@ -83,7 +80,6 @@ export interface DecisionResult {
   explanation: string;
   recommendRetest: boolean;
   interventionSide?: 'left' | 'right' | 'bilateral';
-  findingSide?: 'left' | 'right' | 'bilateral'; // Lado onde o déficit foi detectado
   contralateralNote?: string;
 }
 
@@ -886,44 +882,14 @@ const CONTRALATERAL_PATTERNS: Record<string, ContralateralPattern> = {
 };
 
 /**
- * Determina o lado do achado a partir do TestResult
- */
-function determineTestFindingSide(result: TestResult): 'left' | 'right' | 'bilateral' | undefined {
-  // Se já tem findingSide definido explicitamente, usar
-  if (result.findingSide) {
-    return result.findingSide;
-  }
-  
-  // Detectar pelo leftFindings/rightFindings
-  const hasLeft = result.leftFindings && result.leftFindings.length > 0;
-  const hasRight = result.rightFindings && result.rightFindings.length > 0;
-  
-  if (hasLeft && hasRight) return 'bilateral';
-  if (hasLeft) return 'left';
-  if (hasRight) return 'right';
-  
-  // Fallback para leftSide/rightSide status
-  const leftPositive = result.leftSide && result.leftSide !== 'normal';
-  const rightPositive = result.rightSide && result.rightSide !== 'normal';
-  
-  if (leftPositive && rightPositive) return 'bilateral';
-  if (leftPositive) return 'left';
-  if (rightPositive) return 'right';
-  
-  return undefined;
-}
-
-/**
  * Determina o lado que deve receber a intervenção
- * AGORA USA O LADO DO ACHADO (findingSide) para déficits contralaterais
  */
 function determineInterventionSide(
   deficit: DeficitType | null,
-  affectedSide: 'left' | 'right' | 'bilateral' | undefined,
-  findingSide?: 'left' | 'right' | 'bilateral'
-): { side: 'left' | 'right' | 'bilateral'; findingSide?: 'left' | 'right' | 'bilateral'; note?: string } {
-  // Se não há déficit, retorna bilateral
-  if (!deficit) {
+  affectedSide: 'left' | 'right' | 'bilateral' | undefined
+): { side: 'left' | 'right' | 'bilateral'; note?: string } {
+  // Se não há lado definido ou é bilateral, retorna bilateral
+  if (!affectedSide || affectedSide === 'bilateral' || !deficit) {
     return { side: 'bilateral' };
   }
   
@@ -931,32 +897,16 @@ function determineInterventionSide(
   const pattern = CONTRALATERAL_PATTERNS[deficit];
   
   if (pattern?.isContralateral) {
-    // Para padrões contralaterais, usamos o LADO DO ACHADO para determinar intervenção
-    // Ex: Trendelenburg positivo no lado D → fraqueza do glúteo médio D → tratar lado D
-    // A dor está no lado oposto ao déficit (contralateral)
-    const sideToUse = findingSide || affectedSide;
-    
-    if (!sideToUse || sideToUse === 'bilateral') {
-      return { side: 'bilateral', findingSide: sideToUse };
-    }
-    
-    // Para Trendelenburg: o déficit está no lado que CAIU (findingSide)
-    // Intervenção é no mesmo lado do achado (não contralateral ao achado)
+    // Inverter o lado: dor no E → tratar D
+    const interventionSide = affectedSide === 'left' ? 'right' : 'left';
     return {
-      side: sideToUse, // Tratar lado onde o déficit foi detectado
-      findingSide: sideToUse,
-      note: `${pattern.explanation} O déficit foi identificado no lado ${sideToUse === 'left' ? 'esquerdo' : 'direito'}.`
+      side: interventionSide,
+      note: pattern.explanation
     };
   }
   
-  // Padrão ipsilateral: usar lado da dor ou lado do achado
-  const sideToUse = findingSide || affectedSide;
-  
-  if (!sideToUse || sideToUse === 'bilateral') {
-    return { side: 'bilateral', findingSide: sideToUse };
-  }
-  
-  return { side: sideToUse, findingSide: sideToUse };
+  // Padrão ipsilateral: tratar mesmo lado
+  return { side: affectedSide };
 }
 
 /**
@@ -967,18 +917,17 @@ export function calculateDecision(
   protocolType: ProtocolType = 'knee_pain',
   affectedSide?: 'left' | 'right' | 'bilateral'
 ): DecisionResult {
-  const positiveTests: { testId: string; result: TestResult; findingSide?: 'left' | 'right' | 'bilateral' }[] = [];
+  const positiveTestIds: string[] = [];
   
-  // Identificar todos os testes positivos COM o lado do achado
+  // Identificar todos os testes positivos
   for (const [testId, result] of Object.entries(testResults)) {
     if (result && isTestPositive(result)) {
-      const findingSide = determineTestFindingSide(result);
-      positiveTests.push({ testId, result, findingSide });
+      positiveTestIds.push(testId);
     }
   }
   
   // Se nenhum teste positivo, sem déficit identificado
-  if (positiveTests.length === 0) {
+  if (positiveTestIds.length === 0) {
     return {
       primary: null,
       secondary: [],
@@ -988,8 +937,6 @@ export function calculateDecision(
       recommendRetest: false
     };
   }
-  
-  const positiveTestIds = positiveTests.map(t => t.testId);
   
   // Selecionar mapeamento correto baseado no protocolo
   let testToDeficit: Record<string, DeficitType>;
@@ -1041,15 +988,10 @@ export function calculateDecision(
   // Buscar explicação
   const explanation = EXPLANATIONS[primary] || '';
   
-  // Encontrar o lado do achado do teste primário
-  const primaryTest = positiveTests.find(t => testToDeficit[t.testId] === primary);
-  const primaryFindingSide = primaryTest?.findingSide;
-  
   // Determinar lado da intervenção (lógica contralateral)
-  const { side: interventionSide, findingSide, note: contralateralNote } = determineInterventionSide(
+  const { side: interventionSide, note: contralateralNote } = determineInterventionSide(
     primary,
-    affectedSide,
-    primaryFindingSide
+    affectedSide
   );
   
   return {
@@ -1059,7 +1001,6 @@ export function calculateDecision(
     explanation,
     recommendRetest: true,
     interventionSide,
-    findingSide,
     contralateralNote
   };
 }

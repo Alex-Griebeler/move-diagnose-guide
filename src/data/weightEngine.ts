@@ -76,12 +76,10 @@ export const compensacaoCausas: Record<string, CausaProvavel[]> = {
     { id: CAUSE_IDS.GLUTE_MAX_TIGHT, label: 'Glúteo Máximo Encurtado', categoria: 'HYPER', baseWeight: 2 },
   ],
 
-  // Alias para butt_wink (idêntico a spine_flexion)
+  // Alias para butt_wink (mesmo que spine_flexion)
   butt_wink: [
     { id: CAUSE_IDS.HAMSTRING_TIGHT, label: 'Isquiotibiais Encurtados', categoria: 'HYPER', baseWeight: 3 },
     { id: CAUSE_IDS.HIP_FLEXION_LIMIT, label: 'Limitação Flexão Quadril', categoria: 'MOB_L', baseWeight: 3 },
-    { id: CAUSE_IDS.LUMBAR_ERECTOR_HYPO, label: 'Eretores Lombares Hipoativos', categoria: 'HYPO', baseWeight: 2 },
-    { id: CAUSE_IDS.GLUTE_MAX_TIGHT, label: 'Glúteo Máximo Encurtado', categoria: 'HYPER', baseWeight: 2 },
   ],
 
   // Braços caem (OHS lateral) - usando arms_fall_forward como ID principal
@@ -94,14 +92,10 @@ export const compensacaoCausas: Record<string, CausaProvavel[]> = {
     { id: CAUSE_IDS.LAT_TIGHT, label: 'Latíssimo do Dorso Encurtado', categoria: 'HYPER', baseWeight: 2 },
   ],
 
-  // Alias para arms_fall (idêntico a arms_fall_forward)
+  // Alias para arms_fall (alguns lugares usam sem _forward)
   arms_fall: [
     { id: CAUSE_IDS.SERRATUS_HYPO, label: 'Serrátil Anterior Hipoativo', categoria: 'HYPO', baseWeight: 3 },
-    { id: CAUSE_IDS.TRAP_INF_HYPO, label: 'Trapézio Inferior Hipoativo', categoria: 'HYPO', baseWeight: 2 },
-    { id: CAUSE_IDS.TRAP_SUP_HYPER, label: 'Trapézio Superior Hiperativo', categoria: 'HYPER', baseWeight: 2 },
-    { id: CAUSE_IDS.TSPINE_EXT_LIMIT, label: 'Limitação Extensão Torácica', categoria: 'MOB_L', baseWeight: 2 },
     { id: CAUSE_IDS.SHOULDER_FLEX_LIMIT, label: 'Limitação Flexão Ombro', categoria: 'MOB_L', baseWeight: 3 },
-    { id: CAUSE_IDS.LAT_TIGHT, label: 'Latíssimo do Dorso Encurtado', categoria: 'HYPER', baseWeight: 2 },
   ],
 
   // Pronação do pé (referenciado em knee_valgus)

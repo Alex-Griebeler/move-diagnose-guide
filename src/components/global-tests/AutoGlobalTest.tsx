@@ -393,11 +393,27 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           <CardHeader className="py-3 px-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium">{currentView.label}</CardTitle>
-              {currentResult && (
-                <Badge variant="outline" className="text-[10px] h-5">
-                  {Math.round((currentResult.confidence || 0) * 100)}% confiança
-                </Badge>
-              )}
+              <div className="flex items-center gap-1.5">
+                {currentResult?.severity && (
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-[10px] h-5",
+                      currentResult.severity === 'marked' && 'border-destructive/50 text-destructive',
+                      currentResult.severity === 'moderate' && 'border-warning/50 text-warning',
+                      currentResult.severity === 'minimal' && 'border-success/50 text-success'
+                    )}
+                  >
+                    {currentResult.severity === 'marked' ? 'Acentuado' : 
+                     currentResult.severity === 'moderate' ? 'Moderado' : 'Leve'}
+                  </Badge>
+                )}
+                {currentResult && (
+                  <Badge variant="outline" className="text-[10px] h-5">
+                    {Math.round((currentResult.confidence || 0) * 100)}%
+                  </Badge>
+                )}
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">{currentView.description}</p>
           </CardHeader>
@@ -422,15 +438,38 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               </div>
             )}
 
-            {/* AI Analysis Result - Compact */}
-            {currentResult && !isAnalyzing && currentResult.notes && (
-              <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
-                <div className="flex items-start gap-2">
-                  <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground italic leading-relaxed">
-                    {currentResult.notes}
-                  </p>
+            {/* AI Analysis Result - Structured Display */}
+            {currentResult && !isAnalyzing && (
+              <div className="p-3 rounded-lg bg-accent/5 border border-accent/20 space-y-2">
+                {/* Structured badges row */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {currentResult.side_bias && currentResult.side_bias !== 'symmetric' && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {currentResult.side_bias === 'left' ? 'Viés E' : 
+                       currentResult.side_bias === 'right' ? 'Viés D' : 'Bilateral'}
+                    </Badge>
+                  )}
+                  {currentResult.requires_attention && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      Atenção necessária
+                    </Badge>
+                  )}
+                  {currentResult.primary_compensation && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Principal: {currentResult.primary_compensation}
+                    </Badge>
+                  )}
                 </div>
+                
+                {/* Technical note */}
+                {(currentResult.notes || currentResult.technical_note) && (
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground italic leading-relaxed">
+                      {currentResult.notes || currentResult.technical_note}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

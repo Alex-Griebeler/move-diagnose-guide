@@ -14,6 +14,12 @@ export interface AnalysisResult {
   confidence: number;
   notes?: string;
   promptUsed?: string;
+  // New structured fields from tool calling
+  severity?: 'minimal' | 'moderate' | 'marked';
+  primary_compensation?: string | null;
+  side_bias?: 'left' | 'right' | 'bilateral' | 'symmetric';
+  requires_attention?: boolean;
+  technical_note?: string;
 }
 
 interface UseMovementAnalysisOptions {

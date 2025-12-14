@@ -131,6 +131,56 @@ ${id}:
   return contexts.length > 0 ? `\nCONTEXTO CLÍNICO DAS COMPENSAÇÕES:\n${contexts.join('\n')}` : '';
 }
 
+// Tool calling schema for standardized output
+const ANALYSIS_TOOL = {
+  type: "function" as const,
+  function: {
+    name: "report_analysis",
+    description: "Report structured movement analysis results with standardized format",
+    parameters: {
+      type: "object",
+      properties: {
+        detected_compensations: {
+          type: "array",
+          items: { type: "string" },
+          description: "Array of compensation IDs detected in the movement"
+        },
+        confidence: {
+          type: "number",
+          minimum: 0,
+          maximum: 1,
+          description: "Confidence level of the analysis (0-1)"
+        },
+        severity: {
+          type: "string",
+          enum: ["minimal", "moderate", "marked"],
+          description: "Overall severity: minimal (1-2 minor), moderate (3+ or significant), marked (multiple severe)"
+        },
+        primary_compensation: {
+          type: "string",
+          nullable: true,
+          description: "The most clinically significant compensation detected, or null if none"
+        },
+        side_bias: {
+          type: "string",
+          enum: ["left", "right", "bilateral", "symmetric"],
+          description: "Which side shows more dysfunction, or symmetric if equal"
+        },
+        requires_attention: {
+          type: "boolean",
+          description: "True if any compensation requires immediate clinical attention"
+        },
+        technical_note: {
+          type: "string",
+          maxLength: 200,
+          description: "Brief clinical observation (max 50 words), focusing on movement quality"
+        }
+      },
+      required: ["detected_compensations", "confidence", "severity", "side_bias", "requires_attention"]
+    }
+  }
+};
+
 // Test-specific prompts for movement analysis with clinical severity thresholds
 const TEST_PROMPTS: Record<string, string> = {
   overhead_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Overhead Squat.
@@ -163,14 +213,14 @@ REGRAS DE ANÁLISE:
 3. Foque em compensações que indicam DISFUNÇÃO FUNCIONAL real
 4. Se a imagem não permite avaliação clara de uma compensação, não a reporte
 
+CLASSIFICAÇÃO DE SEVERIDADE:
+- minimal: 1-2 compensações leves ou variações menores
+- moderate: 3+ compensações ou compensações significativas
+- marked: múltiplas compensações severas ou padrão disfuncional claro
+
 ${getCompensationContext(['knee_valgus', 'heels_rise', 'spine_flexion', 'hip_drop', 'arms_fall_forward', 'feet_eversion', 'asymmetric_shift', 'lumbar_hyperextension'])}
 
-Responda em JSON:
-{
-  "detected_compensations": ["ids_das_compensacoes_detectadas"],
-  "confidence": 0.85,
-  "notes": "Descrição objetiva das compensações encontradas ou 'Movimento dentro dos padrões normais'"
-}`,
+Use a função report_analysis para reportar os resultados de forma estruturada.`,
 
   single_leg_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Single-Leg Squat.
 
@@ -198,15 +248,14 @@ REGRAS DE ANÁLISE:
 3. Foque em compensações que indicam DÉFICIT DE CONTROLE real
 4. Considere a dificuldade inerente do teste unipodal
 
+CLASSIFICAÇÃO DE SEVERIDADE:
+- minimal: Pequenas compensações, controle geral adequado
+- moderate: Compensações evidentes mas mantém execução
+- marked: Déficit de controle severo, incapaz de executar adequadamente
+
 ${getCompensationContext(['knee_valgus', 'hip_drop', 'foot_collapse'])}
 
-Responda em JSON:
-{
-  "detected_compensations": ["ids_das_compensacoes_detectadas"],
-  "side": "left" ou "right",
-  "confidence": 0.85,
-  "notes": "Descrição objetiva ou 'Controle adequado para teste unipodal'"
-}`,
+Use a função report_analysis para reportar os resultados de forma estruturada.`,
 
   pushup: `Você é um especialista em análise biomecânica. Analise esta imagem de Push-up.
 
@@ -227,14 +276,14 @@ REGRAS DE ANÁLISE:
 3. Scapular winging é RELEVANTE - indica serrátil anterior deficiente
 4. Avalie a posição durante TODO o movimento, não só posição estática
 
+CLASSIFICAÇÃO DE SEVERIDADE:
+- minimal: Técnica boa com pequenas variações
+- moderate: Compensações visíveis mas funcionais
+- marked: Déficit escapular ou core evidente, padrão disfuncional
+
 ${getCompensationContext(['scapular_winging', 'arms_fall_forward'])}
 
-Responda em JSON:
-{
-  "detected_compensations": ["ids_das_compensacoes_detectadas"],
-  "confidence": 0.85,
-  "notes": "Descrição objetiva ou 'Execução dentro dos padrões adequados'"
-}`
+Use a função report_analysis para reportar os resultados de forma estruturada.`
 };
 
 // Build dynamic prompt for segmental tests
@@ -438,24 +487,34 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
       { type: 'image_url', image_url: { url: imageUrl } }
     ];
 
+    // Determine if we should use tool calling (for global tests only)
+    const useToolCalling = ['overhead_squat', 'single_leg_squat', 'pushup'].includes(testType);
+
     // Call Lovable AI Gateway with vision model (use Pro for better accuracy)
+    const requestBody: Record<string, unknown> = {
+      model: 'google/gemini-2.5-pro',
+      messages: [
+        {
+          role: 'user',
+          content: messageContent
+        }
+      ],
+      max_tokens: 2500,
+    };
+
+    // Add tool calling for global tests
+    if (useToolCalling) {
+      requestBody.tools = [ANALYSIS_TOOL];
+      requestBody.tool_choice = { type: "function", function: { name: "report_analysis" } };
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          {
-            role: 'user',
-            content: messageContent
-          }
-        ],
-        max_tokens: 2500,
-        // Note: temperature parameter removed - not supported by newer models
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -474,74 +533,95 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
     }
 
     const data = await response.json();
+    
+    // Check if response uses tool calling
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     const aiResponse = data.choices?.[0]?.message?.content;
 
-    if (!aiResponse) {
-      console.error('Empty AI response');
-      return jsonResponse({ error: 'Empty AI response' }, 500);
-    }
-
-    console.log('AI raw response:', aiResponse);
-
-    // Parse JSON from AI response
     let analysisResult;
-    try {
-      // Extract JSON from response (handle potential markdown code blocks)
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        let jsonStr = jsonMatch[0];
+
+    if (toolCall && toolCall.function?.arguments) {
+      // Parse from tool calling response (standardized format)
+      try {
+        analysisResult = JSON.parse(toolCall.function.arguments);
+        console.log('Tool calling response parsed:', analysisResult);
         
-        // Try to fix truncated JSON by closing unclosed strings and brackets
-        if (!jsonStr.endsWith('}')) {
-          // Count brackets to determine what's missing
-          const openBraces = (jsonStr.match(/\{/g) || []).length;
-          const closeBraces = (jsonStr.match(/\}/g) || []).length;
-          const openBrackets = (jsonStr.match(/\[/g) || []).length;
-          const closeBrackets = (jsonStr.match(/\]/g) || []).length;
-          
-          // Close unclosed string if present
-          if ((jsonStr.match(/"/g) || []).length % 2 !== 0) {
-            jsonStr += '"';
-          }
-          
-          // Close arrays then objects
-          for (let i = 0; i < openBrackets - closeBrackets; i++) {
-            jsonStr += ']';
-          }
-          for (let i = 0; i < openBraces - closeBraces; i++) {
-            jsonStr += '}';
-          }
-          
-          console.log('Fixed truncated JSON:', jsonStr);
+        // Map technical_note to notes for frontend compatibility
+        if (analysisResult.technical_note && !analysisResult.notes) {
+          analysisResult.notes = analysisResult.technical_note;
         }
-        
-        analysisResult = JSON.parse(jsonStr);
-      } else {
-        throw new Error('No JSON found in response');
-      }
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      
-      // Try to extract at least the compensations from partial response
-      const compensationsMatch = aiResponse.match(/"detected_compensations"\s*:\s*\[(.*?)\]/s);
-      if (compensationsMatch) {
-        const compensationIds = compensationsMatch[1]
-          .match(/"([^"]+)"/g)
-          ?.map((s: string) => s.replace(/"/g, '')) || [];
-        
-        console.log('Extracted compensations from partial response:', compensationIds);
-        
-        analysisResult = {
-          detected_compensations: compensationIds,
-          confidence: 0.7,
-          notes: 'Análise parcial - resposta truncada'
-        };
-      } else {
+      } catch (parseError) {
+        console.error('Failed to parse tool call arguments:', parseError);
         return jsonResponse({ 
-          error: 'Failed to parse AI analysis',
-          raw_response: aiResponse 
+          error: 'Failed to parse AI tool response',
+          raw_response: toolCall.function.arguments 
         }, 500);
       }
+    } else if (aiResponse) {
+      // Fallback: Parse JSON from content (for segmental/quick protocol tests)
+      console.log('AI raw response:', aiResponse);
+      
+      try {
+        // Extract JSON from response (handle potential markdown code blocks)
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          let jsonStr = jsonMatch[0];
+          
+          // Try to fix truncated JSON by closing unclosed strings and brackets
+          if (!jsonStr.endsWith('}')) {
+            const openBraces = (jsonStr.match(/\{/g) || []).length;
+            const closeBraces = (jsonStr.match(/\}/g) || []).length;
+            const openBrackets = (jsonStr.match(/\[/g) || []).length;
+            const closeBrackets = (jsonStr.match(/\]/g) || []).length;
+            
+            if ((jsonStr.match(/"/g) || []).length % 2 !== 0) {
+              jsonStr += '"';
+            }
+            
+            for (let i = 0; i < openBrackets - closeBrackets; i++) {
+              jsonStr += ']';
+            }
+            for (let i = 0; i < openBraces - closeBraces; i++) {
+              jsonStr += '}';
+            }
+            
+            console.log('Fixed truncated JSON:', jsonStr);
+          }
+          
+          analysisResult = JSON.parse(jsonStr);
+        } else {
+          throw new Error('No JSON found in response');
+        }
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError);
+        
+        // Try to extract at least the compensations from partial response
+        const compensationsMatch = aiResponse.match(/"detected_compensations"\s*:\s*\[(.*?)\]/s);
+        if (compensationsMatch) {
+          const compensationIds = compensationsMatch[1]
+            .match(/"([^"]+)"/g)
+            ?.map((s: string) => s.replace(/"/g, '')) || [];
+          
+          console.log('Extracted compensations from partial response:', compensationIds);
+          
+          analysisResult = {
+            detected_compensations: compensationIds,
+            confidence: 0.7,
+            severity: 'moderate',
+            side_bias: 'bilateral',
+            requires_attention: false,
+            notes: 'Análise parcial - resposta truncada'
+          };
+        } else {
+          return jsonResponse({ 
+            error: 'Failed to parse AI analysis',
+            raw_response: aiResponse 
+          }, 500);
+        }
+      }
+    } else {
+      console.error('Empty AI response - no tool call or content');
+      return jsonResponse({ error: 'Empty AI response' }, 500);
     }
 
     console.log('Analysis result:', analysisResult);

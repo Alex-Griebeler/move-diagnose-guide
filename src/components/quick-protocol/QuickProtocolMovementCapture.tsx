@@ -20,9 +20,9 @@ interface VideoView {
 }
 
 const VIDEO_VIEWS: VideoView[] = [
-  { id: 'anterior', label: 'Vista Frontal', description: 'Grave de frente para o aluno' },
-  { id: 'lateral', label: 'Vista Lateral', description: 'Grave do lado (perfil)' },
-  { id: 'posterior', label: 'Vista Posterior', description: 'Grave por trás do aluno' },
+  { id: 'anterior', label: 'Vista Anterior', description: 'Posicione a câmera de frente para o aluno' },
+  { id: 'lateral', label: 'Vista Lateral', description: 'Posicione a câmera ao lado do aluno (perfil)' },
+  { id: 'posterior', label: 'Vista Posterior', description: 'Posicione a câmera atrás do aluno' },
 ];
 
 interface CapturedMedia {
@@ -133,7 +133,7 @@ export function QuickProtocolMovementCapture({
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-xl font-semibold mb-2">Captura do Movimento</h2>
-        <p className="text-muted-foreground">Grave o <strong>movimento problemático</strong> em 3 ângulos</p>
+        <p className="text-muted-foreground">Grave o <strong>movimento que causa dor</strong> em 3 vistas</p>
       </div>
 
       <div className="flex items-center justify-center gap-2 mb-4">

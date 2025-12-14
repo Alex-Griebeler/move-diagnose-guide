@@ -1,21 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const allowedOrigins = [
-  'https://5253ca48-5fa8-4259-a6a1-d572744c9bc8.lovableproject.com',
-  'https://fabrik.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-];
-
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const isAllowed = origin && allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')));
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  };
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
 
 // Validate user authentication from Authorization header
 async function validateAuth(req: Request): Promise<{ userId: string } | null> {
@@ -273,8 +263,10 @@ Responda APENAS em JSON válido com este formato:
 }
 
 serve(async (req) => {
-  const origin = req.headers.get('origin');
-  const corsHeaders = getCorsHeaders(origin);
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -509,8 +501,7 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
     );
 
   } catch (error) {
-    const origin = req.headers.get('origin');
-    const corsHeaders = getCorsHeaders(origin);
+    console.error('Error in analyze-movement function:', error);
     console.error('Error in analyze-movement function:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),

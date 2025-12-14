@@ -7,7 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Helper to create JSON response with CORS
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -15,275 +14,485 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-// Validate user authentication from Authorization header
 async function validateAuth(req: Request): Promise<{ userId: string } | null> {
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
-  }
+  if (!authHeader?.startsWith('Bearer ')) return null;
 
   const token = authHeader.replace('Bearer ', '');
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables');
-    return null;
-  }
+  if (!supabaseUrl || !supabaseAnonKey) return null;
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } }
   });
 
   const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    console.error('Auth validation failed:', error?.message);
-    return null;
-  }
-
+  if (error || !user) return null;
   return { userId: user.id };
 }
 
-// Dados clínicos de compensações para enriquecer prompts
-const COMPENSATION_DATA: Record<string, { 
-  hyperactive: string[]; 
-  hypoactive: string[]; 
-  injuries: string[] 
+// ============================================
+// DADOS CLÍNICOS COMPLETOS POR COMPENSAÇÃO
+// Baseado na Tabela A - Mapeamento Compensação → Músculos
+// ============================================
+const COMPENSATION_DATA: Record<string, {
+  label: string;
+  hyperactive: string[];
+  hypoactive: string[];
+  injuries: string[];
+  detection_criteria: string;
 }> = {
-  knee_valgus: {
-    hyperactive: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral'],
-    hypoactive: ['Glúteo médio', 'Glúteo máximo', 'VMO', 'Rotadores laterais do quadril'],
-    injuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA'],
-  },
-  heels_rise: {
-    hyperactive: ['Sóleo', 'Gastrocnêmio', 'Flexores plantares'],
-    hypoactive: ['Tibial anterior', 'Dorsiflexores'],
-    injuries: ['Tendinopatia do Aquiles', 'Fascite plantar'],
-  },
-  spine_flexion: {
-    hyperactive: ['Isquiotibiais', 'Reto abdominal'],
-    hypoactive: ['Eretores lombares', 'Multífidos', 'Flexores do quadril'],
-    injuries: ['Hérnia discal', 'Dor lombar', 'Protrusão discal'],
-  },
-  hip_drop: {
-    hyperactive: ['Quadrado lombar', 'TFL', 'Piriforme', 'Adutores'],
-    hypoactive: ['Glúteo médio', 'Glúteo mínimo', 'Core lateral', 'Oblíquos'],
-    injuries: ['Síndrome da banda IT', 'Tendinopatia glútea', 'Bursite trocantérica'],
-  },
-  scapular_winging: {
-    hyperactive: ['Peitoral menor', 'Levantador da escápula', 'Trapézio superior'],
-    hypoactive: ['Serrátil anterior', 'Trapézio inferior', 'Trapézio médio'],
-    injuries: ['Discinese escapular', 'Impacto do ombro', 'Tendinopatia manguito'],
-  },
-  arms_fall_forward: {
-    hyperactive: ['Peitoral maior', 'Latíssimo do dorso', 'Redondo maior'],
-    hypoactive: ['Trapézio médio/inferior', 'Romboides', 'Serrátil anterior'],
-    injuries: ['Impacto do ombro', 'Síndrome desfiladeiro torácico', 'Cifose'],
-  },
-  trunk_forward_lean: {
-    hyperactive: ['Sóleo', 'Gastrocnêmio', 'Flexores do quadril', 'Reto abdominal'],
-    hypoactive: ['Glúteo máximo', 'Eretores torácicos', 'Core estabilizador'],
-    injuries: ['Dor lombar', 'Impacto femoroacetabular'],
-  },
-  foot_collapse: {
-    hyperactive: ['Fibulares', 'Gastrocnêmio lateral'],
-    hypoactive: ['Tibial posterior', 'Intrínsecos do pé', 'Tibial anterior'],
-    injuries: ['Fascite plantar', 'Tendinopatia tibial posterior'],
+  // OHS - Vista Anterior
+  feet_abduction: {
+    label: 'Pés abduzidos (giram para fora)',
+    hyperactive: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral'],
+    hypoactive: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório'],
+    injuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome da banda IT'],
+    detection_criteria: 'Ângulo pés-frente >30° (15-30° pode ser normal). Pés claramente apontando para fora da linha média.',
   },
   feet_eversion: {
-    hyperactive: ['Fibulares', 'Gastrocnêmio lateral'],
-    hypoactive: ['Tibial posterior', 'Intrínsecos do pé'],
-    injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial medial'],
+    label: 'Eversão dos pés (pronação)',
+    hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Bíceps femoral', 'TFL'],
+    hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Tibial anterior', 'Glúteo médio'],
+    injuries: ['Fascite plantar', 'Síndrome do estresse tibial', 'Tendinopatia tibial posterior'],
+    detection_criteria: 'Arco plantar COLAPSA visivelmente. Calcanhares inclinam medialmente. Navicular desce.',
   },
-  asymmetric_shift: {
-    hyperactive: ['Quadrado lombar unilateral', 'Adutores unilateral'],
-    hypoactive: ['Glúteo médio contralateral', 'Core lateral'],
-    injuries: ['Dor lombar assimétrica', 'Disfunção sacroilíaca'],
+  knee_valgus: {
+    label: 'Joelhos valgos (cavam para dentro)',
+    hyperactive: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral', 'Bíceps femoral'],
+    hypoactive: ['Glúteo médio', 'Glúteo máximo', 'VMO', 'Rotadores laterais do quadril'],
+    injuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA', 'Condromalácia'],
+    detection_criteria: 'Joelhos CLARAMENTE passam medialmente da linha do hálux. Valgo dinâmico evidente durante descida.',
+  },
+  knee_varus: {
+    label: 'Joelhos varos (arqueados)',
+    hyperactive: ['TFL', 'Piriforme', 'Glúteo mínimo', 'Bíceps femoral'],
+    hypoactive: ['Glúteo máximo', 'Glúteo médio posterior', 'Vasto medial'],
+    injuries: ['Sobrecarga lateral joelho', 'Síndrome banda IT', 'Artrose lateral'],
+    detection_criteria: 'Joelhos se afastam lateralmente da linha vertical. Espaço excessivo entre joelhos.',
+  },
+  
+  // OHS - Vista Lateral
+  trunk_forward_lean: {
+    label: 'Inclinação excessiva do tronco',
+    hyperactive: ['Sóleo', 'Gastrocnêmio', 'Iliopsoas', 'Reto femoral', 'Reto abdominal'],
+    hypoactive: ['Glúteo máximo', 'Eretores torácicos', 'Core estabilizador'],
+    injuries: ['Dor lombar', 'Impacto femoroacetabular', 'Tendinopatia patelar'],
+    detection_criteria: 'Tronco inclina >45° em relação à vertical. Ombros ficam significativamente à frente dos quadris.',
   },
   lumbar_hyperextension: {
-    hyperactive: ['Eretores lombares', 'Quadrado lombar', 'Iliopsoas'],
-    hypoactive: ['Transverso abdominal', 'Glúteos', 'Reto abdominal'],
-    injuries: ['Espondilolistese', 'Estenose foraminal', 'Dor lombar'],
+    label: 'Hiperextensão lombar',
+    hyperactive: ['Eretores lombares', 'Latíssimo do dorso', 'Psoas', 'Reto femoral'],
+    hypoactive: ['Transverso abdominal', 'Oblíquos internos', 'Glúteo máximo', 'Isquiotibiais'],
+    injuries: ['Espondilolistese', 'Dor lombar', 'Hérnia discal', 'Estenose lombar'],
+    detection_criteria: 'Lordose EXAGERADA visível. Hiperlordose com barriga projetada. Anterversão pélvica acentuada.',
+  },
+  spine_flexion: {
+    label: 'Flexão da coluna (butt wink)',
+    hyperactive: ['Isquiotibiais', 'Glúteo máximo encurtado', 'Reto abdominal'],
+    hypoactive: ['Eretores lombares', 'Multífidos', 'Flexores do quadril'],
+    injuries: ['Hérnia discal', 'Dor lombar', 'Disfunção sacroilíaca', 'Protrusão discal'],
+    detection_criteria: 'Arredondamento EVIDENTE da lombar no fundo do agachamento. Pelve posterioriza (butt wink pronunciado).',
+  },
+  heels_rise: {
+    label: 'Calcanhares sobem',
+    hyperactive: ['Sóleo', 'Gastrocnêmio', 'Flexores plantares'],
+    hypoactive: ['Tibial anterior', 'Dorsiflexores do tornozelo'],
+    injuries: ['Tendinopatia Aquiles', 'Fascite plantar', 'Instabilidade anterior joelho'],
+    detection_criteria: 'Calcanhares CLARAMENTE se elevam do chão. Peso transfere para antepé.',
+  },
+  arms_fall_forward: {
+    label: 'Braços caem para frente',
+    hyperactive: ['Peitoral maior', 'Latíssimo do dorso', 'Redondo maior', 'Subescapular'],
+    hypoactive: ['Trapézio médio/inferior', 'Romboides', 'Serrátil anterior', 'Manguito rotador'],
+    injuries: ['Impacto do ombro', 'Síndrome desfiladeiro torácico', 'Cifose torácica'],
+    detection_criteria: 'Braços caem ABAIXO da linha da cabeça. Perda da posição overhead durante descida.',
+  },
+  
+  // OHS - Vista Posterior
+  asymmetric_shift: {
+    label: 'Shift pélvico assimétrico',
+    hyperactive: ['Quadrado lombar ipsilateral', 'Adutores contralateral', 'TFL', 'Piriforme'],
+    hypoactive: ['Glúteo médio contralateral', 'Oblíquos', 'Multífidos', 'Core lateral'],
+    injuries: ['Disfunção sacroilíaca', 'Dor lombar unilateral', 'Síndrome do piriforme'],
+    detection_criteria: 'Pelve desvia VISIVELMENTE para um lado (>2cm). Peso claramente mais em um membro.',
   },
   trunk_rotation: {
-    hyperactive: ['Oblíquos unilateral', 'Quadrado lombar'],
-    hypoactive: ['Core rotacional', 'Oblíquos contralateral'],
-    injuries: ['Dor lombar', 'Disfunção sacroilíaca'],
+    label: 'Rotação do tronco',
+    hyperactive: ['Oblíquo externo dominante', 'Latíssimo do dorso', 'Quadrado lombar'],
+    hypoactive: ['Oblíquo interno', 'Multífidos', 'Core rotacional', 'Transverso abdominal'],
+    injuries: ['Disfunção sacroilíaca', 'Dor lombar assimétrica', 'Escoliose funcional'],
+    detection_criteria: 'Ombros ou pelve rotam de forma ASSIMÉTRICA. Um ombro claramente mais anterior que outro.',
+  },
+  
+  // SLS - Vista Anterior
+  foot_collapse: {
+    label: 'Colapso do arco plantar',
+    hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
+    hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
+    injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome estresse tibial'],
+    detection_criteria: 'Arco plantar COLAPSA completamente sob carga. Navicular desce até quase tocar o solo.',
+  },
+  instability: {
+    label: 'Instabilidade geral',
+    hyperactive: ['TFL', 'Quadríceps superficial', 'Fibulares'],
+    hypoactive: ['Glúteo médio', 'Core estabilizador', 'Estabilizadores tornozelo', 'Tibial posterior'],
+    injuries: ['Entorses tornozelo recorrentes', 'Risco lesão LCA', 'Instabilidade patelar'],
+    detection_criteria: 'Oscilações GRANDES e REPETIDAS durante todo o movimento. Não consegue manter posição estável.',
+  },
+  tremor: {
+    label: 'Tremor persistente',
+    hyperactive: ['Musculatura superficial em fadiga', 'Quadríceps', 'TFL'],
+    hypoactive: ['Estabilizadores profundos', 'Core', 'Glúteo médio', 'Multífidos'],
+    injuries: ['Risco lesão por instabilidade', 'Fadiga muscular precoce'],
+    detection_criteria: 'Tremor VISÍVEL e PERSISTENTE durante toda execução. Não são apenas micromovimentos.',
+  },
+  balance_loss: {
+    label: 'Perda de equilíbrio',
+    hyperactive: ['Flexores dos dedos', 'Musculatura superficial', 'Gastrocnêmio'],
+    hypoactive: ['Glúteo médio', 'Core', 'Proprioceptores tornozelo', 'Estabilizadores profundos'],
+    injuries: ['Entorses recorrentes', 'Risco quedas', 'Instabilidade crônica'],
+    detection_criteria: 'PERDE o apoio ou precisa tocar o chão com pé contralateral.',
+  },
+  
+  // SLS - Vista Posterior
+  hip_drop: {
+    label: 'Queda do quadril (Trendelenburg)',
+    hyperactive: ['Quadrado lombar lado apoio', 'TFL', 'Piriforme', 'Adutores'],
+    hypoactive: ['Glúteo médio', 'Glúteo mínimo', 'Core lateral', 'Oblíquos'],
+    injuries: ['Síndrome banda IT', 'Tendinopatia glútea', 'Bursite trocantérica'],
+    detection_criteria: 'Pelve CAI >5° do lado contralateral. Trendelenburg POSITIVO claro. Crista ilíaca contralateral desce.',
+  },
+  hip_hike: {
+    label: 'Elevação do quadril (hip hike)',
+    hyperactive: ['Quadrado lombar contralateral', 'TFL', 'Glúteo mínimo', 'Adutores'],
+    hypoactive: ['Glúteo médio ipsilateral', 'Core estabilizador'],
+    injuries: ['Compensações sacroilíacas', 'Dor lateral quadril'],
+    detection_criteria: 'Elevação EXAGERADA da pelve contralateral. Crista ilíaca sobe acima do normal.',
+  },
+  trunk_rotation_medial: {
+    label: 'Rotação medial do tronco',
+    hyperactive: ['Oblíquos internos', 'Oblíquos externos', 'TFL'],
+    hypoactive: ['Glúteo médio', 'Glúteo máximo', 'Core estabilizador'],
+    injuries: ['Valgo persistente', 'Sobrecarga lombar'],
+    detection_criteria: 'Tronco rota >15° para dentro (medialmente). Ombro do lado de apoio gira para frente.',
+  },
+  trunk_rotation_lateral: {
+    label: 'Rotação lateral do tronco',
+    hyperactive: ['Oblíquos externos contralateral', 'Quadrado lombar'],
+    hypoactive: ['Glúteo médio', 'Oblíquos internos', 'Core estabilizador'],
+    injuries: ['Desequilíbrio rotacional', 'Dor lombar'],
+    detection_criteria: 'Tronco rota >15° para fora (lateralmente). Ombro do lado de apoio gira para trás.',
+  },
+  trunk_forward_lean_sls: {
+    label: 'Inclinação anterior do tronco',
+    hyperactive: ['Iliopsoas', 'Reto femoral', 'Eretores lombares'],
+    hypoactive: ['Glúteo máximo', 'Core anterior', 'Transverso abdominal'],
+    injuries: ['Sobrecarga lombar', 'Impacto do quadril'],
+    detection_criteria: 'Inclinação >30° para frente. Tronco projeta significativamente sobre coxa.',
+  },
+  knee_flexion_insufficient: {
+    label: 'Flexão insuficiente de joelho',
+    hyperactive: ['Quadríceps em proteção', 'Gastrocnêmio'],
+    hypoactive: ['Glúteo máximo', 'Controle excêntrico quadríceps'],
+    injuries: ['Compensação por dor ou restrição', 'Déficit controle motor'],
+    detection_criteria: 'Joelho flexiona <30° (amplitude MUITO limitada). Agachamento extremamente raso.',
+  },
+  
+  // Push-up
+  scapular_winging: {
+    label: 'Escápula alada',
+    hyperactive: ['Peitoral menor', 'Romboides', 'Levantador escápula', 'Trapézio superior'],
+    hypoactive: ['Serrátil anterior', 'Trapézio inferior', 'Trapézio médio'],
+    injuries: ['Discinese escapular', 'Impacto ombro', 'Tendinopatia manguito rotador'],
+    detection_criteria: 'Borda medial da escápula PROJETA-SE >2cm do tórax. Escápula "descola" das costelas.',
+  },
+  elbow_flare: {
+    label: 'Flare de cotovelos',
+    hyperactive: ['Peitoral maior esternal', 'Deltóide anterior', 'Subescapular', 'Deltóide médio'],
+    hypoactive: ['Tríceps', 'Serrátil anterior', 'Rotadores externos', 'Infraespinhal'],
+    injuries: ['Impacto ombro', 'Tendinopatia manguito', 'Bursite subacromial'],
+    detection_criteria: 'Cotovelos abrem >60° do tronco. Forma de "T" ao invés de seta.',
+  },
+  shoulder_protraction: {
+    label: 'Protração excessiva ombros',
+    hyperactive: ['Peitoral menor', 'Serrátil anterior dominante', 'Peitoral maior'],
+    hypoactive: ['Trapézio médio', 'Romboides', 'Trapézio inferior'],
+    injuries: ['Cifose torácica', 'Impacto ombro', 'Síndrome desfiladeiro'],
+    detection_criteria: 'Protração EXAGERADA no topo. Ombros muito arredondados para frente.',
+  },
+  shoulder_retraction_insufficient: {
+    label: 'Retração escapular insuficiente',
+    hyperactive: ['Peitoral menor', 'Serrátil anterior'],
+    hypoactive: ['Romboides', 'Trapézio médio', 'Trapézio inferior'],
+    injuries: ['Discinese escapular', 'Impacto ombro'],
+    detection_criteria: 'Escápulas NÃO se aproximam na fase excêntrica. Falta de retração no fundo do movimento.',
+  },
+  hip_elevation: {
+    label: 'Elevação do quadril (pike)',
+    hyperactive: ['Flexores quadril', 'Reto abdominal'],
+    hypoactive: ['Glúteos', 'Core estabilizador', 'Transverso abdominal'],
+    injuries: ['Sobrecarga lombar', 'Déficit core'],
+    detection_criteria: 'Quadril sobe formando "pirâmide". Pike EVIDENTE quebrando alinhamento corporal.',
+  },
+  hip_drop_pushup: {
+    label: 'Queda do quadril (push-up)',
+    hyperactive: ['Eretores lombares', 'Quadrado lombar'],
+    hypoactive: ['Core anterior', 'Glúteos', 'Transverso abdominal'],
+    injuries: ['Dor lombar', 'Hiperlordose'],
+    detection_criteria: 'Quadril afunda criando lordose EXAGERADA. Barriga cai em direção ao solo.',
   },
 };
 
-// Gerar contexto clínico para o prompt
+// Gerar contexto clínico formatado para prompt
 function getCompensationContext(compensationIds: string[]): string {
   const contexts: string[] = [];
-  
   for (const id of compensationIds) {
     const data = COMPENSATION_DATA[id];
     if (data) {
       contexts.push(`
-${id}:
-  - Músculos hiperativos: ${data.hyperactive.join(', ')}
-  - Músculos hipoativos: ${data.hypoactive.join(', ')}
-  - Riscos de lesão: ${data.injuries.join(', ')}`);
+${id.toUpperCase()} - ${data.label}:
+  • Critério: ${data.detection_criteria}
+  • Hiperativos: ${data.hyperactive.slice(0, 4).join(', ')}
+  • Hipoativos: ${data.hypoactive.slice(0, 4).join(', ')}
+  • Riscos: ${data.injuries.slice(0, 2).join(', ')}`);
     }
   }
-  
-  return contexts.length > 0 ? `\nCONTEXTO CLÍNICO DAS COMPENSAÇÕES:\n${contexts.join('\n')}` : '';
+  return contexts.length > 0 ? contexts.join('\n') : '';
 }
 
-// Tool calling schema for standardized output
+// ============================================
+// TOOL CALLING SCHEMA (PADRONIZADO)
+// ============================================
 const ANALYSIS_TOOL = {
   type: "function" as const,
   function: {
     name: "report_analysis",
-    description: "Report structured movement analysis results with standardized format",
+    description: "Report structured movement analysis with clinical precision",
     parameters: {
       type: "object",
       properties: {
         detected_compensations: {
           type: "array",
           items: { type: "string" },
-          description: "Array of compensation IDs detected in the movement"
+          description: "Array of compensation IDs detected (use EXACT IDs provided in prompt)"
         },
         confidence: {
           type: "number",
           minimum: 0,
           maximum: 1,
-          description: "Confidence level of the analysis (0-1)"
+          description: "Confidence level 0-1 based on image quality and visibility"
         },
         severity: {
           type: "string",
           enum: ["minimal", "moderate", "marked"],
-          description: "Overall severity: minimal (1-2 minor), moderate (3+ or significant), marked (multiple severe)"
+          description: "minimal: 1-2 leves, moderate: 3+ ou significativas, marked: múltiplas severas"
         },
         primary_compensation: {
           type: "string",
           nullable: true,
-          description: "The most clinically significant compensation detected, or null if none"
+          description: "Most clinically significant compensation, or null if none"
         },
         side_bias: {
           type: "string",
           enum: ["left", "right", "bilateral", "symmetric"],
-          description: "Which side shows more dysfunction, or symmetric if equal"
+          description: "Which side shows more dysfunction"
         },
         requires_attention: {
           type: "boolean",
-          description: "True if any compensation requires immediate clinical attention"
+          description: "True if compensation indicates injury risk or requires immediate attention"
         },
         technical_note: {
           type: "string",
-          maxLength: 200,
-          description: "Brief clinical observation (max 50 words), focusing on movement quality"
+          maxLength: 300,
+          description: "Clinical observation in Portuguese: describe what you SEE, muscle implications, and movement quality"
         }
       },
-      required: ["detected_compensations", "confidence", "severity", "side_bias", "requires_attention"]
+      required: ["detected_compensations", "confidence", "severity", "side_bias", "requires_attention", "technical_note"]
     }
   }
 };
 
-// Test-specific prompts for movement analysis with clinical severity thresholds
-const TEST_PROMPTS: Record<string, string> = {
-  overhead_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Overhead Squat.
+// ============================================
+// PROMPTS ESPECÍFICOS POR VISTA
+// ============================================
 
-OBJETIVO: Detectar compensações VISÍVEIS e CONSISTENTES que indiquem disfunção funcional.
+const OHS_PROMPTS: Record<string, string> = {
+  anterior: `Você é um fisioterapeuta especialista em biomecânica do movimento com 15 anos de experiência clínica.
+Analise esta imagem de OVERHEAD SQUAT - VISTA ANTERIOR (frontal).
 
-CRITÉRIOS DE DETECÇÃO (reporte se presente de forma CLARA):
+OBJETIVO: Identificar compensações que indiquem disfunções neuromusculares, limitações de mobilidade ou déficits de controle motor.
 
-VISTA ANTERIOR:
-- feet_abduction: Pés giram >30° para fora (15-30° pode ser variação normal)
-- feet_eversion: Arco plantar COLAPSA, calcanhar inclina medialmente
-- knee_valgus: Joelhos CLARAMENTE passam da linha do hálux (valgo dinâmico)
-- knee_varus: Joelhos se afastam significativamente da vertical
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
 
-VISTA LATERAL:
-- trunk_forward_lean: Tronco inclina >45° com a vertical
-- lumbar_hyperextension: Lordose EXAGERADA, hiperlordose evidente
-- spine_flexion: Arredondamento EVIDENTE da lombar (butt wink pronunciado)
-- heels_rise: Calcanhares CLARAMENTE sobem do chão
-- arms_fall_forward: Braços caem abaixo da linha da cabeça
+${getCompensationContext(['feet_abduction', 'feet_eversion', 'knee_valgus', 'knee_varus'])}
 
-VISTA POSTERIOR:
-- asymmetric_shift: Pelve desvia VISIVELMENTE para um lado (>2cm)
-- trunk_rotation: Ombros ou pelve rotam de forma ASSIMÉTRICA
-- feet_eversion: Calcanhares inclinam medialmente, arco colapsa
+ANÁLISE BIOMECÂNICA:
+1. Observe a BASE DE APOIO: largura, ângulo dos pés, simetria
+2. Analise o COMPLEXO TORNOZELO-PÉ: arco plantar, posição do calcâneo, pronação
+3. Avalie os JOELHOS: alinhamento patela-hálux, valgo/varo dinâmico
+4. Note ASSIMETRIAS entre lados esquerdo e direito
 
-REGRAS DE ANÁLISE:
-1. Reporte compensações que são VISÍVEIS e CONSISTENTES no padrão de movimento
-2. Considere que pequenas variações biomecânicas são NORMAIS
-3. Foque em compensações que indicam DISFUNÇÃO FUNCIONAL real
-4. Se a imagem não permite avaliação clara de uma compensação, não a reporte
+CRITÉRIOS DE REPORTE:
+- Reporte APENAS compensações CLARAMENTE VISÍVEIS e CONSISTENTES
+- Variações anatômicas leves são NORMAIS - não reporte
+- Foque em padrões que indicam DISFUNÇÃO FUNCIONAL real
+- Descreva tecnicamente o que você OBSERVA na technical_note
 
-CLASSIFICAÇÃO DE SEVERIDADE:
-- minimal: 1-2 compensações leves ou variações menores
-- moderate: 3+ compensações ou compensações significativas
-- marked: múltiplas compensações severas ou padrão disfuncional claro
+CLASSIFICAÇÃO:
+- minimal: movimento de qualidade, 0-1 compensação leve
+- moderate: 2-3 compensações ou 1 significativa
+- marked: padrão disfuncional claro, múltiplas compensações
 
-${getCompensationContext(['knee_valgus', 'heels_rise', 'spine_flexion', 'hip_drop', 'arms_fall_forward', 'feet_eversion', 'asymmetric_shift', 'lumbar_hyperextension'])}
+Use a função report_analysis para reportar resultados estruturados.`,
 
-Use a função report_analysis para reportar os resultados de forma estruturada.`,
+  lateral: `Você é um fisioterapeuta especialista em biomecânica do movimento com 15 anos de experiência clínica.
+Analise esta imagem de OVERHEAD SQUAT - VISTA LATERAL (perfil).
 
-  single_leg_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Single-Leg Squat.
+OBJETIVO: Identificar compensações no plano sagital que indiquem limitações de mobilidade ou déficits de estabilidade.
 
-OBJETIVO: Detectar compensações VISÍVEIS e CONSISTENTES em apoio unipodal.
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
 
-CRITÉRIOS DE DETECÇÃO:
+${getCompensationContext(['trunk_forward_lean', 'lumbar_hyperextension', 'spine_flexion', 'heels_rise', 'arms_fall_forward'])}
 
-VISTA ANTERIOR:
-- knee_valgus: Joelho CLARAMENTE colapsa medialmente, passando linha do hálux
-- foot_collapse: Arco plantar COLAPSA completamente
-- instability: Oscilações GRANDES e REPETIDAS (não micromovimentos)
-- tremor: Tremor VISÍVEL e PERSISTENTE durante execução
-- balance_loss: PERDE apoio ou toca o chão
+ANÁLISE BIOMECÂNICA:
+1. Observe a COLUNA VERTEBRAL: cifose torácica, lordose lombar, flexão/extensão
+2. Analise a INCLINAÇÃO DO TRONCO: ângulo em relação à vertical
+3. Avalie a POSIÇÃO DOS BRAÇOS: manutenção overhead ou queda
+4. Verifique o TORNOZELO: calcanhares no solo, dorsiflexão
+5. Observe a PELVE: anteversão, retroversão, butt wink
 
-VISTA POSTERIOR:
-- hip_drop: Pelve CAI >5° do lado contralateral (Trendelenburg POSITIVO)
-- hip_hike: Elevação EXAGERADA da pelve contralateral
-- trunk_rotation_medial/lateral: Rotação >15° do tronco
-- trunk_forward_lean_sls: Inclinação >30° para frente
-- knee_flexion_insufficient: Joelho flexiona <30° (amplitude MUITO limitada)
+MOMENTOS CRÍTICOS DE AVALIAÇÃO:
+- Posição INICIAL (topo)
+- TRANSIÇÃO descida
+- FUNDO do agachamento (profundidade máxima)
+- TRANSIÇÃO subida
 
-REGRAS DE ANÁLISE:
-1. Pequenas oscilações são NORMAIS em teste unipodal - não reporte
-2. Hip drop só deve ser reportado se for EVIDENTE (Trendelenburg positivo claro)
-3. Foque em compensações que indicam DÉFICIT DE CONTROLE real
-4. Considere a dificuldade inerente do teste unipodal
+CRITÉRIOS DE REPORTE:
+- Reporte compensações que são CONSISTENTES durante o movimento
+- Butt wink só é relevante se for PRONUNCIADO (não sutil)
+- Pequena inclinação de tronco é normal - reporte se >45°
 
-CLASSIFICAÇÃO DE SEVERIDADE:
-- minimal: Pequenas compensações, controle geral adequado
-- moderate: Compensações evidentes mas mantém execução
-- marked: Déficit de controle severo, incapaz de executar adequadamente
+Use a função report_analysis para reportar resultados estruturados.`,
 
-${getCompensationContext(['knee_valgus', 'hip_drop', 'foot_collapse'])}
+  posterior: `Você é um fisioterapeuta especialista em biomecânica do movimento com 15 anos de experiência clínica.
+Analise esta imagem de OVERHEAD SQUAT - VISTA POSTERIOR (de trás).
 
-Use a função report_analysis para reportar os resultados de forma estruturada.`,
+OBJETIVO: Identificar assimetrias, rotações e compensações no plano frontal/transversal.
 
-  pushup: `Você é um especialista em análise biomecânica. Analise esta imagem de Push-up.
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
 
-OBJETIVO: Detectar compensações VISÍVEIS que indicam déficit de controle escapular ou core.
+${getCompensationContext(['asymmetric_shift', 'trunk_rotation', 'feet_eversion'])}
 
-CRITÉRIOS DE DETECÇÃO:
+ANÁLISE BIOMECÂNICA:
+1. Observe a SIMETRIA PÉLVICA: shift lateral, inclinação
+2. Analise a ROTAÇÃO: ombros vs pelve, assimetrias
+3. Avalie a DISTRIBUIÇÃO DE PESO: bias para um lado
+4. Verifique o ALINHAMENTO ESCAPULAR: simetria, elevação
+5. Observe os PÉS por trás: eversão, posição calcanhares
 
-- scapular_winging: Borda medial da escápula PROJETA-SE >2cm do tórax
-- elbow_flare: Cotovelos abrem >60° do tronco (até 45° é aceitável)
-- shoulder_protraction: Protração EXAGERADA, ombros muito arredondados
-- shoulder_retraction_insufficient: Escápulas NÃO se aproximam na fase excêntrica
-- hip_elevation: Quadril sobe formando "pirâmide" (pike EVIDENTE)
-- hip_drop: Quadril afunda criando lordose EXAGERADA
+INDICADORES DE ASSIMETRIA:
+- Crista ilíaca mais alta de um lado
+- Ombro mais elevado ou protraído
+- Peso claramente mais em um membro
+- Rotação visível do tronco
 
-REGRAS DE ANÁLISE:
-1. Variações leves na técnica são NORMAIS
-2. Foque em compensações que indicam DÉFICIT FUNCIONAL
-3. Scapular winging é RELEVANTE - indica serrátil anterior deficiente
-4. Avalie a posição durante TODO o movimento, não só posição estática
+CRITÉRIOS DE REPORTE:
+- Shift pélvico só é significativo se >2cm
+- Rotação de tronco deve ser EVIDENTE, não sutil
+- Documente qual LADO apresenta a disfunção (side_bias)
 
-CLASSIFICAÇÃO DE SEVERIDADE:
-- minimal: Técnica boa com pequenas variações
-- moderate: Compensações visíveis mas funcionais
-- marked: Déficit escapular ou core evidente, padrão disfuncional
+Use a função report_analysis para reportar resultados estruturados.`,
+};
 
-${getCompensationContext(['scapular_winging', 'arms_fall_forward'])}
+const SLS_PROMPTS: Record<string, string> = {
+  anterior: `Você é um fisioterapeuta especialista em biomecânica com 15 anos de experiência clínica.
+Analise esta imagem de SINGLE-LEG SQUAT - VISTA ANTERIOR (frontal).
 
-Use a função report_analysis para reportar os resultados de forma estruturada.`
+OBJETIVO: Avaliar controle neuromuscular unipodal, estabilidade e padrões de valgo.
+
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+
+${getCompensationContext(['knee_valgus', 'foot_collapse', 'instability', 'tremor', 'balance_loss'])}
+
+ANÁLISE BIOMECÂNICA:
+1. Observe o JOELHO: valgo dinâmico durante descida
+2. Analise o PÉ: colapso do arco, pronação excessiva
+3. Avalie a ESTABILIDADE: oscilações, tremor, perda de equilíbrio
+4. Note o CONTROLE MOTOR: qualidade e suavidade do movimento
+
+IMPORTANTE - CONTEXTO UNIPODAL:
+- Pequenas oscilações são NORMAIS em apoio unipodal
+- Tremor só é significativo se PERSISTENTE e VISÍVEL
+- Avalie a CAPACIDADE de manter controle, não perfeição
+
+DIFERENCIAÇÃO:
+- instability: oscilações grandes e repetidas
+- tremor: vibração muscular visível persistente
+- balance_loss: perde o apoio ou toca o chão
+
+Use a função report_analysis para reportar resultados estruturados.`,
+
+  posterior: `Você é um fisioterapeuta especialista em biomecânica com 15 anos de experiência clínica.
+Analise esta imagem de SINGLE-LEG SQUAT - VISTA POSTERIOR (de trás).
+
+OBJETIVO: Avaliar controle do quadril, estabilidade pélvica e padrões compensatórios.
+
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+
+${getCompensationContext(['hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral', 'trunk_forward_lean_sls', 'knee_flexion_insufficient'])}
+
+ANÁLISE BIOMECÂNICA:
+1. Observe a PELVE: queda (Trendelenburg) ou elevação contralateral
+2. Analise a ROTAÇÃO DO TRONCO: medial vs lateral
+3. Avalie a INCLINAÇÃO: flexão anterior excessiva
+4. Verifique a AMPLITUDE: flexão de joelho suficiente
+
+TESTE DE TRENDELENBURG:
+- POSITIVO: pelve contralateral CAI >5° (hip_drop)
+- NEGATIVO: pelve mantém nível ou eleva levemente
+- Queda indica fraqueza de glúteo médio do lado de apoio
+
+CRITÉRIOS DE REPORTE:
+- hip_drop é clinicamente RELEVANTE - indica déficit glúteo médio
+- Rotação de tronco deve ser >15° para ser significativa
+- knee_flexion_insufficient: agachamento muito raso (<30°)
+
+Use a função report_analysis para reportar resultados estruturados.`,
+};
+
+const PUSHUP_PROMPTS: Record<string, string> = {
+  posterior: `Você é um fisioterapeuta especialista em biomecânica com 15 anos de experiência clínica.
+Analise esta imagem de PUSH-UP - VISTA POSTERIOR (de trás).
+
+OBJETIVO: Avaliar controle escapular, estabilidade de core e padrões compensatórios.
+
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+
+${getCompensationContext(['scapular_winging', 'elbow_flare', 'shoulder_protraction', 'shoulder_retraction_insufficient', 'hip_elevation', 'hip_drop_pushup'])}
+
+ANÁLISE BIOMECÂNICA:
+1. Observe as ESCÁPULAS: winging, posição, simetria
+2. Analise os COTOVELOS: ângulo em relação ao tronco
+3. Avalie os OMBROS: protração, retração durante fases
+4. Verifique o QUADRIL: alinhamento, pike ou drop
+
+FASES DO PUSH-UP:
+- EXCÊNTRICA (descida): escápulas devem retrair, cotovelos ~45°
+- CONCÊNTRICA (subida): escápulas devem protrair, sem winging
+
+SCAPULAR WINGING:
+- Borda medial da escápula projeta-se >2cm do tórax
+- Indica déficit de SERRÁTIL ANTERIOR
+- Clinicamente RELEVANTE para função do ombro
+
+CRITÉRIOS DE REPORTE:
+- Cotovelos até 45° são aceitáveis, >60° é elbow_flare
+- Escápula alada é compensação importante
+- hip_drop ou hip_elevation indicam déficit de core
+
+Use a função report_analysis para reportar resultados estruturados.`,
 };
 
 // Build dynamic prompt for segmental tests
@@ -300,41 +509,36 @@ function buildSegmentalPrompt(params: SegmentalTestParams): string {
   const { testName, cutoffValue, unit, resultType, isBilateral, instructions } = params;
 
   if (resultType === 'quantitative') {
-    return `Você é um especialista em avaliação de movimento. Analise esta imagem/vídeo do teste "${testName}".
+    return `Você é um fisioterapeuta especialista. Analise esta imagem/vídeo do teste "${testName}".
 
-${instructions ? `Instruções do teste: ${instructions}\n` : ''}
-${isBilateral ? 'Este é um teste BILATERAL. Avalie ambos os lados separadamente.' : 'Avalie o lado visível.'}
+${instructions ? `Instruções: ${instructions}\n` : ''}
+${isBilateral ? 'Teste BILATERAL - avalie ambos os lados.' : 'Avalie o lado visível.'}
 
-Valor de corte para normalidade: ${cutoffValue} ${unit || ''}
+Valor de corte: ${cutoffValue} ${unit || ''}
 
-Meça ou estime o valor numérico do teste baseado na imagem.
-
-Responda APENAS em JSON válido com este formato:
+Responda em JSON:
 {
-  ${isBilateral ? `"left_value": número_medido_esquerdo,
-  "right_value": número_medido_direito,
+  ${isBilateral ? `"left_value": número,
+  "right_value": número,
   "left_result": "pass" | "partial" | "fail",
-  "right_result": "pass" | "partial" | "fail",` : `"value": número_medido,
+  "right_result": "pass" | "partial" | "fail",` : `"value": número,
   "result": "pass" | "partial" | "fail",`}
   "confidence": 0.85,
-  "notes": "Observações sobre a qualidade do movimento ou limitações observadas"
+  "notes": "Observações clínicas"
 }`;
   }
 
-  // Qualitative test
-  return `Você é um especialista em avaliação de movimento. Analise esta imagem/vídeo do teste "${testName}".
+  return `Você é um fisioterapeuta especialista. Analise esta imagem/vídeo do teste "${testName}".
 
-${instructions ? `Instruções do teste: ${instructions}\n` : ''}
-${isBilateral ? 'Este é um teste BILATERAL. Avalie ambos os lados separadamente.' : 'Avalie o lado visível.'}
+${instructions ? `Instruções: ${instructions}\n` : ''}
+${isBilateral ? 'Teste BILATERAL - avalie ambos os lados.' : 'Avalie o lado visível.'}
 
-Avalie a qualidade da execução do teste.
-
-Responda APENAS em JSON válido com este formato:
+Responda em JSON:
 {
   ${isBilateral ? `"left_result": "pass" | "partial" | "fail",
   "right_result": "pass" | "partial" | "fail",` : `"result": "pass" | "partial" | "fail",`}
   "confidence": 0.85,
-  "notes": "Descrição das compensações observadas ou qualidade do movimento"
+  "notes": "Observações clínicas"
 }`;
 }
 
@@ -353,26 +557,20 @@ function buildQuickProtocolPrompt(params: QuickProtocolTestParams): string {
   
   const layerDescription = {
     mobility: 'Avalie a AMPLITUDE DE MOVIMENTO - o indivíduo consegue atingir a posição alvo?',
-    stability: 'Avalie a ESTABILIDADE DINÂMICA - o indivíduo consegue manter controle durante o movimento?',
-    motor_control: 'Avalie o CONTROLE NEUROMOTOR - a qualidade e coordenação do padrão de movimento',
+    stability: 'Avalie a ESTABILIDADE DINÂMICA - consegue manter controle durante o movimento?',
+    motor_control: 'Avalie o CONTROLE NEUROMOTOR - qualidade e coordenação do padrão de movimento',
   }[layer] || 'Avalie a qualidade do movimento';
   
-  return `Você é um especialista em avaliação de movimento para protocolos rápidos de dor.
+  return `Você é um fisioterapeuta especialista em protocolos rápidos de dor.
 
 TESTE: "${testName}"
-CAMADA AVALIADA: ${layer.toUpperCase()}
-${layerDescription}
+CAMADA: ${layer.toUpperCase()} - ${layerDescription}
 
-${instructions ? `INSTRUÇÕES DO TESTE: ${instructions}\n` : ''}
-${isBilateral ? 'Este é um teste BILATERAL. Avalie ambos os lados separadamente.' : ''}
+${instructions ? `INSTRUÇÕES: ${instructions}\n` : ''}
+${isBilateral ? 'Teste BILATERAL - avalie ambos os lados.' : ''}
 
 OPÇÕES A DETECTAR:
 ${options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}
-
-INSTRUÇÕES:
-1. Identifique APENAS as opções que são CLARAMENTE visíveis
-2. Indique se há sinais de DOR durante a execução (expressão facial, hesitação)
-3. Se bilateral, especifique achados por lado
 
 Responda em JSON:
 {
@@ -381,42 +579,31 @@ Responda em JSON:
   ${isBilateral ? `"left_findings": ["achados_esquerda"],
   "right_findings": ["achados_direita"],` : ''}
   "confidence": 0.85,
-  "notes": "Observações clínicas relevantes"
+  "notes": "Observações clínicas"
 }`;
 }
 
+// ============================================
+// MAIN HANDLER
+// ============================================
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Validate user authentication
     const auth = await validateAuth(req);
     if (!auth) {
       console.error('Unauthorized request to analyze-movement');
-      return jsonResponse({ error: 'Unauthorized. Please log in to use this feature.' }, 401);
+      return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
-    console.log(`Authenticated request from user: ${auth.userId}`);
+    console.log(`Authenticated: ${auth.userId}`);
 
     const { 
-      testType, 
-      testName, 
-      imageUrl, 
-      videoUrl, 
-      viewType,
-      // Segmental test parameters
-      cutoffValue,
-      unit,
-      resultType,
-      isBilateral,
-      instructions,
-      // Quick protocol parameters
-      testId,
-      options,
-      layer,
+      testType, testName, imageUrl, videoUrl, viewType,
+      cutoffValue, unit, resultType, isBilateral, instructions,
+      testId, options, layer,
     } = await req.json();
 
     if (!testType || !imageUrl) {
@@ -425,15 +612,13 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY is not configured');
       return jsonResponse({ error: 'AI service not configured' }, 500);
     }
 
-    // Select appropriate prompt
+    // Select prompt based on test type and view
     let prompt: string;
     
     if (testType === 'quick_protocol') {
-      // Dynamic prompt for quick protocol tests
       prompt = buildQuickProtocolPrompt({
         testId: testId || 'unknown',
         testName: testName || 'Teste Rápido',
@@ -442,67 +627,45 @@ serve(async (req) => {
         isBilateral: isBilateral !== false,
         instructions,
       });
-      console.log(`Built quick protocol prompt for: ${testName}, layer: ${layer}`);
+      console.log(`Quick protocol: ${testName}, layer: ${layer}`);
     } else if (testType === 'segmental') {
-      // Use dynamic prompt builder for segmental tests
       prompt = buildSegmentalPrompt({
         testName: testName || 'Teste Segmentado',
-        cutoffValue,
-        unit,
-        resultType,
-        isBilateral,
-        instructions
+        cutoffValue, unit, resultType, isBilateral, instructions
       });
-      console.log(`Built segmental prompt for: ${testName}, resultType: ${resultType}, bilateral: ${isBilateral}, cutoff: ${cutoffValue} ${unit}`);
+      console.log(`Segmental: ${testName}, bilateral: ${isBilateral}`);
     } else {
-      // Use predefined prompts for global tests
-      prompt = TEST_PROMPTS[testType];
+      // Global tests - use view-specific prompts
+      const view = viewType?.toLowerCase() || 'anterior';
       
-      // Add context about view type if provided
-      if (viewType) {
-        prompt = `${prompt}\n\nEsta imagem é da VISTA ${viewType.toUpperCase()}.`;
+      if (testType === 'overhead_squat') {
+        prompt = OHS_PROMPTS[view] || OHS_PROMPTS.anterior;
+      } else if (testType === 'single_leg_squat') {
+        prompt = SLS_PROMPTS[view] || SLS_PROMPTS.anterior;
+      } else if (testType === 'pushup') {
+        prompt = PUSHUP_PROMPTS[view] || PUSHUP_PROMPTS.posterior;
+      } else {
+        return jsonResponse({ error: 'Unknown test type' }, 400);
       }
       
-      // Always add slow motion analysis context for enhanced detection
-      prompt = `${prompt}\n\nIMPORTANTE: Analise como se fosse um vídeo em SLOW MOTION (120fps ou superior).
-Isso permite análise mais detalhada de:
-- Micro-movimentos e tremores sutis
-- Momento exato de transição (descida ↔ subida)
-- Padrões de compensação que ocorrem em frações de segundo
-- Sequência temporal das compensações (qual acontece primeiro)
-
-Aproveite para identificar compensações que seriam invisíveis em velocidade normal.
-Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais evidentes.`;
+      console.log(`Global test: ${testType} - ${view} view`);
     }
 
-    if (!prompt) {
-      return jsonResponse({ error: 'Unknown test type' }, 400);
-    }
-
-    console.log(`Analyzing ${testType} test${testName ? ` (${testName})` : ''}${viewType ? ` - ${viewType} view` : ''}`);
-
-    // Build message content with image
-    const messageContent: unknown[] = [
-      { type: 'text', text: prompt },
-      { type: 'image_url', image_url: { url: imageUrl } }
-    ];
-
-    // Determine if we should use tool calling (for global tests only)
+    // Build request
     const useToolCalling = ['overhead_squat', 'single_leg_squat', 'pushup'].includes(testType);
-
-    // Call Lovable AI Gateway with vision model (use Pro for better accuracy)
+    
     const requestBody: Record<string, unknown> = {
       model: 'google/gemini-2.5-pro',
-      messages: [
-        {
-          role: 'user',
-          content: messageContent
-        }
-      ],
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: imageUrl } }
+        ]
+      }],
       max_tokens: 2500,
     };
 
-    // Add tool calling for global tests
     if (useToolCalling) {
       requestBody.tools = [ANALYSIS_TOOL];
       requestBody.tool_choice = { type: "function", function: { name: "report_analysis" } };
@@ -520,63 +683,30 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return jsonResponse({ error: 'Rate limit exceeded. Please try again in a moment.' }, 429);
-      }
-      
-      if (response.status === 402) {
-        return jsonResponse({ error: 'AI credits exhausted. Please add credits to continue.' }, 402);
-      }
-      
+      if (response.status === 429) return jsonResponse({ error: 'Rate limit exceeded' }, 429);
+      if (response.status === 402) return jsonResponse({ error: 'AI credits exhausted' }, 402);
       return jsonResponse({ error: 'AI analysis failed' }, 500);
     }
 
     const data = await response.json();
-    
-    // Check if response uses tool calling
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     const aiResponse = data.choices?.[0]?.message?.content;
 
     let analysisResult;
 
-    if (toolCall && toolCall.function?.arguments) {
-      // Parse from tool calling response (standardized format)
-      try {
-        analysisResult = JSON.parse(toolCall.function.arguments);
-        console.log('Tool calling response parsed:', analysisResult);
-        
-        // Map technical_note to notes for frontend compatibility
-        if (analysisResult.technical_note && !analysisResult.notes) {
-          analysisResult.notes = analysisResult.technical_note;
-        }
-      } catch (parseError) {
-        console.error('Failed to parse tool call arguments:', parseError);
-        return jsonResponse({ 
-          error: 'Failed to parse AI tool response',
-          raw_response: toolCall.function.arguments 
-        }, 500);
+    if (toolCall?.function?.arguments) {
+      analysisResult = JSON.parse(toolCall.function.arguments);
+      console.log('Tool response:', analysisResult);
+      
+      if (analysisResult.technical_note && !analysisResult.notes) {
+        analysisResult.notes = analysisResult.technical_note;
       }
     } else if (aiResponse) {
-      // Fallback: Parse JSON from content (for segmental/quick protocol tests)
-      console.log('AI raw response (segmental/quick_protocol):', aiResponse.substring(0, 300));
-      
-      try {
-        // Extract JSON from response (handle markdown code blocks)
-        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error('No JSON found in response');
-        }
-        analysisResult = JSON.parse(jsonMatch[0]);
-      } catch (parseError) {
-        console.error('Failed to parse AI response:', parseError);
-        return jsonResponse({ 
-          error: 'Failed to parse AI analysis',
-          raw_response: aiResponse 
-        }, 500);
-      }
+      console.log('AI response:', aiResponse.substring(0, 300));
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON found');
+      analysisResult = JSON.parse(jsonMatch[0]);
     } else {
-      console.error('Empty AI response - no tool call or content');
       return jsonResponse({ error: 'Empty AI response' }, 500);
     }
 
@@ -588,13 +718,10 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
       testName,
       viewType,
       analysis: analysisResult,
-      promptUsed: prompt.substring(0, 200) + '...' // Include prompt snippet for debugging
     });
 
   } catch (error) {
-    console.error('Error in analyze-movement function:', error);
-    return jsonResponse({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }, 500);
+    console.error('Error:', error);
+    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });

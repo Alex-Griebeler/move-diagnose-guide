@@ -157,6 +157,24 @@ export function QuickProtocolWizard({
   };
 
   const handleNextTest = () => {
+    const currentResult = testResults[currentTest.id];
+
+    // Para testes bilaterais positivos, exigir seleção de findingSide
+    const requiresFindingSide =
+      currentTest.isBilateral &&
+      currentResult &&
+      currentResult.isPositive &&
+      !currentResult.findingSide;
+
+    if (requiresFindingSide) {
+      toast({
+        variant: 'default',
+        title: 'Selecione o lado do achado',
+        description: 'Para testes bilaterais positivos, escolha em qual lado você observou o déficit.',
+      });
+      return;
+    }
+
     if (currentTestIndex < totalTests - 1) {
       setCurrentTestIndex(prev => prev + 1);
     } else {
@@ -166,7 +184,6 @@ export function QuickProtocolWizard({
       setStep('result');
     }
   };
-
   const handlePreviousTest = () => {
     if (currentTestIndex > 0) {
       setCurrentTestIndex(prev => prev - 1);

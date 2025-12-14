@@ -32,7 +32,7 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
   const [lastResult, setLastResult] = useState<AnalysisResult | null>(null);
 
   const analyzeMovement = async (params: {
-    testType: 'overhead_squat' | 'single_leg_squat' | 'pushup' | 'segmental';
+    testType: 'overhead_squat' | 'single_leg_squat' | 'pushup' | 'segmental' | 'quick_protocol';
     testName?: string;
     imageUrl: string;
     videoUrl?: string;

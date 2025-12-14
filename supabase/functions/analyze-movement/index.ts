@@ -559,65 +559,21 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
       }
     } else if (aiResponse) {
       // Fallback: Parse JSON from content (for segmental/quick protocol tests)
-      console.log('AI raw response:', aiResponse);
+      console.log('AI raw response (segmental/quick_protocol):', aiResponse.substring(0, 300));
       
       try {
-        // Extract JSON from response (handle potential markdown code blocks)
+        // Extract JSON from response (handle markdown code blocks)
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          let jsonStr = jsonMatch[0];
-          
-          // Try to fix truncated JSON by closing unclosed strings and brackets
-          if (!jsonStr.endsWith('}')) {
-            const openBraces = (jsonStr.match(/\{/g) || []).length;
-            const closeBraces = (jsonStr.match(/\}/g) || []).length;
-            const openBrackets = (jsonStr.match(/\[/g) || []).length;
-            const closeBrackets = (jsonStr.match(/\]/g) || []).length;
-            
-            if ((jsonStr.match(/"/g) || []).length % 2 !== 0) {
-              jsonStr += '"';
-            }
-            
-            for (let i = 0; i < openBrackets - closeBrackets; i++) {
-              jsonStr += ']';
-            }
-            for (let i = 0; i < openBraces - closeBraces; i++) {
-              jsonStr += '}';
-            }
-            
-            console.log('Fixed truncated JSON:', jsonStr);
-          }
-          
-          analysisResult = JSON.parse(jsonStr);
-        } else {
+        if (!jsonMatch) {
           throw new Error('No JSON found in response');
         }
+        analysisResult = JSON.parse(jsonMatch[0]);
       } catch (parseError) {
         console.error('Failed to parse AI response:', parseError);
-        
-        // Try to extract at least the compensations from partial response
-        const compensationsMatch = aiResponse.match(/"detected_compensations"\s*:\s*\[(.*?)\]/s);
-        if (compensationsMatch) {
-          const compensationIds = compensationsMatch[1]
-            .match(/"([^"]+)"/g)
-            ?.map((s: string) => s.replace(/"/g, '')) || [];
-          
-          console.log('Extracted compensations from partial response:', compensationIds);
-          
-          analysisResult = {
-            detected_compensations: compensationIds,
-            confidence: 0.7,
-            severity: 'moderate',
-            side_bias: 'bilateral',
-            requires_attention: false,
-            notes: 'Análise parcial - resposta truncada'
-          };
-        } else {
-          return jsonResponse({ 
-            error: 'Failed to parse AI analysis',
-            raw_response: aiResponse 
-          }, 500);
-        }
+        return jsonResponse({ 
+          error: 'Failed to parse AI analysis',
+          raw_response: aiResponse 
+        }, 500);
       }
     } else {
       console.error('Empty AI response - no tool call or content');

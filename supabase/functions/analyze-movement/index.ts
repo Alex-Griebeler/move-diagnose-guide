@@ -306,7 +306,7 @@ const ANALYSIS_TOOL = {
         technical_note: {
           type: "string",
           maxLength: 300,
-          description: "Clinical observation in Portuguese: describe what you SEE, muscle implications, and movement quality"
+          description: "Observação clínica em português. Descreva QUALITATIVAMENTE o que observa: padrões de movimento, assimetrias (unilateral/bilateral), implicações musculares (hiper/hipoativos), qualidade do movimento (leve/moderada/acentuada, consistente/intermitente). NÃO cite ângulos específicos ou medidas numéricas - foque em descrições visuais e funcionais."
         }
       },
       required: ["detected_compensations", "confidence", "severity", "side_bias", "requires_attention", "technical_note"]
@@ -338,7 +338,12 @@ CRITÉRIOS DE REPORTE:
 - Reporte APENAS compensações CLARAMENTE VISÍVEIS e CONSISTENTES
 - Variações anatômicas leves são NORMAIS - não reporte
 - Foque em padrões que indicam DISFUNÇÃO FUNCIONAL real
-- Descreva tecnicamente o que você OBSERVA na technical_note
+
+VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
+- Severidade: "leve/discreta", "moderada", "acentuada/marcante"
+- Lateralidade: "unilateral esquerdo/direito", "bilateral assimétrico", "bilateral simétrico"
+- Consistência: "consistente ao longo do movimento", "intermitente", "apenas no fundo do agachamento"
+- Exemplos: "valgo moderado bilateral com maior acentuação à direita", "arco plantar colapsa de forma acentuada bilateralmente"
 
 CLASSIFICAÇÃO:
 - minimal: movimento de qualidade, 0-1 compensação leve
@@ -372,7 +377,12 @@ MOMENTOS CRÍTICOS DE AVALIAÇÃO:
 CRITÉRIOS DE REPORTE:
 - Reporte compensações que são CONSISTENTES durante o movimento
 - Butt wink só é relevante se for PRONUNCIADO (não sutil)
-- Pequena inclinação de tronco é normal - reporte se >45°
+- Inclinação de tronco só é relevante se EXCESSIVA (tronco muito à frente dos quadris)
+
+VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
+- Severidade: "leve/discreta", "moderada", "acentuada/marcante"
+- Timing: "desde o início", "na transição descida-fundo", "apenas no fundo máximo"
+- Exemplos: "butt wink moderado no fundo do agachamento", "inclinação de tronco acentuada desde o início da descida"
 
 Use a função report_analysis para reportar resultados estruturados.`,
 
@@ -399,9 +409,14 @@ INDICADORES DE ASSIMETRIA:
 - Rotação visível do tronco
 
 CRITÉRIOS DE REPORTE:
-- Shift pélvico só é significativo se >2cm
+- Shift pélvico só é significativo se CLARAMENTE VISÍVEL (desvio evidente)
 - Rotação de tronco deve ser EVIDENTE, não sutil
 - Documente qual LADO apresenta a disfunção (side_bias)
+
+VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos/medidas):
+- Assimetria: "leve assimetria", "assimetria moderada", "assimetria marcante"
+- Lateralidade: "desvio para esquerda", "desvio para direita", "rotação com ombro direito mais anterior"
+- Exemplos: "shift pélvico moderado para esquerda", "rotação de tronco leve com ombro esquerdo mais protraído"
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };
@@ -432,6 +447,11 @@ DIFERENCIAÇÃO:
 - tremor: vibração muscular visível persistente
 - balance_loss: perde o apoio ou toca o chão
 
+VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
+- Controle: "controle adequado", "controle comprometido", "controle severamente limitado"
+- Qualidade: "movimento fluido", "movimento com oscilações", "movimento instável"
+- Exemplos: "valgo dinâmico moderado com colapso leve do arco plantar", "instabilidade acentuada com tremor persistente"
+
 Use a função report_analysis para reportar resultados estruturados.`,
 
   posterior: `Você é um fisioterapeuta especialista em biomecânica com 15 anos de experiência clínica.
@@ -456,8 +476,14 @@ TESTE DE TRENDELENBURG:
 
 CRITÉRIOS DE REPORTE:
 - hip_drop é clinicamente RELEVANTE - indica déficit glúteo médio
-- Rotação de tronco deve ser >15° para ser significativa
-- knee_flexion_insufficient: agachamento muito raso (<30°)
+- Rotação de tronco deve ser CLARAMENTE VISÍVEL para ser significativa
+- knee_flexion_insufficient: agachamento visivelmente raso/limitado
+
+VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
+- Trendelenburg: "queda pélvica leve", "Trendelenburg moderado", "queda pélvica acentuada"
+- Rotação: "rotação discreta", "rotação moderada para medial/lateral"
+- Amplitude: "amplitude adequada", "amplitude limitada", "amplitude severamente restrita"
+- Exemplos: "Trendelenburg positivo moderado com rotação medial do tronco", "amplitude de flexão limitada com compensação em inclinação anterior"
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };
@@ -488,9 +514,15 @@ SCAPULAR WINGING:
 - Clinicamente RELEVANTE para função do ombro
 
 CRITÉRIOS DE REPORTE:
-- Cotovelos até 45° são aceitáveis, >60° é elbow_flare
+- Cotovelos devem formar "seta" com o tronco, não "T" (flare excessivo)
 - Escápula alada é compensação importante
 - hip_drop ou hip_elevation indicam déficit de core
+
+VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
+- Escápula: "winging discreto", "winging moderado", "winging acentuado bilateral/unilateral"
+- Cotovelos: "posição adequada", "flare moderado", "flare excessivo formando T"
+- Core: "alinhamento mantido", "leve perda de alinhamento", "pike/drop evidente"
+- Exemplos: "escápula alada moderada bilateral com flare de cotovelos", "queda do quadril acentuada indicando déficit de core"
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };

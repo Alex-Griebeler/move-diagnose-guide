@@ -7,6 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Helper to create JSON response with CORS
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // Validate user authentication from Authorization header
 async function validateAuth(req: Request): Promise<{ userId: string } | null> {
   const authHeader = req.headers.get('Authorization');
@@ -83,6 +91,26 @@ const COMPENSATION_DATA: Record<string, {
     hypoactive: ['Tibial posterior', 'Intrínsecos do pé', 'Tibial anterior'],
     injuries: ['Fascite plantar', 'Tendinopatia tibial posterior'],
   },
+  feet_eversion: {
+    hyperactive: ['Fibulares', 'Gastrocnêmio lateral'],
+    hypoactive: ['Tibial posterior', 'Intrínsecos do pé'],
+    injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial medial'],
+  },
+  asymmetric_shift: {
+    hyperactive: ['Quadrado lombar unilateral', 'Adutores unilateral'],
+    hypoactive: ['Glúteo médio contralateral', 'Core lateral'],
+    injuries: ['Dor lombar assimétrica', 'Disfunção sacroilíaca'],
+  },
+  lumbar_hyperextension: {
+    hyperactive: ['Eretores lombares', 'Quadrado lombar', 'Iliopsoas'],
+    hypoactive: ['Transverso abdominal', 'Glúteos', 'Reto abdominal'],
+    injuries: ['Espondilolistese', 'Estenose foraminal', 'Dor lombar'],
+  },
+  trunk_rotation: {
+    hyperactive: ['Oblíquos unilateral', 'Quadrado lombar'],
+    hypoactive: ['Core rotacional', 'Oblíquos contralateral'],
+    injuries: ['Dor lombar', 'Disfunção sacroilíaca'],
+  },
 };
 
 // Gerar contexto clínico para o prompt
@@ -105,7 +133,6 @@ ${id}:
 
 // Test-specific prompts for movement analysis with clinical severity thresholds
 const TEST_PROMPTS: Record<string, string> = {
-  // Global Tests
   overhead_squat: `Você é um especialista em análise biomecânica. Analise esta imagem de Overhead Squat.
 
 OBJETIVO: Detectar compensações VISÍVEIS e CONSISTENTES que indiquem disfunção funcional.
@@ -128,7 +155,7 @@ VISTA LATERAL:
 VISTA POSTERIOR:
 - asymmetric_shift: Pelve desvia VISIVELMENTE para um lado (>2cm)
 - trunk_rotation: Ombros ou pelve rotam de forma ASSIMÉTRICA
-- feet_eversion_posterior: Calcanhares inclinam para fora
+- feet_eversion: Calcanhares inclinam medialmente, arco colapsa
 
 REGRAS DE ANÁLISE:
 1. Reporte compensações que são VISÍVEIS e CONSISTENTES no padrão de movimento
@@ -136,7 +163,7 @@ REGRAS DE ANÁLISE:
 3. Foque em compensações que indicam DISFUNÇÃO FUNCIONAL real
 4. Se a imagem não permite avaliação clara de uma compensação, não a reporte
 
-${getCompensationContext(['knee_valgus', 'heels_rise', 'spine_flexion', 'hip_drop', 'arms_fall_forward'])}
+${getCompensationContext(['knee_valgus', 'heels_rise', 'spine_flexion', 'hip_drop', 'arms_fall_forward', 'feet_eversion', 'asymmetric_shift', 'lumbar_hyperextension'])}
 
 Responda em JSON:
 {
@@ -262,12 +289,54 @@ Responda APENAS em JSON válido com este formato:
 }`;
 }
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+// Build prompt for quick protocol tests
+interface QuickProtocolTestParams {
+  testId: string;
+  testName: string;
+  layer: string;
+  options: string[];
+  isBilateral: boolean;
+  instructions?: string;
+}
 
+function buildQuickProtocolPrompt(params: QuickProtocolTestParams): string {
+  const { testName, layer, options, isBilateral, instructions } = params;
+  
+  const layerDescription = {
+    mobility: 'Avalie a AMPLITUDE DE MOVIMENTO - o indivíduo consegue atingir a posição alvo?',
+    stability: 'Avalie a ESTABILIDADE DINÂMICA - o indivíduo consegue manter controle durante o movimento?',
+    motor_control: 'Avalie o CONTROLE NEUROMOTOR - a qualidade e coordenação do padrão de movimento',
+  }[layer] || 'Avalie a qualidade do movimento';
+  
+  return `Você é um especialista em avaliação de movimento para protocolos rápidos de dor.
+
+TESTE: "${testName}"
+CAMADA AVALIADA: ${layer.toUpperCase()}
+${layerDescription}
+
+${instructions ? `INSTRUÇÕES DO TESTE: ${instructions}\n` : ''}
+${isBilateral ? 'Este é um teste BILATERAL. Avalie ambos os lados separadamente.' : ''}
+
+OPÇÕES A DETECTAR:
+${options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}
+
+INSTRUÇÕES:
+1. Identifique APENAS as opções que são CLARAMENTE visíveis
+2. Indique se há sinais de DOR durante a execução (expressão facial, hesitação)
+3. Se bilateral, especifique achados por lado
+
+Responda em JSON:
+{
+  "detected_options": ["opções_detectadas"],
+  "pain_indicators": true/false,
+  ${isBilateral ? `"left_findings": ["achados_esquerda"],
+  "right_findings": ["achados_direita"],` : ''}
+  "confidence": 0.85,
+  "notes": "Observações clínicas relevantes"
+}`;
+}
+
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -278,10 +347,7 @@ serve(async (req) => {
     const auth = await validateAuth(req);
     if (!auth) {
       console.error('Unauthorized request to analyze-movement');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized. Please log in to use this feature.' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Unauthorized. Please log in to use this feature.' }, 401);
     }
 
     console.log(`Authenticated request from user: ${auth.userId}`);
@@ -297,29 +363,38 @@ serve(async (req) => {
       unit,
       resultType,
       isBilateral,
-      instructions
+      instructions,
+      // Quick protocol parameters
+      testId,
+      options,
+      layer,
     } = await req.json();
 
     if (!testType || !imageUrl) {
-      return new Response(
-        JSON.stringify({ error: 'testType and imageUrl are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'testType and imageUrl are required' }, 400);
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY is not configured');
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'AI service not configured' }, 500);
     }
 
     // Select appropriate prompt
     let prompt: string;
     
-    if (testType === 'segmental') {
+    if (testType === 'quick_protocol') {
+      // Dynamic prompt for quick protocol tests
+      prompt = buildQuickProtocolPrompt({
+        testId: testId || 'unknown',
+        testName: testName || 'Teste Rápido',
+        layer: layer || 'mobility',
+        options: options || [],
+        isBilateral: isBilateral !== false,
+        instructions,
+      });
+      console.log(`Built quick protocol prompt for: ${testName}, layer: ${layer}`);
+    } else if (testType === 'segmental') {
       // Use dynamic prompt builder for segmental tests
       prompt = buildSegmentalPrompt({
         testName: testName || 'Teste Segmentado',
@@ -329,7 +404,7 @@ serve(async (req) => {
         isBilateral,
         instructions
       });
-      console.log(`Built dynamic prompt for segmental test: ${testName}, resultType: ${resultType}, bilateral: ${isBilateral}, cutoff: ${cutoffValue} ${unit}`);
+      console.log(`Built segmental prompt for: ${testName}, resultType: ${resultType}, bilateral: ${isBilateral}, cutoff: ${cutoffValue} ${unit}`);
     } else {
       // Use predefined prompts for global tests
       prompt = TEST_PROMPTS[testType];
@@ -352,16 +427,13 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
     }
 
     if (!prompt) {
-      return new Response(
-        JSON.stringify({ error: 'Unknown test type' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Unknown test type' }, 400);
     }
 
     console.log(`Analyzing ${testType} test${testName ? ` (${testName})` : ''}${viewType ? ` - ${viewType} view` : ''}`);
 
     // Build message content with image
-    const messageContent: any[] = [
+    const messageContent: unknown[] = [
       { type: 'text', text: prompt },
       { type: 'image_url', image_url: { url: imageUrl } }
     ];
@@ -374,15 +446,15 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-pro', // Pro model for better movement analysis
+        model: 'google/gemini-2.5-pro',
         messages: [
           {
             role: 'user',
             content: messageContent
           }
         ],
-        max_tokens: 2500, // Increased to avoid truncation
-        temperature: 0.2,
+        max_tokens: 2500,
+        // Note: temperature parameter removed - not supported by newer models
       }),
     });
 
@@ -391,23 +463,14 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
       console.error('AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ error: 'Rate limit exceeded. Please try again in a moment.' }, 429);
       }
       
       if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ error: 'AI credits exhausted. Please add credits to continue.' }, 402);
       }
       
-      return new Response(
-        JSON.stringify({ error: 'AI analysis failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'AI analysis failed' }, 500);
     }
 
     const data = await response.json();
@@ -415,10 +478,7 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
 
     if (!aiResponse) {
       console.error('Empty AI response');
-      return new Response(
-        JSON.stringify({ error: 'Empty AI response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Empty AI response' }, 500);
     }
 
     console.log('AI raw response:', aiResponse);
@@ -477,35 +537,28 @@ Observe especialmente os momentos de TRANSIÇÃO onde compensações são mais e
           notes: 'Análise parcial - resposta truncada'
         };
       } else {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to parse AI analysis',
-            raw_response: aiResponse 
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ 
+          error: 'Failed to parse AI analysis',
+          raw_response: aiResponse 
+        }, 500);
       }
     }
 
     console.log('Analysis result:', analysisResult);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        testType,
-        testName,
-        viewType,
-        analysis: analysisResult,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      success: true,
+      testType,
+      testName,
+      viewType,
+      analysis: analysisResult,
+      promptUsed: prompt.substring(0, 200) + '...' // Include prompt snippet for debugging
+    });
 
   } catch (error) {
     console.error('Error in analyze-movement function:', error);
-    console.error('Error in analyze-movement function:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({ 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, 500);
   }
 });

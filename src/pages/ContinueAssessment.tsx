@@ -53,6 +53,28 @@ export default function ContinueAssessment() {
     setLoading(true);
 
     try {
+      // First, validate that assessment exists
+      const { data: assessment, error: assessmentError } = await supabase
+        .from('assessments')
+        .select('id, status')
+        .eq('id', assessmentId)
+        .maybeSingle();
+
+      if (assessmentError || !assessment) {
+        logger.error('Assessment not found or error', assessmentError);
+        toast({
+          title: 'Avaliação não encontrada',
+          description: 'Esta avaliação não existe ou foi removida.',
+          variant: 'destructive',
+        });
+        // Clear any stale localStorage data
+        localStorage.removeItem(`wizard_anamnesis_${assessmentId}`);
+        localStorage.removeItem(`wizard_global_tests_${assessmentId}`);
+        localStorage.removeItem(`wizard_segmental_tests_${assessmentId}`);
+        navigate('/dashboard');
+        return;
+      }
+
       // Check if anamnesis exists
       const { data: anamnesis } = await supabase
         .from('anamnesis_responses')
@@ -111,7 +133,12 @@ export default function ContinueAssessment() {
       }
     } catch (error) {
       logger.error('Error detecting step', error);
-      setStep('anamnesis');
+      toast({
+        title: 'Erro ao carregar avaliação',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+      navigate('/dashboard');
     } finally {
       setLoading(false);
     }

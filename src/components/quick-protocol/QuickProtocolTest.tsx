@@ -1,18 +1,25 @@
 /**
  * Quick Protocol Test Component
  * Componente genérico para cada teste do Protocolo Rápido
+ * 
+ * Captura:
+ * - Achados específicos do teste (opções selecionadas)
+ * - Presença de dor durante o teste
+ * - Lado onde o déficit foi observado (findingSide) para testes bilaterais
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, AlertTriangle, X, Move, Shield, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { 
   QuickTestDefinition, 
   getLayerLabel 
 } from '@/data/quickProtocolMappings';
-import type { TestResult, TestId } from '@/lib/quickProtocolEngine';
+import type { TestResult, FindingSide } from '@/lib/quickProtocolEngine';
 
 interface QuickProtocolTestProps {
   test: QuickTestDefinition;
@@ -20,7 +27,7 @@ interface QuickProtocolTestProps {
   onChange: (result: TestResult) => void;
 }
 
-// Layer icon component using Lucide icons instead of emojis
+// Layer icon component using Lucide icons
 function LayerIcon({ layer }: { layer: 'mobility' | 'stability' | 'motor_control' }) {
   const iconClass = "w-3.5 h-3.5";
   switch (layer) {
@@ -38,6 +45,25 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
     value?.specificFindings || []
   );
   const [hasPain, setHasPain] = useState(value?.hasPain || false);
+  const [findingSide, setFindingSide] = useState<FindingSide | undefined>(
+    value?.findingSide
+  );
+
+  // Determina se o teste tem achados positivos que requerem seleção de lado
+  const hasPositiveFindings = selectedOptions.some(optId => 
+    test.options.find(o => o.id === optId)?.isPositive
+  ) || hasPain;
+
+  // Mostrar seletor de lado apenas para testes bilaterais com achados positivos
+  const shouldShowSideSelector = test.isBilateral && hasPositiveFindings;
+
+  // Reset findingSide when no positive findings
+  useEffect(() => {
+    if (!hasPositiveFindings && findingSide) {
+      setFindingSide(undefined);
+      updateResult(selectedOptions, hasPain, undefined);
+    }
+  }, [hasPositiveFindings]);
 
   const handleOptionToggle = (optionId: string) => {
     const newSelected = selectedOptions.includes(optionId)
@@ -45,15 +71,24 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
       : [...selectedOptions, optionId];
     
     setSelectedOptions(newSelected);
-    updateResult(newSelected, hasPain);
+    updateResult(newSelected, hasPain, findingSide);
   };
 
   const handlePainToggle = (checked: boolean) => {
     setHasPain(checked);
-    updateResult(selectedOptions, checked);
+    updateResult(selectedOptions, checked, findingSide);
   };
 
-  const updateResult = (options: string[], pain: boolean) => {
+  const handleFindingSideChange = (side: FindingSide) => {
+    setFindingSide(side);
+    updateResult(selectedOptions, hasPain, side);
+  };
+
+  const updateResult = (
+    options: string[], 
+    pain: boolean, 
+    side: FindingSide | undefined
+  ) => {
     // Determine if any positive option is selected
     const hasPositiveOption = options.some(optId => 
       test.options.find(o => o.id === optId)?.isPositive
@@ -64,12 +99,19 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
       hasPain: pain,
       isPositive: hasPositiveOption || pain,
       specificFindings: options,
+      findingSide: side,
     };
 
-    // For bilateral tests, we can set generic left/right status
-    if (test.isBilateral && hasPositiveOption) {
-      result.leftSide = 'limited';
-      result.rightSide = 'limited';
+    // For bilateral tests with side selection, set appropriate side status
+    if (test.isBilateral && side && (hasPositiveOption || pain)) {
+      if (side === 'left') {
+        result.leftSide = 'limited';
+      } else if (side === 'right') {
+        result.rightSide = 'limited';
+      } else if (side === 'bilateral') {
+        result.leftSide = 'limited';
+        result.rightSide = 'limited';
+      }
     }
 
     onChange(result);
@@ -200,6 +242,44 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
         </label>
       </div>
 
+      {/* Finding Side Selector - Only for bilateral tests with positive findings */}
+      {shouldShowSideSelector && (
+        <div className="space-y-3 pt-4 border-t">
+          <p className="text-sm font-medium">Em qual lado você observou o achado?</p>
+          
+          <RadioGroup
+            value={findingSide || ''}
+            onValueChange={(value) => handleFindingSideChange(value as FindingSide)}
+            className="flex flex-wrap gap-3"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="left" id={`side-left-${test.id}`} />
+              <Label htmlFor={`side-left-${test.id}`} className="text-sm cursor-pointer">
+                Esquerdo
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="right" id={`side-right-${test.id}`} />
+              <Label htmlFor={`side-right-${test.id}`} className="text-sm cursor-pointer">
+                Direito
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="bilateral" id={`side-bilateral-${test.id}`} />
+              <Label htmlFor={`side-bilateral-${test.id}`} className="text-sm cursor-pointer">
+                Ambos os lados
+              </Label>
+            </div>
+          </RadioGroup>
+
+          {!findingSide && (
+            <p className="text-xs text-muted-foreground">
+              Selecione o lado para uma intervenção mais precisa
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Current Status Summary */}
       {(selectedOptions.length > 0 || hasPain) && (
         <div className={cn(
@@ -211,7 +291,14 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
           {value?.isPositive ? (
             <>
               <AlertTriangle className="w-4 h-4 text-warning" />
-              <span>Teste positivo - possível déficit identificado</span>
+              <span>
+                Teste positivo - possível déficit identificado
+                {findingSide && findingSide !== 'bilateral' && (
+                  <span className="text-muted-foreground ml-1">
+                    (lado {findingSide === 'left' ? 'esquerdo' : 'direito'})
+                  </span>
+                )}
+              </span>
             </>
           ) : (
             <>

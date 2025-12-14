@@ -1,9 +1,14 @@
 /**
- * Quick Protocol Engine - FABRIK Mini Protocolos
+ * Quick Protocol Engine - FABRIK Protocolos Rápidos
  * Motor de decisão determinístico para avaliação rápida
  * 
- * Baseado na pirâmide de performance:
+ * Baseado na pirâmide de performance (Rebuilding MILO):
  * Mobilidade > Estabilidade > Controle Neuromotor
+ * 
+ * Lógica Contralateral:
+ * - affectedSide: lado onde o aluno sente dor
+ * - findingSide: lado onde o déficit foi observado no teste
+ * - interventionSide: lado que deve receber a intervenção
  */
 
 import type { ProtocolType, TestId } from '@/data/quickProtocolMappings';
@@ -52,6 +57,8 @@ export type DeficitType =
 
 export type TestResultStatus = 'normal' | 'limited' | 'asymmetric' | 'unstable' | 'pain';
 
+export type FindingSide = 'left' | 'right' | 'bilateral';
+
 export interface TestResult {
   testId: TestId;
   leftSide?: TestResultStatus | string;
@@ -59,6 +66,8 @@ export interface TestResult {
   hasPain: boolean;
   isPositive: boolean;
   specificFindings?: string[];
+  /** Lado onde o déficit foi observado (diferente do lado da dor) */
+  findingSide?: FindingSide;
 }
 
 export interface QuickProtocolTestResults {
@@ -79,7 +88,11 @@ export interface DecisionResult {
   interventions: Intervention[];
   explanation: string;
   recommendRetest: boolean;
-  interventionSide?: 'left' | 'right' | 'bilateral';
+  /** Lado onde o achado foi observado */
+  findingSide?: FindingSide;
+  /** Lado que deve receber a intervenção */
+  interventionSide?: FindingSide;
+  /** Nota explicativa sobre lógica contralateral */
   contralateralNote?: string;
 }
 
@@ -91,6 +104,7 @@ export interface QuickProtocolSession {
   protocolType: ProtocolType;
   status: 'in_progress' | 'completed' | 'cancelled';
   testResults: QuickProtocolTestResults;
+  affectedSide?: FindingSide;
   primaryDeficit?: DeficitType | null;
   secondaryDeficits?: DeficitType[];
   interventionApplied?: Intervention[];
@@ -101,7 +115,8 @@ export interface QuickProtocolSession {
 }
 
 // ============================================================================
-// PRIORITY ORDERS
+// PRIORITY ORDERS (Pirâmide de Performance)
+// Mobilidade > Estabilidade > Controle Neuromotor
 // ============================================================================
 
 const KNEE_PRIORITY_ORDER: DeficitType[] = [
@@ -206,10 +221,13 @@ const ELBOW_TEST_TO_DEFICIT: Record<string, DeficitType> = {
 
 // ============================================================================
 // INTERVENTIONS DATABASE
+// Sequência FABRIK: release → mobility → activation → technique
 // ============================================================================
 
 const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
-  // Knee interventions
+  // -------------------------------------------------------------------------
+  // KNEE INTERVENTIONS
+  // -------------------------------------------------------------------------
   ankle_mobility_deficit: [
     {
       id: 'calf_release',
@@ -224,6 +242,13 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Mobilização em dorsiflexão com banda ou parede',
       duration: '10-15 reps cada lado',
       category: 'mobility'
+    },
+    {
+      id: 'tib_ant_activation',
+      name: 'Ativação Tibial Anterior',
+      description: 'Dorsiflexão ativa resistida para reforço',
+      duration: '12-15 reps cada lado',
+      category: 'activation'
     }
   ],
   hip_mobility_deficit: [
@@ -240,9 +265,23 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Alongamento dinâmico em posição 90/90 para rotação interna e externa',
       duration: '8-10 reps cada lado',
       category: 'mobility'
+    },
+    {
+      id: 'hip_cars',
+      name: 'Hip CARs',
+      description: 'Rotações controladas do quadril para ganho de ROM',
+      duration: '5 reps cada direção',
+      category: 'activation'
     }
   ],
   hip_stability_deficit: [
+    {
+      id: 'glute_med_release',
+      name: 'Liberação Glúteo Médio',
+      description: 'Liberar glúteo médio com bola para melhorar ativação',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'glute_med_activation',
       name: 'Ativação Glúteo Médio',
@@ -255,10 +294,17 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Apoio Unilateral Controlado',
       description: 'Ficar em um pé com controle de pelve, sem queda',
       duration: '20-30s cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   ankle_stability_deficit: [
+    {
+      id: 'plantar_release',
+      name: 'Liberação Plantar',
+      description: 'Liberar fáscia plantar com bola',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'tibialis_posterior',
       name: 'Ativação Tibial Posterior',
@@ -271,7 +317,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Short-Foot',
       description: 'Encurtar o pé ativando arco plantar sem curvar dedos',
       duration: '10 reps x 5s cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   motor_control_deficit: [
@@ -290,7 +336,10 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       category: 'technique'
     }
   ],
-  // Hip interventions
+
+  // -------------------------------------------------------------------------
+  // HIP INTERVENTIONS
+  // -------------------------------------------------------------------------
   hip_flexion_mobility_deficit: [
     {
       id: 'tfl_iliopsoas_release',
@@ -305,6 +354,13 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Mobilização ativa de flexão do quadril com controle',
       duration: '10-12 reps cada lado',
       category: 'mobility'
+    },
+    {
+      id: 'hip_flexor_activation',
+      name: 'Ativação de Flexores',
+      description: 'Marcha no lugar com joelho alto controlado',
+      duration: '10-12 reps cada lado',
+      category: 'activation'
     }
   ],
   hip_rotation_mobility_deficit: [
@@ -321,9 +377,23 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Mobilização de rotações do quadril em 90/90',
       duration: '8-10 reps cada lado',
       category: 'mobility'
+    },
+    {
+      id: 'rotation_control',
+      name: 'Controle de Rotação',
+      description: 'Rotação controlada do quadril em apoio',
+      duration: '8-10 reps cada lado',
+      category: 'activation'
     }
   ],
   hip_abd_ext_stability_deficit: [
+    {
+      id: 'glute_release_hip',
+      name: 'Liberação Glúteos',
+      description: 'Liberar glúteos com bola para melhorar ativação',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'glute_med_activation_hip',
       name: 'Ativação Glúteo Médio',
@@ -336,10 +406,17 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Step-Down Controlado',
       description: 'Descida controlada de degrau com foco em alinhamento',
       duration: '8-10 reps cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   posterior_chain_stability_deficit: [
+    {
+      id: 'hamstring_release',
+      name: 'Liberação Isquiotibiais',
+      description: 'Liberar isquiotibiais com rolo',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'glute_max_activation',
       name: 'Ativação Glúteo Máximo',
@@ -352,7 +429,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Bridge Unilateral',
       description: 'Ponte unilateral com foco em ativação de glúteo',
       duration: '8-10 reps cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   hip_motor_control_deficit: [
@@ -371,7 +448,10 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       category: 'technique'
     }
   ],
-  // Low back interventions
+
+  // -------------------------------------------------------------------------
+  // LOW BACK INTERVENTIONS
+  // -------------------------------------------------------------------------
   lumbar_flexion_mobility_deficit: [
     {
       id: 'hip_flexor_release',
@@ -386,6 +466,13 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Mobilização segmentar da coluna em flexão/extensão',
       duration: '10-12 reps controladas',
       category: 'mobility'
+    },
+    {
+      id: 'spinal_wave',
+      name: 'Onda Espinhal',
+      description: 'Flexão segmentar da coluna em sequência',
+      duration: '8-10 reps',
+      category: 'activation'
     }
   ],
   lumbar_extension_mobility_deficit: [
@@ -402,9 +489,23 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Extensão progressiva em decúbito ventral',
       duration: '8-10 reps suaves',
       category: 'mobility'
+    },
+    {
+      id: 'extension_control',
+      name: 'Controle de Extensão',
+      description: 'Extensão controlada com ativação de multífidos',
+      duration: '8-10 reps',
+      category: 'activation'
     }
   ],
   core_stability_deficit: [
+    {
+      id: 'diaphragm_release',
+      name: 'Liberação Diafragma',
+      description: 'Respiração diafragmática para liberar tensão',
+      duration: '10 respirações',
+      category: 'release'
+    },
     {
       id: 'dead_bug_activation',
       name: 'Dead Bug Ativação',
@@ -417,10 +518,17 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Bird Dog',
       description: 'Extensão contralateral com coluna neutra',
       duration: '8-10 reps cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   posterior_chain_low_back_deficit: [
+    {
+      id: 'glute_hamstring_release',
+      name: 'Liberação Glúteos/Isquios',
+      description: 'Liberar cadeia posterior com rolo e bola',
+      duration: '60s cada região',
+      category: 'release'
+    },
     {
       id: 'glute_bridge',
       name: 'Glute Bridge',
@@ -433,7 +541,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Hip Hinge Drill',
       description: 'Padrão de dobradiça com bastão para feedback',
       duration: '8-10 reps',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   low_back_motor_control_deficit: [
@@ -452,8 +560,18 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       category: 'technique'
     }
   ],
-  // Shoulder interventions
+
+  // -------------------------------------------------------------------------
+  // SHOULDER INTERVENTIONS
+  // -------------------------------------------------------------------------
   shoulder_flexion_mobility_deficit: [
+    {
+      id: 'lat_pec_release',
+      name: 'Liberação Lat/Peitoral',
+      description: 'Liberar lat dorsal e peitoral com bola',
+      duration: '60-90s cada lado',
+      category: 'release'
+    },
     {
       id: 'thoracic_extension_mob',
       name: 'Mobilidade Torácica',
@@ -466,7 +584,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Wall Slides',
       description: 'Deslizamento na parede com escápulas retraídas',
       duration: '10-12 reps',
-      category: 'mobility'
+      category: 'activation'
     }
   ],
   shoulder_rotation_mobility_deficit: [
@@ -483,9 +601,23 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Mobilização ativa de rotações do ombro',
       duration: '10-12 reps cada direção',
       category: 'mobility'
+    },
+    {
+      id: 'rotator_cuff_activation',
+      name: 'Ativação Manguito',
+      description: 'Rotação externa leve com banda',
+      duration: '12-15 reps cada lado',
+      category: 'activation'
     }
   ],
   scapular_control_deficit: [
+    {
+      id: 'rhomboid_release',
+      name: 'Liberação Romboides',
+      description: 'Liberar romboides e trapézio com bola',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'serratus_activation',
       name: 'Ativação Serrátil',
@@ -498,10 +630,17 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Ativação Trapézio Inferior',
       description: 'Prone Y ou L raises',
       duration: '10-12 reps',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   posterior_shoulder_stability_deficit: [
+    {
+      id: 'posterior_shoulder_release',
+      name: 'Liberação Posterior do Ombro',
+      description: 'Liberar infraespinhoso e redondo menor',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'er_isometric',
       name: 'Ativação ER Isométrica',
@@ -514,7 +653,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Prone ER Regressão',
       description: 'Rotação externa deitado com peso leve',
       duration: '10-12 reps cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   shoulder_motor_control_deficit: [
@@ -533,7 +672,10 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       category: 'technique'
     }
   ],
-  // Ankle interventions
+
+  // -------------------------------------------------------------------------
+  // ANKLE INTERVENTIONS
+  // -------------------------------------------------------------------------
   ankle_dorsiflexion_mobility_deficit: [
     {
       id: 'calf_release_ankle',
@@ -548,6 +690,13 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Mobilização em dorsiflexão com banda ou parede',
       duration: '10-15 reps cada lado',
       category: 'mobility'
+    },
+    {
+      id: 'tib_ant_ankle',
+      name: 'Ativação Tibial Anterior',
+      description: 'Dorsiflexão ativa resistida',
+      duration: '12-15 reps cada lado',
+      category: 'activation'
     }
   ],
   posterior_ankle_mobility_deficit: [
@@ -564,9 +713,23 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Descida lenta em degrau para mobilidade excêntrica',
       duration: '10-12 reps cada lado',
       category: 'mobility'
+    },
+    {
+      id: 'calf_activation',
+      name: 'Ativação de Panturrilha',
+      description: 'Elevação de calcanhar controlada',
+      duration: '12-15 reps cada lado',
+      category: 'activation'
     }
   ],
   foot_arch_stability_deficit: [
+    {
+      id: 'plantar_release_foot',
+      name: 'Liberação Plantar',
+      description: 'Liberar fáscia plantar com bola',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'intrinsic_activation',
       name: 'Ativação Intrínsecos do Pé',
@@ -579,10 +742,17 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Apoio Unilateral',
       description: 'Ficar em um pé com foco em manter arco ativo',
       duration: '20-30s cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   lateral_ankle_stability_deficit: [
+    {
+      id: 'peroneal_release',
+      name: 'Liberação Peroneais',
+      description: 'Liberar peroneais com bola',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'peroneal_activation',
       name: 'Ativação Peroneais',
@@ -595,7 +765,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Step Lateral Controlado',
       description: 'Controle de eversão em step lateral lento',
       duration: '8-10 reps cada lado',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   ankle_motor_control_deficit: [
@@ -614,7 +784,10 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       category: 'technique'
     }
   ],
-  // Elbow interventions
+
+  // -------------------------------------------------------------------------
+  // ELBOW INTERVENTIONS
+  // -------------------------------------------------------------------------
   wrist_mobility_deficit: [
     {
       id: 'forearm_release',
@@ -629,6 +802,13 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       description: 'Flexão e extensão ativa do punho com suporte',
       duration: '10-12 reps cada direção',
       category: 'mobility'
+    },
+    {
+      id: 'wrist_activation',
+      name: 'Ativação de Punho',
+      description: 'Flexão e extensão resistida leve',
+      duration: '12-15 reps cada direção',
+      category: 'activation'
     }
   ],
   shoulder_rotation_elbow_deficit: [
@@ -640,7 +820,14 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       category: 'release'
     },
     {
-      id: 'rotator_cuff_activation',
+      id: 'shoulder_rotation_mob',
+      name: 'Mobilidade de Rotação',
+      description: 'Mobilização ativa de rotações do ombro',
+      duration: '10-12 reps cada direção',
+      category: 'mobility'
+    },
+    {
+      id: 'rotator_cuff_activation_elbow',
       name: 'Ativação Manguito Rotador',
       description: 'Rotação externa leve com banda',
       duration: '12-15 reps cada lado',
@@ -648,6 +835,13 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
     }
   ],
   scapular_stability_deficit: [
+    {
+      id: 'scap_release',
+      name: 'Liberação Escapular',
+      description: 'Liberar romboides e trapézio com bola',
+      duration: '60s cada lado',
+      category: 'release'
+    },
     {
       id: 'serratus_activation_elbow',
       name: 'Ativação Serrátil',
@@ -660,10 +854,17 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Ativação Trapézio Inferior',
       description: 'Prone Y com foco em depressão escapular',
       duration: '10-12 reps',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   forearm_stability_deficit: [
+    {
+      id: 'forearm_release_stab',
+      name: 'Liberação Antebraço',
+      description: 'Liberar flexores e extensores do antebraço',
+      duration: '60s cada grupo',
+      category: 'release'
+    },
     {
       id: 'grip_exercises',
       name: 'Exercícios de Grip',
@@ -676,7 +877,7 @@ const INTERVENTIONS: Record<DeficitType, Intervention[]> = {
       name: 'Ativação Extensores/Flexores',
       description: 'Wrist curls leves com foco em controle',
       duration: '12-15 reps cada direção',
-      category: 'activation'
+      category: 'technique'
     }
   ],
   elbow_motor_control_deficit: [
@@ -830,6 +1031,40 @@ const EXPLANATIONS: Record<DeficitType, string> = {
 };
 
 // ============================================================================
+// CONTRALATERAL PATTERNS (Rebuilding MILO)
+// ============================================================================
+
+interface ContralateralPattern {
+  isContralateral: boolean;
+  targetMuscle: string;
+  explanation: string;
+}
+
+/**
+ * Padrões contralaterais baseados no Rebuilding MILO:
+ * 
+ * - hip_stability_deficit (Trendelenburg/pelvic drop): 
+ *   A queda pélvica ocorre do lado oposto à perna de apoio.
+ *   Se o achado (queda) foi observado do lado ESQUERDO, significa que a perna de apoio
+ *   era a DIREITA, e o glúteo médio DIREITO está fraco.
+ *   Intervenção: lado OPOSTO ao achado (mesmo lado da perna de apoio).
+ * 
+ * - hip_abd_ext_stability_deficit: Mesmo padrão de Trendelenburg.
+ */
+const CONTRALATERAL_PATTERNS: Record<string, ContralateralPattern> = {
+  hip_stability_deficit: {
+    isContralateral: true,
+    targetMuscle: 'Glúteo médio',
+    explanation: 'Sinal de Trendelenburg: a queda pélvica indica fraqueza do glúteo médio do lado de apoio (oposto ao achado).'
+  },
+  hip_abd_ext_stability_deficit: {
+    isContralateral: true,
+    targetMuscle: 'Glúteo médio',
+    explanation: 'A instabilidade no apoio unilateral indica fraqueza do glúteo médio do lado de apoio (oposto ao achado).'
+  }
+};
+
+// ============================================================================
 // DECISION ENGINE
 // ============================================================================
 
@@ -849,47 +1084,50 @@ export function isTestPositive(result: TestResult): boolean {
   );
 }
 
-// ============================================================================
-// CONTRALATERAL PATTERNS
-// Based on Rebuilding MILO methodology
-// ============================================================================
-
-interface ContralateralPattern {
-  isContralateral: boolean;
-  targetMuscle: string;
-  explanation: string;
+/**
+ * Extrai o findingSide do resultado do teste mais relevante
+ */
+function extractFindingSide(
+  testResults: QuickProtocolTestResults,
+  positiveTestIds: string[]
+): FindingSide | undefined {
+  // Procurar o primeiro teste positivo que tenha findingSide definido
+  for (const testId of positiveTestIds) {
+    const result = testResults[testId];
+    if (result?.findingSide) {
+      return result.findingSide;
+    }
+  }
+  
+  // Fallback: verificar se há assimetria nos lados
+  for (const testId of positiveTestIds) {
+    const result = testResults[testId];
+    if (result) {
+      if (result.leftSide && !result.rightSide) return 'left';
+      if (result.rightSide && !result.leftSide) return 'right';
+    }
+  }
+  
+  return undefined;
 }
 
 /**
- * Padrões contralaterais baseados no conhecimento clínico Rebuilding MILO:
- * - hip_stability (Trendelenburg/pelvic drop): fraqueza do glúteo médio CONTRALATERAL
- * - hip_abd_ext_stability_deficit (SLS hip): fraqueza do glúteo médio CONTRALATERAL
- * Outros déficits são ipsilaterais (mesmo lado da dor)
- */
-const CONTRALATERAL_PATTERNS: Record<string, ContralateralPattern> = {
-  // Knee - hip_stability test detects pelvic drop (Trendelenburg sign)
-  hip_stability_deficit: {
-    isContralateral: true,
-    targetMuscle: 'Glúteo médio',
-    explanation: 'Sinal de Trendelenburg: a queda pélvica indica fraqueza do glúteo médio do lado oposto à dor.'
-  },
-  // Hip - SLS stability test detects same pattern
-  hip_abd_ext_stability_deficit: {
-    isContralateral: true,
-    targetMuscle: 'Glúteo médio',
-    explanation: 'A instabilidade no apoio unilateral indica fraqueza do glúteo médio contralateral.'
-  }
-};
-
-/**
  * Determina o lado que deve receber a intervenção
+ * 
+ * Lógica MILO correta:
+ * - Para padrões CONTRALATERAIS (Trendelenburg, queda de pelve):
+ *   O achado (queda) aparece do lado oposto ao déficit.
+ *   Intervenção = lado OPOSTO ao findingSide.
+ * 
+ * - Para padrões IPSILATERAIS (mobilidade, motor control):
+ *   Intervenção = mesmo lado do findingSide.
  */
 function determineInterventionSide(
   deficit: DeficitType | null,
-  affectedSide: 'left' | 'right' | 'bilateral' | undefined
-): { side: 'left' | 'right' | 'bilateral'; note?: string } {
+  findingSide: FindingSide | undefined
+): { side: FindingSide; note?: string } {
   // Se não há lado definido ou é bilateral, retorna bilateral
-  if (!affectedSide || affectedSide === 'bilateral' || !deficit) {
+  if (!findingSide || findingSide === 'bilateral' || !deficit) {
     return { side: 'bilateral' };
   }
   
@@ -897,16 +1135,16 @@ function determineInterventionSide(
   const pattern = CONTRALATERAL_PATTERNS[deficit];
   
   if (pattern?.isContralateral) {
-    // Inverter o lado: dor no E → tratar D
-    const interventionSide = affectedSide === 'left' ? 'right' : 'left';
+    // Inverter o lado: achado no E → tratar D (onde está a fraqueza real)
+    const interventionSide: FindingSide = findingSide === 'left' ? 'right' : 'left';
     return {
       side: interventionSide,
       note: pattern.explanation
     };
   }
   
-  // Padrão ipsilateral: tratar mesmo lado
-  return { side: affectedSide };
+  // Padrão ipsilateral: tratar mesmo lado do achado
+  return { side: findingSide };
 }
 
 /**
@@ -915,7 +1153,7 @@ function determineInterventionSide(
 export function calculateDecision(
   testResults: QuickProtocolTestResults, 
   protocolType: ProtocolType = 'knee_pain',
-  affectedSide?: 'left' | 'right' | 'bilateral'
+  affectedSide?: FindingSide
 ): DecisionResult {
   const positiveTestIds: string[] = [];
   
@@ -988,10 +1226,13 @@ export function calculateDecision(
   // Buscar explicação
   const explanation = EXPLANATIONS[primary] || '';
   
-  // Determinar lado da intervenção (lógica contralateral)
+  // Extrair findingSide dos resultados dos testes
+  const findingSide = extractFindingSide(testResults, positiveTestIds);
+  
+  // Determinar lado da intervenção (lógica contralateral baseada em findingSide)
   const { side: interventionSide, note: contralateralNote } = determineInterventionSide(
     primary,
-    affectedSide
+    findingSide
   );
   
   return {
@@ -1000,10 +1241,15 @@ export function calculateDecision(
     interventions,
     explanation,
     recommendRetest: true,
+    findingSide,
     interventionSide,
     contralateralNote
   };
 }
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
 /**
  * Formata o nome do déficit para exibição
@@ -1055,7 +1301,7 @@ export function formatDeficitName(deficit: DeficitType): string {
  */
 export function getDeficitLayer(deficit: DeficitType): 'mobility' | 'stability' | 'motor_control' {
   if (deficit.includes('mobility')) return 'mobility';
-  if (deficit.includes('stability')) return 'stability';
+  if (deficit.includes('stability') || deficit.includes('core') || deficit.includes('chain') || deficit.includes('scapular')) return 'stability';
   return 'motor_control';
 }
 
@@ -1087,5 +1333,5 @@ export function getLayerStyle(layer: 'mobility' | 'stability' | 'motor_control')
   return styles[layer];
 }
 
-// Re-export TestId for backward compatibility
+// Re-export types for backward compatibility
 export type { TestId, ProtocolType };

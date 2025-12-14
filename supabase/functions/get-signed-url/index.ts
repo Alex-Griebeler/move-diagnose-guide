@@ -82,11 +82,16 @@ Deno.serve(async (req) => {
     const assessmentId = pathParts[0];
     console.log("Checking ownership for assessment:", assessmentId);
 
-    const { data: assessment, error: assessmentError } = await supabase
+    // Use service role to bypass RLS for ownership check
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { data: assessment, error: assessmentError } = await supabaseAdmin
       .from('assessments')
-      .select('id')
+      .select('id, professional_id, student_id')
       .eq('id', assessmentId)
-      .or(`professional_id.eq.${user.id},student_id.eq.${user.id}`)
       .maybeSingle();
 
     if (assessmentError) {
@@ -98,6 +103,16 @@ Deno.serve(async (req) => {
     }
 
     if (!assessment) {
+      console.error("Assessment not found:", assessmentId);
+      return new Response(JSON.stringify({ error: "Assessment not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify user has access to this assessment
+    const hasAccess = assessment.professional_id === user.id || assessment.student_id === user.id;
+    if (!hasAccess) {
       console.error("Access denied: user", user.id, "attempted to access", filePath);
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
@@ -106,11 +121,6 @@ Deno.serve(async (req) => {
     }
 
     console.log("Access granted, generating signed URL...");
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
 
     const { data, error } = await supabaseAdmin.storage
       .from("assessment-media")

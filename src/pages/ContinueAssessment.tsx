@@ -8,7 +8,6 @@ import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
 import { AssessmentBreadcrumb } from '@/components/assessment/AssessmentBreadcrumb';
-import { StudentIdentityBanner } from '@/components/assessment/StudentIdentityBanner';
 import { useToast } from '@/hooks/use-toast';
 import { 
   PageLayout, 
@@ -187,16 +186,17 @@ export default function ContinueAssessment() {
     <PageLayout>
       <PageHeader
         variant="minimal"
+        title="Continuar Avaliação"
         showBack
         onBack={() => navigate('/dashboard')}
         className="border-b"
-        rightContent={
-          <StudentIdentityBanner studentName={studentName} />
-        }
       />
       
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-2 border-b bg-card">
-        <AssessmentBreadcrumb currentStep={step || 'anamnesis'} />
+        <AssessmentBreadcrumb 
+          currentStep={step || 'anamnesis'} 
+          studentName={studentName}
+        />
       </div>
 
       <PageContent size="lg" className="py-8">

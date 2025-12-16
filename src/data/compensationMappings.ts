@@ -102,7 +102,7 @@ export const ohsPosteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'feet_eversion_posterior',
-    label: 'Eversão dos pés (vista posterior)',
+    label: 'Queda do arco plantar (vista posterior)',
     hyperactiveMuscles: ['Gastrocnêmio lateral', 'Bíceps femoral', 'TFL', 'Fibulares'],
     hypoactiveMuscles: ['Tibial posterior', 'Glúteo médio', 'Flexor longo dos dedos'],
     associatedInjuries: ['Lesões plantares', 'Lesões tibiais', 'Instabilidade de tornozelo'],
@@ -195,6 +195,13 @@ export const slsPosteriorCompensations: CompensationMapping[] = [
     hyperactiveMuscles: ['Oblíquos externos (lado oposto)', 'Quadrado lombar'],
     hypoactiveMuscles: ['Glúteo médio', 'Oblíquos internos', 'Core estabilizador'],
     associatedInjuries: ['Desequilíbrio rotacional', 'Dor lombar'],
+  },
+  {
+    id: 'foot_collapse_posterior',
+    label: 'Queda do arco plantar (vista posterior)',
+    hyperactiveMuscles: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
+    hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
+    associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],
   },
 ];
 

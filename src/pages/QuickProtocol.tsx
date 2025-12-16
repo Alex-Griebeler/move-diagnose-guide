@@ -28,6 +28,7 @@ export default function QuickProtocol() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [selectingStudentId, setSelectingStudentId] = useState<string | null>(null);
   const [linkedStudents, setLinkedStudents] = useState<StudentItem[]>([]);
   const [studentData, setStudentData] = useState<{
     studentId: string;
@@ -96,7 +97,11 @@ export default function QuickProtocol() {
   };
 
   const handleSelectStudent = (student: StudentItem) => {
-    navigate(`/quick-protocol?studentId=${student.id}&type=${protocolType}`);
+    setSelectingStudentId(student.id);
+    // Small delay for visual feedback before navigation
+    setTimeout(() => {
+      navigate(`/quick-protocol?studentId=${student.id}&type=${protocolType}`);
+    }, 150);
   };
 
   const handleComplete = () => {
@@ -138,6 +143,7 @@ export default function QuickProtocol() {
             <StudentSearchList
               students={linkedStudents}
               onSelect={handleSelectStudent}
+              loadingId={selectingStudentId}
               emptyMessage="Nenhum aluno vinculado"
               emptySubMessage="Adicione alunos no dashboard primeiro"
             />

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, X, User, ChevronRight, UserX } from 'lucide-react';
+import { Search, X, User, ChevronRight, UserX, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +15,7 @@ interface StudentSearchListProps {
   students: StudentItem[];
   onSelect: (student: StudentItem) => void;
   isLoading?: boolean;
+  loadingId?: string;
   selectedId?: string;
   emptyMessage?: string;
   emptySubMessage?: string;
@@ -71,6 +72,7 @@ export function StudentSearchList({
   students,
   onSelect,
   isLoading,
+  loadingId,
   selectedId,
   emptyMessage = 'Nenhum aluno encontrado',
   emptySubMessage,
@@ -138,13 +140,18 @@ export function StudentSearchList({
       {/* Results */}
       {hasResults ? (
         <div className="space-y-2">
-          {filteredStudents.map((student) => (
-            variant === 'card' ? (
+          {filteredStudents.map((student) => {
+            const isItemLoading = loadingId === student.id;
+            const isSelected = selectedId === student.id;
+            
+            return variant === 'card' ? (
               <Card
                 key={student.id}
                 className={cn(
-                  'cursor-pointer card-hover border',
-                  selectedId === student.id && 'border-primary'
+                  'cursor-pointer card-hover border transition-all duration-150',
+                  'active:scale-[0.98]',
+                  isSelected && 'border-primary ring-2 ring-primary/20',
+                  isItemLoading && 'opacity-70 pointer-events-none border-primary'
                 )}
                 onClick={() => onSelect(student)}
               >
@@ -162,7 +169,9 @@ export function StudentSearchList({
                       </p>
                     )}
                   </div>
-                  {actionLabel ? (
+                  {isItemLoading ? (
+                    <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />
+                  ) : actionLabel ? (
                     <Button variant="outline" size="sm" className="shrink-0">
                       {actionLabel}
                     </Button>
@@ -175,9 +184,10 @@ export function StudentSearchList({
               <div
                 key={student.id}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors',
-                  'bg-muted/50 hover:bg-muted',
-                  selectedId === student.id && 'ring-1 ring-primary'
+                  'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-150',
+                  'bg-muted/50 hover:bg-muted active:scale-[0.98]',
+                  isSelected && 'ring-2 ring-primary',
+                  isItemLoading && 'opacity-70 pointer-events-none ring-2 ring-primary'
                 )}
                 onClick={() => onSelect(student)}
               >
@@ -194,10 +204,14 @@ export function StudentSearchList({
                     </p>
                   )}
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                {isItemLoading ? (
+                  <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
               </div>
-            )
-          ))}
+            );
+          })}
         </div>
       ) : hasStudents ? (
         // Has students but no search results

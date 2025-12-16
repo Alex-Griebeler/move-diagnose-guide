@@ -27,6 +27,7 @@ export default function NewAssessment() {
   const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
   const [assessmentId, setAssessmentId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [selectingStudentId, setSelectingStudentId] = useState<string | null>(null);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
   const [isRestoringState, setIsRestoringState] = useState(true);
   
@@ -156,11 +157,13 @@ export default function NewAssessment() {
     }
   };
 
-  const handleSelectStudent = (student: StudentItem) => {
+  const handleSelectStudent = async (student: StudentItem) => {
+    setSelectingStudentId(student.id);
     setSelectedStudent(student);
     // Store student name before creating assessment
     localStorage.setItem('current_student_name', student.full_name);
-    createAssessment(student.id);
+    await createAssessment(student.id);
+    setSelectingStudentId(null);
   };
 
   const handleAnamnesisComplete = () => {
@@ -240,10 +243,10 @@ export default function NewAssessment() {
             students={students}
             onSelect={handleSelectStudent}
             isLoading={isLoadingStudents}
+            loadingId={selectingStudentId}
             selectedId={selectedStudent?.id}
             emptyMessage="Você ainda não tem alunos cadastrados."
             emptySubMessage="Adicione alunos no dashboard para iniciar avaliações."
-            actionLabel={isCreating ? 'Criando...' : 'Iniciar Avaliação'}
           />
         )}
 

@@ -38,13 +38,15 @@ export default function NewAssessment() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Restore state from localStorage or URL params on mount
+  // Restore state ONLY from URL params on mount
+  // localStorage is only used for step recovery within same session, not for auto-restoring assessments
   useEffect(() => {
     const studentIdParam = searchParams.get('studentId');
     const assessmentIdParam = searchParams.get('assessmentId');
     const studentNameParam = searchParams.get('studentName');
 
-    // Priority 1: URL parameters (from in-person registration or continue)
+    // Only restore from URL parameters (from in-person registration or explicit continue)
+    // "Nova Avaliação" without params always shows student selection
     if (studentIdParam && assessmentIdParam) {
       setSelectedStudent({
         id: studentIdParam,
@@ -60,25 +62,8 @@ export default function NewAssessment() {
       } else {
         setStep('anamnesis');
       }
-      setIsRestoringState(false);
-      return;
     }
-
-    // Priority 2: Check localStorage for in-progress assessment
-    const savedAssessmentId = localStorage.getItem('current_assessment_id');
-    const savedStudentId = localStorage.getItem('current_student_id');
-    const savedStudentName = localStorage.getItem('current_student_name');
-    const savedStep = savedAssessmentId ? localStorage.getItem(`assessment_step_${savedAssessmentId}`) : null;
-    
-    if (savedAssessmentId && savedStudentId && savedStep) {
-      setAssessmentId(savedAssessmentId);
-      setSelectedStudent({
-        id: savedStudentId,
-        full_name: savedStudentName || 'Aluno',
-        email: '',
-      });
-      setStep(savedStep as Step);
-    }
+    // If no URL params, stay on 'select-student' step (default)
     
     setIsRestoringState(false);
   }, [searchParams]);

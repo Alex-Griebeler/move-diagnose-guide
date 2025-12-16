@@ -5,7 +5,6 @@ type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests' 
 
 interface AssessmentBreadcrumbProps {
   currentStep: Step;
-  studentName?: string;
 }
 
 const stepLabels: Record<Step, string> = {
@@ -18,7 +17,7 @@ const stepLabels: Record<Step, string> = {
 
 const stepOrder: Step[] = ['select-student', 'anamnesis', 'global-tests', 'segmental-tests', 'protocol'];
 
-export function AssessmentBreadcrumb({ currentStep, studentName }: AssessmentBreadcrumbProps) {
+export function AssessmentBreadcrumb({ currentStep }: AssessmentBreadcrumbProps) {
   const currentIndex = stepOrder.indexOf(currentStep);
 
   return (
@@ -34,15 +33,6 @@ export function AssessmentBreadcrumb({ currentStep, studentName }: AssessmentBre
       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
       
       <span className="text-muted-foreground shrink-0">Avaliação</span>
-      
-      {studentName && currentStep !== 'select-student' && (
-        <>
-          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
-          <span className="text-muted-foreground truncate max-w-[120px]" title={studentName}>
-            {studentName}
-          </span>
-        </>
-      )}
       
       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
       

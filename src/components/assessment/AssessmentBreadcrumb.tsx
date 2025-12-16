@@ -33,14 +33,20 @@ export function AssessmentBreadcrumb({ currentStep, studentName }: AssessmentBre
       
       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
       
-      {/* Student name or generic "Avaliação" */}
-      <span className="font-medium text-foreground shrink-0">
-        {studentName && currentStep !== 'select-student' ? studentName : 'Avaliação'}
-      </span>
+      <span className="text-muted-foreground shrink-0">Avaliação</span>
+      
+      {studentName && currentStep !== 'select-student' && (
+        <>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+          <span className="text-muted-foreground truncate max-w-[120px]" title={studentName}>
+            {studentName}
+          </span>
+        </>
+      )}
       
       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
       
-      <span className="text-muted-foreground shrink-0">
+      <span className="font-medium text-foreground shrink-0">
         {stepLabels[currentStep]}
       </span>
       

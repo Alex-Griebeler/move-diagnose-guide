@@ -51,7 +51,7 @@ const COMPENSATION_DATA: Record<string, {
     detection_criteria: 'Ângulo pés-frente >30° (15-30° pode ser normal). Pés claramente apontando para fora da linha média.',
   },
   feet_eversion: {
-    label: 'Eversão dos pés (pronação)',
+    label: 'Eversão dos pés (pronação/pé colapsa)',
     hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Bíceps femoral', 'TFL'],
     hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Tibial anterior', 'Glúteo médio'],
     injuries: ['Fascite plantar', 'Síndrome do estresse tibial', 'Tendinopatia tibial posterior'],

@@ -24,7 +24,7 @@ export const ohsAnteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'feet_eversion',
-    label: 'Eversão dos pés (pronação/arco colapsa)',
+    label: 'Eversão dos pés (pronação/pé colapsa)',
     hyperactiveMuscles: ['Fibulares (curto e longo)', 'Gastrocnêmio lateral', 'Bíceps femoral', 'TFL'],
     hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Tibial anterior', 'Glúteo médio'],
     associatedInjuries: ['Fascite plantar', 'Síndrome do estresse tibial medial', 'Tendinopatia tibial posterior'],

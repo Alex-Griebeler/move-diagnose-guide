@@ -51,7 +51,7 @@ const COMPENSATION_DATA: Record<string, {
     detection_criteria: 'Ângulo pés-frente >30° (15-30° pode ser normal). Pés claramente apontando para fora da linha média.',
   },
   feet_eversion: {
-    label: 'Eversão dos pés (pronação/queda do arco plantar)',
+    label: 'Queda do arco plantar',
     hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Bíceps femoral', 'TFL'],
     hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Tibial anterior', 'Glúteo médio'],
     injuries: ['Fascite plantar', 'Síndrome do estresse tibial', 'Tendinopatia tibial posterior'],
@@ -286,7 +286,7 @@ const OHS_PROMPTS: Record<string, string> = {
 
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - feet_abduction: Pés giram para fora >30°
-- feet_eversion: Queda do arco plantar, calcanhares inclinam medialmente
+- feet_eversion: Queda do arco plantar - calcanhares inclinam medialmente
 - knee_valgus: Valgo dinâmico - joelho desvia medialmente da linha do hálux
 - knee_varus: Joelhos se afastam lateralmente
 

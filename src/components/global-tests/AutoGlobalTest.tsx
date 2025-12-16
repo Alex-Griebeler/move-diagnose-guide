@@ -19,6 +19,13 @@ import {
   CompensationMapping,
 } from '@/data/compensationMappings';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+
+// Extract filePath from a signed URL to allow refreshing expired tokens
+const extractFilePathFromSignedUrl = (signedUrl: string): string | null => {
+  const match = signedUrl.match(/assessment-media\/([^?]+)/);
+  return match ? match[1] : null;
+};
 
 type TestType = 'ohs' | 'sls' | 'pushup';
 type ViewType = 
@@ -280,11 +287,34 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     if (!targetViewId || !targetView) return;
     
     let imageUrl = media?.photoUrl;
+    let videoUrl = media?.videoUrl;
+    
+    // Refresh signed URL if expired (contains token parameter)
+    const refreshSignedUrl = async (url: string): Promise<string> => {
+      if (!url.includes('token=')) return url;
+      
+      const filePath = extractFilePathFromSignedUrl(url);
+      if (!filePath) return url;
+      
+      try {
+        const { data: signedData, error } = await supabase.functions.invoke('get-signed-url', {
+          body: { filePath }
+        });
+        if (error) throw error;
+        return signedData?.signedUrl || url;
+      } catch (err) {
+        console.error('Failed to refresh signed URL:', err);
+        return url;
+      }
+    };
     
     // If no photo but video exists, extract a frame
-    if (!imageUrl && media?.videoUrl) {
+    if (!imageUrl && videoUrl) {
       try {
-        imageUrl = await extractFrameFromVideo(media.videoUrl);
+        // Refresh video URL before extracting frame
+        const freshVideoUrl = await refreshSignedUrl(videoUrl);
+        imageUrl = await extractFrameFromVideo(freshVideoUrl);
+        videoUrl = freshVideoUrl;
       } catch (error) {
         console.error('Failed to extract frame from video:', error);
         toast.error('Erro ao extrair frame do vídeo');
@@ -299,7 +329,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     await analyzeMovement({
       testType: config.aiTestType,
       imageUrl,
-      videoUrl: media?.videoUrl,
+      videoUrl,
       viewType: targetViewId,
     });
   };

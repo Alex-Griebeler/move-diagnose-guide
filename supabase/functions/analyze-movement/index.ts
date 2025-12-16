@@ -573,6 +573,82 @@ VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
 Use a função report_analysis para reportar resultados estruturados.`,
 };
 
+// ============================================
+// SLS LATERALITY CONTEXT HELPERS
+// ============================================
+
+/**
+ * Parse viewType like 'left_anterior' into { side: 'left', baseView: 'anterior' }
+ */
+function parseSLSViewType(viewType: string): { side: 'left' | 'right' | null; baseView: string } {
+  const parts = viewType.toLowerCase().split('_');
+  if (parts.length >= 2 && ['left', 'right'].includes(parts[0])) {
+    return { 
+      side: parts[0] as 'left' | 'right', 
+      baseView: parts.slice(1).join('_') // handles 'left_anterior' -> 'anterior'
+    };
+  }
+  return { side: null, baseView: viewType };
+}
+
+/**
+ * Generate laterality context for SLS prompts based on support side and view
+ */
+function getSLSLateralityContext(side: 'left' | 'right', view: 'anterior' | 'posterior'): string {
+  const supportSide = side === 'left' ? 'ESQUERDA' : 'DIREITA';
+  const freeSide = side === 'left' ? 'DIREITA' : 'ESQUERDA';
+  const supportSideLower = side === 'left' ? 'esquerdo' : 'direito';
+  const freeSideLower = side === 'left' ? 'direito' : 'esquerdo';
+  
+  if (view === 'posterior') {
+    return `
+═══════════════════════════════════════════════════════════════
+CONTEXTO DE LATERALIDADE - CRÍTICO PARA ESTA ANÁLISE
+═══════════════════════════════════════════════════════════════
+Este vídeo é do SINGLE-LEG SQUAT ${supportSide} - VISTA POSTERIOR.
+O paciente está APOIADO na PERNA ${supportSide}.
+A perna ${freeSide} está livre (elevada).
+
+LÓGICA CONTRALATERAL (MUITO IMPORTANTE):
+- Você está avaliando a CAPACIDADE DE ESTABILIZAÇÃO do lado ${supportSide}
+- Se a pelve ${freeSide} CAI (hip_drop) → indica DÉFICIT no GLÚTEO MÉDIO ${supportSide}
+- Se a pelve ${freeSide} ELEVA excessivamente (hip_hike) → COMPENSAÇÃO do lado ${supportSide}
+- Qualquer compensação observada indica DÉFICIT FUNCIONAL no lado ${supportSide}
+
+REGRA DE SIDE_BIAS:
+- Use side_bias: "${side}" para TODAS as compensações detectadas
+- O déficit está SEMPRE no lado de APOIO (${supportSideLower}), não no lado livre
+
+REFERÊNCIA DE LATERALIDADE (vista posterior):
+- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
+- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
+═══════════════════════════════════════════════════════════════
+
+`;
+  }
+  
+  // Vista anterior - contexto direto
+  return `
+═══════════════════════════════════════════════════════════════
+CONTEXTO DE LATERALIDADE - CRÍTICO PARA ESTA ANÁLISE
+═══════════════════════════════════════════════════════════════
+Este vídeo é do SINGLE-LEG SQUAT ${supportSide} - VISTA ANTERIOR.
+O paciente está APOIADO na PERNA ${supportSide}.
+
+IMPORTANTE:
+- Todas as compensações detectadas referem-se ao lado ${supportSideLower}
+- O joelho analisado é o JOELHO ${supportSide}
+- O pé analisado é o PÉ ${supportSide}
+- A instabilidade observada é do MEMBRO INFERIOR ${supportSide}
+
+REGRA DE SIDE_BIAS:
+- Use side_bias: "${side}" para TODAS as compensações detectadas
+- Qualquer valgo, colapso de arco ou instabilidade é do lado ${supportSideLower}
+═══════════════════════════════════════════════════════════════
+
+`;
+}
+
 // Build dynamic prompt for segmental tests
 interface SegmentalTestParams {
   testName: string;
@@ -718,15 +794,27 @@ serve(async (req) => {
       
       if (testType === 'overhead_squat') {
         prompt = OHS_PROMPTS[view] || OHS_PROMPTS.anterior;
+        console.log(`Global test: ${testType} - ${view} view`);
       } else if (testType === 'single_leg_squat') {
-        prompt = SLS_PROMPTS[view] || SLS_PROMPTS.anterior;
+        // SLS requires special handling for laterality (left_anterior, right_posterior, etc.)
+        const { side, baseView } = parseSLSViewType(view);
+        const basePrompt = SLS_PROMPTS[baseView] || SLS_PROMPTS.anterior;
+        
+        if (side && (baseView === 'anterior' || baseView === 'posterior')) {
+          // Inject laterality context for side-specific views
+          const lateralityContext = getSLSLateralityContext(side, baseView as 'anterior' | 'posterior');
+          prompt = lateralityContext + basePrompt;
+          console.log(`Global test: ${testType} - ${baseView} view, SUPPORT SIDE: ${side.toUpperCase()}`);
+        } else {
+          prompt = basePrompt;
+          console.log(`Global test: ${testType} - ${baseView} view (no side specified)`);
+        }
       } else if (testType === 'pushup') {
         prompt = PUSHUP_PROMPTS[view] || PUSHUP_PROMPTS.posterior;
+        console.log(`Global test: ${testType} - ${view} view`);
       } else {
         return jsonResponse({ error: 'Unknown test type' }, 400);
       }
-      
-      console.log(`Global test: ${testType} - ${view} view`);
     }
 
     // Build request

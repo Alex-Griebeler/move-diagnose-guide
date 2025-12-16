@@ -258,13 +258,13 @@ ${id.toUpperCase()} - ${data.label}:
 }
 
 // ============================================
-// TOOL CALLING SCHEMA
+// TOOL CALLING SCHEMA - SIMPLIFIED
 // ============================================
 const ANALYSIS_TOOL = {
   type: "function" as const,
   function: {
     name: "report_analysis",
-    description: "Report concise movement analysis with essential clinical findings",
+    description: "Report detected movement compensations",
     parameters: {
       type: "object",
       properties: {
@@ -278,167 +278,106 @@ const ANALYSIS_TOOL = {
           minimum: 0,
           maximum: 1,
           description: "Confidence level 0-1 based on image quality and visibility"
-        },
-        severity: {
-          type: "string",
-          enum: ["minimal", "moderate", "marked"],
-          description: "minimal: sutil/leve, moderate: evidente/moderado, marked: severo/acentuado"
-        },
-        primary_compensation: {
-          type: "string",
-          nullable: true,
-          description: "Most clinically significant compensation"
-        },
-        side_bias: {
-          type: "string",
-          enum: ["left", "right", "bilateral", "symmetric"],
-          description: "Which side shows more dysfunction"
-        },
-        requires_attention: {
-          type: "boolean",
-          description: "True if indicates injury risk"
-        },
-        technical_note: {
-          type: "string",
-          maxLength: 200,
-          description: "Resumo CONCISO em português: compensações detectadas + magnitude (leve/moderada/acentuada) + assimetria se houver. Máximo 2 frases. NÃO cite músculos, cadeias cinéticas ou implicações - apenas o que foi OBSERVADO."
         }
       },
-      required: ["detected_compensations", "confidence", "severity", "side_bias", "requires_attention", "technical_note"]
+      required: ["detected_compensations", "confidence"]
     }
   }
 };
 
 // ============================================
-// PROMPTS CONCISOS POR VISTA
+// PROMPTS - DETECTION ONLY (no analysis)
 // ============================================
-
-const ANALYSIS_INSTRUCTIONS = `
-REGRAS DO TECHNICAL_NOTE:
-- Máximo 2 frases curtas
-- Descreva APENAS o que observa (ex: "Valgo moderado bilateral, pés abduzidos")
-- Inclua magnitude: leve, moderado, acentuado
-- Inclua assimetria se houver: "mais à direita/esquerda"
-- NÃO inclua: músculos, cadeias, implicações, riscos
-- Detalhes serão adicionados no relatório final`;
-
 const OHS_PROMPTS: Record<string, string> = {
   anterior: `Analise OVERHEAD SQUAT - VISTA ANTERIOR.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['feet_abduction', 'feet_eversion', 'knee_valgus', 'knee_varus'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- feet_abduction: Pés giram para fora >30°
+- feet_eversion: Arco plantar colapsa, calcanhares inclinam medialmente
+- knee_valgus: Joelhos passam medialmente da linha do hálux
+- knee_varus: Joelhos se afastam lateralmente
 
-CHECKLIST DE ANÁLISE:
-- Pés: alinhados/abduzidos? Arco: mantido/colapsado?
-- Joelhos: neutros/valgo/varo? Bilateral ou unilateral?
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+REGRA: Reporte APENAS compensações CLARAMENTE visíveis. Na dúvida, NÃO reporte.
+Use report_analysis com detected_compensations e confidence.`,
 
   lateral: `Analise OVERHEAD SQUAT - VISTA LATERAL.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['trunk_forward_lean', 'lumbar_hyperextension', 'spine_flexion', 'heels_rise', 'arms_fall_forward'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- trunk_forward_lean: Tronco inclina >45° da vertical
+- lumbar_hyperextension: Lordose EXAGERADA (barriga projetada)
+- spine_flexion: Butt wink - lombar ARREDONDA no fundo do agachamento
+- heels_rise: Calcanhares elevam do chão
+- arms_fall_forward: Braços caem abaixo da linha da cabeça
 
-CHECKLIST DE ANÁLISE - OBSERVE CADA ITEM:
-1. TRONCO: Inclinação excessiva à frente?
-2. LOMBAR NO FUNDO DO MOVIMENTO:
-   - Hiperlordose (lombar arqueia PARA TRÁS)? → LUMBAR_HYPEREXTENSION
-   - OU Butt wink (lombar ARREDONDA, pelve posterioriza)? → SPINE_FLEXION
-   - São OPOSTOS - só um pode ocorrer
-3. CALCANHARES: Elevam do solo?
-4. BRAÇOS: Caem da posição overhead?
+ATENÇÃO: spine_flexion e lumbar_hyperextension são OPOSTOS - só um pode ocorrer.
+Analise o FUNDO do agachamento para detectar butt wink.
 
-IMPORTANTE: Analise o FUNDO do agachamento para detectar butt wink.
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+Use report_analysis com detected_compensations e confidence.`,
 
   posterior: `Analise OVERHEAD SQUAT - VISTA POSTERIOR.
 
-LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
+LATERALIDADE: esquerda da imagem = direito anatômico.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['asymmetric_shift', 'trunk_rotation'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- asymmetric_shift: Pelve desvia >2cm para um lado
+- trunk_rotation: Ombros ou pelve rotam assimetricamente
 
-CHECKLIST DE ANÁLISE:
-- Pelve: nivelada ou shift lateral?
-- Tronco: alinhado ou rotação?
-- Peso: equalizado ou preferência unilateral?
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+Use report_analysis com detected_compensations e confidence.`,
 };
 
 const SLS_PROMPTS: Record<string, string> = {
   anterior: `Analise SINGLE-LEG SQUAT - VISTA ANTERIOR.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['knee_valgus', 'foot_collapse', 'instability', 'tremor', 'balance_loss'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- knee_valgus: Joelho desvia medialmente
+- foot_collapse: Arco plantar colapsa completamente
+- instability: Oscilações grandes e repetidas
+- tremor: Tremor visível e persistente
+- balance_loss: Perde apoio ou precisa tocar o chão
 
-CHECKLIST DE ANÁLISE:
-- Joelho: sobre 2º-3º dedo ou desvia medialmente (valgo)?
-- Arco plantar: mantido ou colapsa?
-- Estabilidade: controlado, oscilações, ou perde equilíbrio?
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+Use report_analysis com detected_compensations e confidence.`,
 
   lateral: `Analise SINGLE-LEG SQUAT - VISTA LATERAL.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['trunk_forward_lean_sls', 'knee_flexion_insufficient'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- trunk_forward_lean_sls: Inclinação >30° para frente
+- knee_flexion_insufficient: Joelho flexiona <30° (muito raso)
 
-CHECKLIST DE ANÁLISE:
-- Tronco: vertical ou inclinação excessiva à frente?
-- Amplitude: joelho flexiona adequadamente ou amplitude limitada?
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+Use report_analysis com detected_compensations e confidence.`,
 
   posterior: `Analise SINGLE-LEG SQUAT - VISTA POSTERIOR.
 
-LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
+LATERALIDADE: esquerda da imagem = direito anatômico.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- hip_drop: Pelve CAI >5° do lado contralateral (Trendelenburg)
+- hip_hike: Pelve ELEVA exageradamente do lado contralateral
+- trunk_rotation_medial: Tronco rota >15° para dentro
+- trunk_rotation_lateral: Tronco rota >15° para fora
 
-CHECKLIST - TESTE DE TRENDELENBURG:
-- Pelve do lado livre: nivelada, cai (hip drop), ou eleva (hip hike)?
-- Hip drop = déficit glúteo médio do lado de APOIO
-- Tronco: alinhado ou rota?
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+Use report_analysis com detected_compensations e confidence.`,
 };
 
 const PUSHUP_PROMPTS: Record<string, string> = {
   lateral: `Analise PUSH-UP - VISTA LATERAL.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['hip_elevation', 'hip_drop_pushup'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- hip_elevation: Quadril sobe formando "pirâmide" (pike)
+- hip_drop_pushup: Quadril afunda criando lordose exagerada
 
-CHECKLIST DE ANÁLISE:
-- Alinhamento: cabeça-ombros-quadril-tornozelos em linha?
-- Quadril: sobe formando "V" (pike) ou afunda criando lordose (drop)?
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+Use report_analysis com detected_compensations e confidence.`,
 
   posterior: `Analise PUSH-UP - VISTA POSTERIOR.
 
-LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
+LATERALIDADE: esquerda da imagem = direito anatômico.
 
-COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
-${getCompensationContext(['scapular_winging', 'elbow_flare', 'shoulder_protraction', 'shoulder_retraction_insufficient'])}
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
+- scapular_winging: Borda medial da escápula projeta-se >2cm do tórax
+- elbow_flare: Cotovelos abrem >60° do tronco (forma de "T")
+- shoulder_protraction: Ombros muito arredondados para frente
+- shoulder_retraction_insufficient: Escápulas não se aproximam na fase excêntrica
 
-CHECKLIST DE ANÁLISE:
-- Escápulas: borda medial descola do tórax (winging)?
-- Cotovelos: ~45° (ideal) ou abrem excessivamente (flare)?
-- Ombros: protração excessiva ou retração insuficiente?
-
-${ANALYSIS_INSTRUCTIONS}
-Use report_analysis.`,
+Use report_analysis com detected_compensations e confidence.`,
 };
 
 // ============================================

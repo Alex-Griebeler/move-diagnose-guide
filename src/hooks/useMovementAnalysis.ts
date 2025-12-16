@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 
 export interface AnalysisResult {
   detected_compensations?: string[];
+  confidence: number;
+  // Segmental/Quick protocol specific fields
   side?: 'left' | 'right';
   result?: 'pass' | 'partial' | 'fail';
   left_result?: 'pass' | 'partial' | 'fail';
@@ -11,15 +13,7 @@ export interface AnalysisResult {
   left_value?: number;
   right_value?: number;
   value?: number;
-  confidence: number;
   notes?: string;
-  promptUsed?: string;
-  // New structured fields from tool calling
-  severity?: 'minimal' | 'moderate' | 'marked';
-  primary_compensation?: string | null;
-  side_bias?: 'left' | 'right' | 'bilateral' | 'symmetric';
-  requires_attention?: boolean;
-  technical_note?: string;
 }
 
 interface UseMovementAnalysisOptions {
@@ -60,23 +54,15 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
       }
 
       const result = data.analysis as AnalysisResult;
-      // Include prompt in result for transparency
-      if (data.promptUsed) {
-        result.promptUsed = data.promptUsed;
-      }
       setLastResult(result);
       
       if (options.onAnalysisComplete) {
         options.onAnalysisComplete(result);
       }
 
-      // Show confidence feedback
-      if (result.confidence >= 0.8) {
-        toast.success('Análise concluída com alta confiança');
-      } else if (result.confidence >= 0.6) {
-        toast.info('Análise concluída - recomenda-se revisar os resultados');
-      } else {
-        toast.warning('Baixa confiança na análise - verifique a qualidade da imagem');
+      // Only show warning for low confidence
+      if (result.confidence < 0.6) {
+        toast.warning('Baixa confiança - verifique a qualidade da imagem');
       }
 
       return result;

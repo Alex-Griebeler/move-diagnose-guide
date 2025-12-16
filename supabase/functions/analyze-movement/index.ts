@@ -181,6 +181,13 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Desequilíbrio rotacional', 'Dor lombar'],
     detection_criteria: 'Tronco rota >15° para fora (lateralmente). Ombro do lado de apoio gira para trás.',
   },
+  foot_collapse_posterior: {
+    label: 'Queda do arco plantar (vista posterior)',
+    hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
+    hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
+    injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome estresse tibial'],
+    detection_criteria: 'Calcâneo inclina medialmente. Tendão de Aquiles não alinha reto. Navicular desce visível da vista posterior.',
+  },
   // Push-up - Vista Lateral
   hip_elevation: {
     label: 'Elevação do quadril (pike)',
@@ -307,6 +314,7 @@ LATERALIDADE: esquerda da imagem = direito anatômico.
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - asymmetric_shift: Pelve desvia >2cm para um lado
 - trunk_rotation: Ombros ou pelve rotam assimetricamente
+- feet_eversion_posterior: Queda do arco plantar - calcâneo inclina medialmente
 
 Use report_analysis com detected_compensations e confidence.`,
 };
@@ -341,6 +349,7 @@ COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - hip_hike: Pelve ELEVA exageradamente do lado contralateral
 - trunk_rotation_medial: Tronco rota >15° para dentro
 - trunk_rotation_lateral: Tronco rota >15° para fora
+- foot_collapse_posterior: Queda do arco plantar - calcâneo inclina medialmente
 
 Use report_analysis com detected_compensations e confidence.`,
 };

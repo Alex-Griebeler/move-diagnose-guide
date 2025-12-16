@@ -19,8 +19,10 @@ type ViewType =
   | 'lateral' 
   | 'posterior' 
   | 'left_anterior' 
+  | 'left_lateral'
   | 'left_posterior' 
   | 'right_anterior' 
+  | 'right_lateral'
   | 'right_posterior';
 
 interface AutoTestData {
@@ -60,15 +62,26 @@ interface GlobalTestsWizardProps {
 }
 
 // Convert new format to legacy format for TestSummary
+// Aggregates SLS compensations from all 6 views (3 per side) into left/right arrays
 function toLegacyFormat(data: GlobalTestData): LegacyTestData {
-  // Aggregate SLS compensations by side (left = left_anterior + left_posterior, right = right_anterior + right_posterior)
+  // Aggregate SLS compensations by side
+  // Left = left_anterior + left_lateral + left_posterior
+  // Right = right_anterior + right_lateral + right_posterior
   const leftSideComps = [
     ...(data.sls.compensations.left_anterior || []),
+    ...(data.sls.compensations.left_lateral || []),
     ...(data.sls.compensations.left_posterior || []),
   ];
   const rightSideComps = [
     ...(data.sls.compensations.right_anterior || []),
+    ...(data.sls.compensations.right_lateral || []),
     ...(data.sls.compensations.right_posterior || []),
+  ];
+
+  // Aggregate Push-up compensations from both views (lateral + posterior)
+  const pushupComps = [
+    ...(data.pushup.compensations.lateral || []),
+    ...(data.pushup.compensations.posterior || []),
   ];
 
   return {
@@ -84,7 +97,7 @@ function toLegacyFormat(data: GlobalTestData): LegacyTestData {
       notes: data.sls.notes,
     },
     pushup: {
-      compensations: data.pushup.compensations.posterior || [],
+      compensations: pushupComps,
       notes: data.pushup.notes,
     },
   };
@@ -111,20 +124,17 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
   const navigate = useNavigate();
 
   // Track assessment ID changes to reset when switching assessments
-  // Only reset if we had a DIFFERENT assessment stored AND data was already loaded
   useEffect(() => {
-    if (isLoadingPersistence) return; // Wait for data to load first
+    if (isLoadingPersistence) return;
     
     const savedAssessmentId = localStorage.getItem('globalTests_assessmentId');
     
-    // Only clear if switching to a DIFFERENT assessment (not first load)
     if (savedAssessmentId && savedAssessmentId !== assessmentId && prevAssessmentIdRef.current === savedAssessmentId) {
       logger.debug(`Switching from ${savedAssessmentId} to ${assessmentId}, clearing old data`);
       clearPersistedData();
       setCurrentStep(1);
     }
     
-    // Update stored assessment ID
     localStorage.setItem('globalTests_assessmentId', assessmentId);
     prevAssessmentIdRef.current = assessmentId;
   }, [assessmentId, isLoadingPersistence, clearPersistedData, setCurrentStep]);
@@ -168,29 +178,32 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         media_urls: collectMediaUrls(data.ohs),
       });
 
-      // Save SLS results with detailed view data
+      // Save SLS results with detailed view data (including new lateral views)
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'sls',
         left_side: { 
           compensations: legacyData.sls.leftSide,
           anterior: data.sls.compensations.left_anterior || [],
+          lateral: data.sls.compensations.left_lateral || [],
           posterior: data.sls.compensations.left_posterior || [],
         },
         right_side: { 
           compensations: legacyData.sls.rightSide,
           anterior: data.sls.compensations.right_anterior || [],
+          lateral: data.sls.compensations.right_lateral || [],
           posterior: data.sls.compensations.right_posterior || [],
         },
         notes: legacyData.sls.notes || null,
         media_urls: collectMediaUrls(data.sls),
       });
 
-      // Save Push-up results (posterior view)
+      // Save Push-up results (lateral + posterior views)
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'pushup',
-        posterior_view: { compensations: legacyData.pushup.compensations },
+        lateral_view: { compensations: data.pushup.compensations.lateral || [] },
+        posterior_view: { compensations: data.pushup.compensations.posterior || [] },
         notes: legacyData.pushup.notes || null,
         media_urls: collectMediaUrls(data.pushup),
       });

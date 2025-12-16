@@ -14,7 +14,9 @@ import {
   ohsLateralCompensations,
   ohsPosteriorCompensations,
   slsAnteriorCompensations,
+  slsLateralCompensations,
   slsPosteriorCompensations,
+  pushupLateralCompensations,
   pushupPosteriorCompensations,
   CompensationMapping,
 } from '@/data/compensationMappings';
@@ -33,8 +35,10 @@ type ViewType =
   | 'lateral' 
   | 'posterior' 
   | 'left_anterior' 
+  | 'left_lateral'
   | 'left_posterior' 
   | 'right_anterior' 
+  | 'right_lateral'
   | 'right_posterior';
 
 interface TestConfig {
@@ -99,6 +103,7 @@ const TEST_CONFIGS: Record<TestType, TestConfig> = {
       'Realizar 3-5 repetições em cada lado e cada vista',
     ],
     views: [
+      // Perna Esquerda - 3 vistas
       {
         id: 'left_anterior',
         label: 'Esquerda - Anterior',
@@ -106,16 +111,29 @@ const TEST_CONFIGS: Record<TestType, TestConfig> = {
         compensations: slsAnteriorCompensations,
       },
       {
+        id: 'left_lateral',
+        label: 'Esquerda - Lateral',
+        description: 'De lado, aluno apoiado na perna esquerda',
+        compensations: slsLateralCompensations,
+      },
+      {
         id: 'left_posterior',
         label: 'Esquerda - Posterior',
         description: 'Por trás, aluno apoiado na perna esquerda',
         compensations: slsPosteriorCompensations,
       },
+      // Perna Direita - 3 vistas
       {
         id: 'right_anterior',
         label: 'Direita - Anterior',
         description: 'De frente, aluno apoiado na perna direita',
         compensations: slsAnteriorCompensations,
+      },
+      {
+        id: 'right_lateral',
+        label: 'Direita - Lateral',
+        description: 'De lado, aluno apoiado na perna direita',
+        compensations: slsLateralCompensations,
       },
       {
         id: 'right_posterior',
@@ -134,10 +152,16 @@ const TEST_CONFIGS: Record<TestType, TestConfig> = {
       'Posição de prancha com mãos na largura dos ombros',
       'Corpo alinhado da cabeça aos calcanhares',
       'Descer controladamente até o peito próximo ao chão',
-      'Capturar de trás (visão posterior) para avaliar escápulas',
+      'Capturar de lado e de trás para avaliação completa',
       'Realizar 5 repetições para avaliação',
     ],
     views: [
+      {
+        id: 'lateral',
+        label: 'Vista Lateral',
+        description: 'Posicione-se ao lado do aluno para observar alinhamento do quadril',
+        compensations: pushupLateralCompensations,
+      },
       {
         id: 'posterior',
         label: 'Vista Posterior',
@@ -179,8 +203,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], ...urls } },
     });
   }, [data, onUpdate]);
-
-  // Slow motion is always assumed true for better analysis
 
   const handleUpdateCompensations = useCallback((viewId: ViewType, compensations: string[]) => {
     onUpdate({
@@ -226,7 +248,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
 
   // Extract frame from video when no photo available
   const extractFrameFromVideo = async (videoUrl: string): Promise<string> => {
-    // Fetch video as blob to avoid CORS issues with Supabase Storage
     const response = await fetch(videoUrl);
     if (!response.ok) {
       throw new Error('Failed to fetch video');
@@ -245,7 +266,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       };
       
       video.onloadedmetadata = () => {
-        // Seek to middle of video for best frame
         video.currentTime = video.duration / 2;
       };
       
@@ -289,7 +309,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     let imageUrl = media?.photoUrl;
     let videoUrl = media?.videoUrl;
     
-    // Refresh signed URL if expired (contains token parameter)
+    // Refresh signed URL if expired
     const refreshSignedUrl = async (url: string): Promise<string | null> => {
       if (!url.includes('token=')) return url;
       
@@ -301,7 +321,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           body: { filePath }
         });
         
-        // Check for file not found (404) or other errors
         if (error || signedData?.error) {
           const errorCode = signedData?.code || 500;
           if (errorCode === 404) {
@@ -323,12 +342,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     // If no photo but video exists, extract a frame
     if (!imageUrl && videoUrl) {
       try {
-        // Refresh video URL before extracting frame
         const freshVideoUrl = await refreshSignedUrl(videoUrl);
-        if (!freshVideoUrl) {
-          // File doesn't exist, user needs to re-upload
-          return;
-        }
+        if (!freshVideoUrl) return;
         imageUrl = await extractFrameFromVideo(freshVideoUrl);
         videoUrl = freshVideoUrl;
       } catch (error) {
@@ -338,9 +353,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       }
     }
     
-    if (!imageUrl) {
-      return;
-    }
+    if (!imageUrl) return;
     
     await analyzeMovement({
       testType: config.aiTestType,
@@ -408,7 +421,11 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                       : 'bg-muted/60 text-muted-foreground hover:bg-muted'
                 )}
               >
-                {view.label.replace('Vista ', '').replace('Esquerda - ', 'E ').replace('Direita - ', 'D ')}
+                {view.label
+                  .replace('Vista ', '')
+                  .replace('Esquerda - ', 'E ')
+                  .replace('Direita - ', 'D ')
+                }
                 {hasCompensations && (
                   <span className={cn(
                     'h-4 min-w-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center',
@@ -553,43 +570,43 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           </CardContent>
         </Card>
 
-      {/* View Navigation Buttons - Only show if multiple views */}
-      {config.views.length > 1 && (
-        <div className="flex justify-between pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentViewIndex(Math.max(0, currentViewIndex - 1))}
-            disabled={currentViewIndex === 0}
-            className="gap-1"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Vista Anterior
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setCurrentViewIndex(Math.min(config.views.length - 1, currentViewIndex + 1))}
-            disabled={currentViewIndex === config.views.length - 1}
-            className="gap-1"
-          >
-            Próxima Vista
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+        {/* View Navigation Buttons - Only show if multiple views */}
+        {config.views.length > 1 && (
+          <div className="flex justify-between pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentViewIndex(Math.max(0, currentViewIndex - 1))}
+              disabled={currentViewIndex === 0}
+              className="gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Vista Anterior
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setCurrentViewIndex(Math.min(config.views.length - 1, currentViewIndex + 1))}
+              disabled={currentViewIndex === config.views.length - 1}
+              className="gap-1"
+            >
+              Próxima Vista
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
-      {/* Notes - Collapsible */}
-      <div className="space-y-2 pt-2 border-t border-border/50">
-        <Label className="text-xs text-muted-foreground">Observações (opcional)</Label>
-        <Textarea
-          placeholder="Anote detalhes relevantes..."
-          value={data.notes}
-          onChange={(e) => onUpdate({ ...data, notes: e.target.value })}
-          rows={2}
-          className="text-sm resize-none"
-        />
+        {/* Notes - Collapsible */}
+        <div className="space-y-2 pt-2 border-t border-border/50">
+          <Label className="text-xs text-muted-foreground">Observações (opcional)</Label>
+          <Textarea
+            placeholder="Anote detalhes relevantes..."
+            value={data.notes}
+            onChange={(e) => onUpdate({ ...data, notes: e.target.value })}
+            rows={2}
+            className="text-sm resize-none"
+          />
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }

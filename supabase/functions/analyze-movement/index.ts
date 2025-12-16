@@ -34,7 +34,6 @@ async function validateAuth(req: Request): Promise<{ userId: string } | null> {
 
 // ============================================
 // DADOS CLÍNICOS COMPLETOS POR COMPENSAÇÃO
-// Baseado na Tabela A - Mapeamento Compensação → Músculos
 // ============================================
 const COMPENSATION_DATA: Record<string, {
   label: string;
@@ -72,7 +71,6 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Sobrecarga lateral joelho', 'Síndrome banda IT', 'Artrose lateral'],
     detection_criteria: 'Joelhos se afastam lateralmente da linha vertical. Espaço excessivo entre joelhos.',
   },
-  
   // OHS - Vista Lateral
   trunk_forward_lean: {
     label: 'Inclinação excessiva do tronco',
@@ -109,7 +107,6 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Impacto do ombro', 'Síndrome desfiladeiro torácico', 'Cifose torácica'],
     detection_criteria: 'Braços caem ABAIXO da linha da cabeça. Perda da posição overhead durante descida.',
   },
-  
   // OHS - Vista Posterior
   asymmetric_shift: {
     label: 'Shift pélvico assimétrico',
@@ -125,7 +122,6 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Disfunção sacroilíaca', 'Dor lombar assimétrica', 'Escoliose funcional'],
     detection_criteria: 'Ombros ou pelve rotam de forma ASSIMÉTRICA. Um ombro claramente mais anterior que outro.',
   },
-  
   // SLS - Vista Anterior
   foot_collapse: {
     label: 'Colapso do arco plantar',
@@ -155,7 +151,21 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Entorses recorrentes', 'Risco quedas', 'Instabilidade crônica'],
     detection_criteria: 'PERDE o apoio ou precisa tocar o chão com pé contralateral.',
   },
-  
+  // SLS - Vista Lateral
+  trunk_forward_lean_sls: {
+    label: 'Inclinação anterior do tronco',
+    hyperactive: ['Iliopsoas', 'Reto femoral', 'Eretores lombares'],
+    hypoactive: ['Glúteo máximo', 'Core anterior', 'Transverso abdominal'],
+    injuries: ['Sobrecarga lombar', 'Impacto do quadril'],
+    detection_criteria: 'Inclinação >30° para frente. Tronco projeta significativamente sobre coxa.',
+  },
+  knee_flexion_insufficient: {
+    label: 'Flexão insuficiente de joelho',
+    hyperactive: ['Quadríceps em proteção', 'Gastrocnêmio'],
+    hypoactive: ['Glúteo máximo', 'Controle excêntrico quadríceps'],
+    injuries: ['Compensação por dor ou restrição', 'Déficit controle motor'],
+    detection_criteria: 'Joelho flexiona <30° (amplitude MUITO limitada). Agachamento extremamente raso.',
+  },
   // SLS - Vista Posterior
   hip_drop: {
     label: 'Queda do quadril (Trendelenburg)',
@@ -185,22 +195,22 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Desequilíbrio rotacional', 'Dor lombar'],
     detection_criteria: 'Tronco rota >15° para fora (lateralmente). Ombro do lado de apoio gira para trás.',
   },
-  trunk_forward_lean_sls: {
-    label: 'Inclinação anterior do tronco',
-    hyperactive: ['Iliopsoas', 'Reto femoral', 'Eretores lombares'],
-    hypoactive: ['Glúteo máximo', 'Core anterior', 'Transverso abdominal'],
-    injuries: ['Sobrecarga lombar', 'Impacto do quadril'],
-    detection_criteria: 'Inclinação >30° para frente. Tronco projeta significativamente sobre coxa.',
+  // Push-up - Vista Lateral
+  hip_elevation: {
+    label: 'Elevação do quadril (pike)',
+    hyperactive: ['Flexores quadril', 'Reto abdominal'],
+    hypoactive: ['Glúteos', 'Core estabilizador', 'Transverso abdominal'],
+    injuries: ['Sobrecarga lombar', 'Déficit core'],
+    detection_criteria: 'Quadril sobe formando "pirâmide". Pike EVIDENTE quebrando alinhamento corporal.',
   },
-  knee_flexion_insufficient: {
-    label: 'Flexão insuficiente de joelho',
-    hyperactive: ['Quadríceps em proteção', 'Gastrocnêmio'],
-    hypoactive: ['Glúteo máximo', 'Controle excêntrico quadríceps'],
-    injuries: ['Compensação por dor ou restrição', 'Déficit controle motor'],
-    detection_criteria: 'Joelho flexiona <30° (amplitude MUITO limitada). Agachamento extremamente raso.',
+  hip_drop_pushup: {
+    label: 'Queda do quadril (push-up)',
+    hyperactive: ['Eretores lombares', 'Quadrado lombar'],
+    hypoactive: ['Core anterior', 'Glúteos', 'Transverso abdominal'],
+    injuries: ['Dor lombar', 'Hiperlordose'],
+    detection_criteria: 'Quadril afunda criando lordose EXAGERADA. Barriga cai em direção ao solo.',
   },
-  
-  // Push-up
+  // Push-up - Vista Posterior
   scapular_winging: {
     label: 'Escápula alada',
     hyperactive: ['Peitoral menor', 'Romboides', 'Levantador escápula', 'Trapézio superior'],
@@ -229,23 +239,8 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Discinese escapular', 'Impacto ombro'],
     detection_criteria: 'Escápulas NÃO se aproximam na fase excêntrica. Falta de retração no fundo do movimento.',
   },
-  hip_elevation: {
-    label: 'Elevação do quadril (pike)',
-    hyperactive: ['Flexores quadril', 'Reto abdominal'],
-    hypoactive: ['Glúteos', 'Core estabilizador', 'Transverso abdominal'],
-    injuries: ['Sobrecarga lombar', 'Déficit core'],
-    detection_criteria: 'Quadril sobe formando "pirâmide". Pike EVIDENTE quebrando alinhamento corporal.',
-  },
-  hip_drop_pushup: {
-    label: 'Queda do quadril (push-up)',
-    hyperactive: ['Eretores lombares', 'Quadrado lombar'],
-    hypoactive: ['Core anterior', 'Glúteos', 'Transverso abdominal'],
-    injuries: ['Dor lombar', 'Hiperlordose'],
-    detection_criteria: 'Quadril afunda criando lordose EXAGERADA. Barriga cai em direção ao solo.',
-  },
 };
 
-// Gerar contexto clínico formatado para prompt
 function getCompensationContext(compensationIds: string[]): string {
   const contexts: string[] = [];
   for (const id of compensationIds) {
@@ -263,7 +258,7 @@ ${id.toUpperCase()} - ${data.label}:
 }
 
 // ============================================
-// TOOL CALLING SCHEMA (PADRONIZADO)
+// TOOL CALLING SCHEMA
 // ============================================
 const ANALYSIS_TOOL = {
   type: "function" as const,
@@ -306,7 +301,7 @@ const ANALYSIS_TOOL = {
         technical_note: {
           type: "string",
           maxLength: 300,
-          description: "Observação clínica em português. Descreva QUALITATIVAMENTE o que observa: padrões de movimento, assimetrias (unilateral/bilateral), implicações musculares (hiper/hipoativos), qualidade do movimento (leve/moderada/acentuada, consistente/intermitente). NÃO cite ângulos específicos ou medidas numéricas - foque em descrições visuais e funcionais."
+          description: "Observação clínica em português. Descreva QUALITATIVAMENTE o que observa. NÃO cite ângulos específicos ou medidas numéricas."
         }
       },
       required: ["detected_compensations", "confidence", "severity", "side_bias", "requires_attention", "technical_note"]
@@ -315,260 +310,122 @@ const ANALYSIS_TOOL = {
 };
 
 // ============================================
-// PROMPTS ESPECÍFICOS POR VISTA
+// PROMPTS POR VISTA
 // ============================================
 
 const OHS_PROMPTS: Record<string, string> = {
-  anterior: `Você é um fisioterapeuta especialista em biomecânica do movimento com 15 anos de experiência clínica.
+  anterior: `Você é um fisioterapeuta especialista em biomecânica do movimento.
 Analise esta imagem de OVERHEAD SQUAT - VISTA ANTERIOR (frontal).
 
-OBJETIVO: Identificar compensações que indiquem disfunções neuromusculares, limitações de mobilidade ou déficits de controle motor.
-
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
-
 ${getCompensationContext(['feet_abduction', 'feet_eversion', 'knee_valgus', 'knee_varus'])}
 
-ANÁLISE BIOMECÂNICA:
-1. Observe a BASE DE APOIO: largura, ângulo dos pés, simetria
-2. Analise o COMPLEXO TORNOZELO-PÉ: arco plantar, posição do calcâneo, pronação
-3. Avalie os JOELHOS: alinhamento patela-hálux, valgo/varo dinâmico
-4. Note ASSIMETRIAS entre lados esquerdo e direito
-
-CRITÉRIOS DE REPORTE:
-- Reporte APENAS compensações CLARAMENTE VISÍVEIS e CONSISTENTES
-- Variações anatômicas leves são NORMAIS - não reporte
-- Foque em padrões que indicam DISFUNÇÃO FUNCIONAL real
-
-VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
-- Severidade: "leve/discreta", "moderada", "acentuada/marcante"
-- Lateralidade: "unilateral esquerdo/direito", "bilateral assimétrico", "bilateral simétrico"
-- Consistência: "consistente ao longo do movimento", "intermitente", "apenas no fundo do agachamento"
-- Exemplos: "valgo moderado bilateral com maior acentuação à direita", "arco plantar colapsa de forma acentuada bilateralmente"
-
-CLASSIFICAÇÃO:
-- minimal: movimento de qualidade, 0-1 compensação leve
-- moderate: 2-3 compensações ou 1 significativa
-- marked: padrão disfuncional claro, múltiplas compensações
+ANÁLISE: Observe BASE DE APOIO, COMPLEXO TORNOZELO-PÉ, e JOELHOS.
+Reporte APENAS compensações CLARAMENTE VISÍVEIS e CONSISTENTES.
 
 Use a função report_analysis para reportar resultados estruturados.`,
 
-  lateral: `Você é um fisioterapeuta especialista em biomecânica do movimento com 15 anos de experiência clínica.
+  lateral: `Você é um fisioterapeuta especialista em biomecânica do movimento.
 Analise esta imagem de OVERHEAD SQUAT - VISTA LATERAL (perfil).
 
-OBJETIVO: Identificar compensações no plano sagital que indiquem limitações de mobilidade ou déficits de estabilidade.
-
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
-
 ${getCompensationContext(['trunk_forward_lean', 'lumbar_hyperextension', 'spine_flexion', 'heels_rise', 'arms_fall_forward'])}
 
-ANÁLISE BIOMECÂNICA:
-1. Observe a COLUNA VERTEBRAL: cifose torácica, lordose lombar, flexão/extensão
-2. Analise a INCLINAÇÃO DO TRONCO: ângulo em relação à vertical
-3. Avalie a POSIÇÃO DOS BRAÇOS: manutenção overhead ou queda
-4. Verifique o TORNOZELO: calcanhares no solo, dorsiflexão
-5. Observe a PELVE: anteversão, retroversão, butt wink
-
-MOMENTOS CRÍTICOS DE AVALIAÇÃO:
-- Posição INICIAL (topo)
-- TRANSIÇÃO descida
-- FUNDO do agachamento (profundidade máxima)
-- TRANSIÇÃO subida
-
-CRITÉRIOS DE REPORTE:
-- Reporte compensações que são CONSISTENTES durante o movimento
-- Butt wink só é relevante se for PRONUNCIADO (não sutil)
-- Inclinação de tronco só é relevante se EXCESSIVA (tronco muito à frente dos quadris)
-
-VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
-- Severidade: "leve/discreta", "moderada", "acentuada/marcante"
-- Timing: "desde o início", "na transição descida-fundo", "apenas no fundo máximo"
-- Exemplos: "butt wink moderado no fundo do agachamento", "inclinação de tronco acentuada desde o início da descida"
+ANÁLISE: Observe COLUNA VERTEBRAL, INCLINAÇÃO DO TRONCO, POSIÇÃO DOS BRAÇOS, TORNOZELO, e PELVE.
+Reporte compensações CONSISTENTES durante o movimento.
 
 Use a função report_analysis para reportar resultados estruturados.`,
 
-  posterior: `Você é um fisioterapeuta especialista em biomecânica do movimento com 15 anos de experiência clínica.
+  posterior: `Você é um fisioterapeuta especialista em biomecânica do movimento.
 Analise esta imagem de OVERHEAD SQUAT - VISTA POSTERIOR (de trás).
 
-OBJETIVO: Identificar assimetrias, rotações e compensações no plano frontal/transversal.
-
-═══════════════════════════════════════════════════════════════
-REFERÊNCIA DE LATERALIDADE - REGRA FUNDAMENTAL (LEIA PRIMEIRO):
-═══════════════════════════════════════════════════════════════
-Na vista POSTERIOR, você observa as COSTAS do paciente. A lateralidade deve ser SEMPRE do ponto de vista ANATÔMICO do paciente, NÃO da perspectiva da imagem.
-
-REGRA DE CONVERSÃO:
+REFERÊNCIA DE LATERALIDADE:
 - O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
 - O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
 
-EXEMPLOS PRÁTICOS:
-- Se a pelve desvia para a ESQUERDA DA IMAGEM → reporte "shift pélvico para DIREITA" (lado direito do paciente)
-- Se o ombro ESQUERDO DA IMAGEM está mais elevado → reporte "ombro DIREITO mais elevado"
-- Se há mais peso na perna ESQUERDA DA IMAGEM → reporte "sobrecarga no membro inferior DIREITO"
-═══════════════════════════════════════════════════════════════
-
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+${getCompensationContext(['asymmetric_shift', 'trunk_rotation'])}
 
-${getCompensationContext(['asymmetric_shift', 'trunk_rotation', 'feet_eversion'])}
-
-ANÁLISE BIOMECÂNICA:
-1. Observe a SIMETRIA PÉLVICA: shift lateral, inclinação
-2. Analise a ROTAÇÃO: ombros vs pelve, assimetrias
-3. Avalie a DISTRIBUIÇÃO DE PESO: bias para um lado
-4. Verifique o ALINHAMENTO ESCAPULAR: simetria, elevação
-5. Observe os PÉS por trás: eversão, posição calcanhares
-
-INDICADORES DE ASSIMETRIA:
-- Crista ilíaca mais alta de um lado
-- Ombro mais elevado ou protraído
-- Peso claramente mais em um membro
-- Rotação visível do tronco
-
-CRITÉRIOS DE REPORTE:
-- Shift pélvico só é significativo se CLARAMENTE VISÍVEL (desvio evidente)
-- Rotação de tronco deve ser EVIDENTE, não sutil
-- SEMPRE use lateralidade ANATÔMICA do paciente no side_bias e technical_note
-
-VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos/medidas):
-- Assimetria: "leve assimetria", "assimetria moderada", "assimetria marcante"
-- Lateralidade ANATÔMICA: "desvio para direita (lado direito do paciente)", "ombro esquerdo mais elevado"
-- Exemplos: "shift pélvico moderado para direita com sobrecarga no membro inferior direito", "rotação de tronco com ombro esquerdo mais protraído"
+ANÁLISE: Observe SIMETRIA PÉLVICA, ROTAÇÃO, e DISTRIBUIÇÃO DE PESO.
+SEMPRE use lateralidade ANATÔMICA do paciente no side_bias e technical_note.
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };
 
 const SLS_PROMPTS: Record<string, string> = {
-  anterior: `Você é um fisioterapeuta especialista em biomecânica com 15 anos de experiência clínica.
+  anterior: `Você é um fisioterapeuta especialista em biomecânica.
 Analise esta imagem de SINGLE-LEG SQUAT - VISTA ANTERIOR (frontal).
 
-OBJETIVO: Avaliar controle neuromuscular unipodal, estabilidade e padrões de valgo.
-
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
-
 ${getCompensationContext(['knee_valgus', 'foot_collapse', 'instability', 'tremor', 'balance_loss'])}
 
-ANÁLISE BIOMECÂNICA:
-1. Observe o JOELHO: valgo dinâmico durante descida
-2. Analise o PÉ: colapso do arco, pronação excessiva
-3. Avalie a ESTABILIDADE: oscilações, tremor, perda de equilíbrio
-4. Note o CONTROLE MOTOR: qualidade e suavidade do movimento
-
-IMPORTANTE - CONTEXTO UNIPODAL:
-- Pequenas oscilações são NORMAIS em apoio unipodal
-- Tremor só é significativo se PERSISTENTE e VISÍVEL
-- Avalie a CAPACIDADE de manter controle, não perfeição
-
-DIFERENCIAÇÃO:
-- instability: oscilações grandes e repetidas
-- tremor: vibração muscular visível persistente
-- balance_loss: perde o apoio ou toca o chão
-
-VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
-- Controle: "controle adequado", "controle comprometido", "controle severamente limitado"
-- Qualidade: "movimento fluido", "movimento com oscilações", "movimento instável"
-- Exemplos: "valgo dinâmico moderado com colapso leve do arco plantar", "instabilidade acentuada com tremor persistente"
+ANÁLISE: Observe JOELHO (valgo), PÉ (colapso), e ESTABILIDADE geral.
+Pequenas oscilações são NORMAIS em apoio unipodal.
 
 Use a função report_analysis para reportar resultados estruturados.`,
 
-  posterior: `Você é um fisioterapeuta especialista em biomecânica com 15 anos de experiência clínica.
+  lateral: `Você é um fisioterapeuta especialista em biomecânica.
+Analise esta imagem de SINGLE-LEG SQUAT - VISTA LATERAL (perfil).
+
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+${getCompensationContext(['trunk_forward_lean_sls', 'knee_flexion_insufficient'])}
+
+ANÁLISE BIOMECÂNICA:
+1. Observe a INCLINAÇÃO DO TRONCO: flexão anterior excessiva (>30°)
+2. Avalie a AMPLITUDE de flexão do joelho: <30° indica insuficiência
+3. Verifique o ALINHAMENTO coluna-pelve-membro
+
+Reporte apenas compensações CLARAMENTE VISÍVEIS.
+
+Use a função report_analysis para reportar resultados estruturados.`,
+
+  posterior: `Você é um fisioterapeuta especialista em biomecânica.
 Analise esta imagem de SINGLE-LEG SQUAT - VISTA POSTERIOR (de trás).
 
-OBJETIVO: Avaliar controle do quadril, estabilidade pélvica e padrões compensatórios.
-
-═══════════════════════════════════════════════════════════════
-REFERÊNCIA DE LATERALIDADE - REGRA FUNDAMENTAL (LEIA PRIMEIRO):
-═══════════════════════════════════════════════════════════════
-Na vista POSTERIOR, você observa as COSTAS do paciente. A lateralidade deve ser SEMPRE do ponto de vista ANATÔMICO do paciente, NÃO da perspectiva da imagem.
-
-REGRA DE CONVERSÃO:
+REFERÊNCIA DE LATERALIDADE:
 - O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
 - O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
 
-EXEMPLOS PRÁTICOS:
-- Se a perna de APOIO está à ESQUERDA da imagem → paciente está apoiando na perna DIREITA
-- Se a pelve CAI para a ESQUERDA da imagem → reporte "hip_drop no lado DIREITO" (pelve direita caiu)
-- Se o tronco ROTA para a ESQUERDA da imagem → reporte rotação para o lado DIREITO do paciente
-═══════════════════════════════════════════════════════════════
-
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
-
-${getCompensationContext(['hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral', 'trunk_forward_lean_sls', 'knee_flexion_insufficient'])}
-
-ANÁLISE BIOMECÂNICA:
-1. Observe a PELVE: queda (Trendelenburg) ou elevação contralateral
-2. Analise a ROTAÇÃO DO TRONCO: medial vs lateral
-3. Avalie a INCLINAÇÃO: flexão anterior excessiva
-4. Verifique a AMPLITUDE: flexão de joelho suficiente
+${getCompensationContext(['hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral'])}
 
 TESTE DE TRENDELENBURG:
 - POSITIVO: pelve contralateral CAI >5° (hip_drop)
-- NEGATIVO: pelve mantém nível ou eleva levemente
 - Queda indica fraqueza de glúteo médio do lado de APOIO
 
-CRITÉRIOS DE REPORTE:
-- hip_drop é clinicamente RELEVANTE - indica déficit glúteo médio
-- Rotação de tronco deve ser CLARAMENTE VISÍVEL para ser significativa
-- SEMPRE use lateralidade ANATÔMICA do paciente no side_bias e technical_note
-
-VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
-- Trendelenburg: "queda pélvica leve no lado [direito/esquerdo]", "Trendelenburg moderado"
-- Rotação: "rotação discreta para medial/lateral"
-- Lateralidade ANATÔMICA: "apoio unipodal direito", "pelve esquerda elevada"
-- Exemplos: "Trendelenburg positivo moderado no apoio direito", "rotação medial do tronco durante apoio esquerdo"
+SEMPRE use lateralidade ANATÔMICA do paciente.
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };
 
 const PUSHUP_PROMPTS: Record<string, string> = {
-  posterior: `Você é um fisioterapeuta especialista em biomecânica com 15 anos de experiência clínica.
+  lateral: `Você é um fisioterapeuta especialista em biomecânica.
+Analise esta imagem de PUSH-UP - VISTA LATERAL (perfil).
+
+COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+${getCompensationContext(['hip_elevation', 'hip_drop_pushup'])}
+
+ANÁLISE BIOMECÂNICA:
+1. Observe o ALINHAMENTO: cabeça-ombros-quadril-tornozelos devem formar linha reta
+2. Verifique o QUADRIL: pike (elevação formando pirâmide) ou drop (queda com lordose)
+3. Avalie a COLUNA: lordose ou cifose excessiva
+
+Reporte apenas compensações CLARAMENTE VISÍVEIS.
+
+Use a função report_analysis para reportar resultados estruturados.`,
+
+  posterior: `Você é um fisioterapeuta especialista em biomecânica.
 Analise esta imagem de PUSH-UP - VISTA POSTERIOR (de trás).
 
-OBJETIVO: Avaliar controle escapular, estabilidade de core e padrões compensatórios.
-
-═══════════════════════════════════════════════════════════════
-REFERÊNCIA DE LATERALIDADE - REGRA FUNDAMENTAL (LEIA PRIMEIRO):
-═══════════════════════════════════════════════════════════════
-Na vista POSTERIOR, você observa as COSTAS do paciente. A lateralidade deve ser SEMPRE do ponto de vista ANATÔMICO do paciente, NÃO da perspectiva da imagem.
-
-REGRA DE CONVERSÃO:
+REFERÊNCIA DE LATERALIDADE:
 - O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
 - O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
 
-EXEMPLOS PRÁTICOS:
-- Se a escápula ESQUERDA da imagem apresenta winging → reporte "winging na escápula DIREITA"
-- Se o ombro ESQUERDO da imagem está mais protraído → reporte "protração do ombro DIREITO"
-- Para assimetrias unilaterais, especifique qual lado ANATÔMICO está afetado
-═══════════════════════════════════════════════════════════════
-
 COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+${getCompensationContext(['scapular_winging', 'elbow_flare', 'shoulder_protraction', 'shoulder_retraction_insufficient'])}
 
-${getCompensationContext(['scapular_winging', 'elbow_flare', 'shoulder_protraction', 'shoulder_retraction_insufficient', 'hip_elevation', 'hip_drop_pushup'])}
-
-ANÁLISE BIOMECÂNICA:
-1. Observe as ESCÁPULAS: winging, posição, simetria
-2. Analise os COTOVELOS: ângulo em relação ao tronco
-3. Avalie os OMBROS: protração, retração durante fases
-4. Verifique o QUADRIL: alinhamento, pike ou drop
-
-FASES DO PUSH-UP:
-- EXCÊNTRICA (descida): escápulas devem retrair, cotovelos ~45°
-- CONCÊNTRICA (subida): escápulas devem protrair, sem winging
-
-SCAPULAR WINGING:
-- Borda medial da escápula projeta-se >2cm do tórax
-- Indica déficit de SERRÁTIL ANTERIOR
-- Clinicamente RELEVANTE para função do ombro
-
-CRITÉRIOS DE REPORTE:
-- Cotovelos devem formar "seta" com o tronco, não "T" (flare excessivo)
-- Escápula alada é compensação importante
-- SEMPRE use lateralidade ANATÔMICA para assimetrias unilaterais
-
-VOCABULÁRIO PARA TECHNICAL_NOTE (use estas descrições, NÃO cite ângulos):
-- Escápula: "winging discreto bilateral", "winging moderado na escápula direita/esquerda"
-- Cotovelos: "posição adequada", "flare moderado", "flare excessivo formando T"
-- Core: "alinhamento mantido", "leve perda de alinhamento", "pike/drop evidente"
-- Lateralidade ANATÔMICA: "escápula direita", "ombro esquerdo", "bilateral"
-- Exemplos: "winging moderado na escápula direita com flare de cotovelos", "protração acentuada do ombro esquerdo"
+ANÁLISE: Observe ESCÁPULAS (winging), COTOVELOS (flare), e OMBROS (protração/retração).
+SEMPRE use lateralidade ANATÔMICA para assimetrias unilaterais.
 
 Use a função report_analysis para reportar resultados estruturados.`,
 };
@@ -577,142 +434,114 @@ Use a função report_analysis para reportar resultados estruturados.`,
 // SLS LATERALITY CONTEXT HELPERS
 // ============================================
 
-/**
- * Parse viewType like 'left_anterior' into { side: 'left', baseView: 'anterior' }
- */
 function parseSLSViewType(viewType: string): { side: 'left' | 'right' | null; baseView: string } {
   const parts = viewType.toLowerCase().split('_');
   if (parts.length >= 2 && ['left', 'right'].includes(parts[0])) {
     return { 
       side: parts[0] as 'left' | 'right', 
-      baseView: parts.slice(1).join('_') // handles 'left_anterior' -> 'anterior'
+      baseView: parts.slice(1).join('_')
     };
   }
   return { side: null, baseView: viewType };
 }
 
-/**
- * Generate laterality context for SLS prompts based on support side and view
- */
-function getSLSLateralityContext(side: 'left' | 'right', view: 'anterior' | 'posterior'): string {
+function getSLSLateralityContext(side: 'left' | 'right', view: 'anterior' | 'lateral' | 'posterior'): string {
   const supportSide = side === 'left' ? 'ESQUERDA' : 'DIREITA';
-  const freeSide = side === 'left' ? 'DIREITA' : 'ESQUERDA';
   const supportSideLower = side === 'left' ? 'esquerdo' : 'direito';
-  const freeSideLower = side === 'left' ? 'direito' : 'esquerdo';
   
   if (view === 'posterior') {
     return `
-═══════════════════════════════════════════════════════════════
-CONTEXTO DE LATERALIDADE - CRÍTICO PARA ESTA ANÁLISE
-═══════════════════════════════════════════════════════════════
-Este vídeo é do SINGLE-LEG SQUAT ${supportSide} - VISTA POSTERIOR.
-O paciente está APOIADO na PERNA ${supportSide}.
-A perna ${freeSide} está livre (elevada).
+CONTEXTO: SINGLE-LEG SQUAT ${supportSide} - VISTA POSTERIOR.
+Paciente APOIADO na PERNA ${supportSide}.
 
-LÓGICA CONTRALATERAL (MUITO IMPORTANTE):
-- Você está avaliando a CAPACIDADE DE ESTABILIZAÇÃO do lado ${supportSide}
-- Se a pelve ${freeSide} CAI (hip_drop) → indica DÉFICIT no GLÚTEO MÉDIO ${supportSide}
-- Se a pelve ${freeSide} ELEVA excessivamente (hip_hike) → COMPENSAÇÃO do lado ${supportSide}
-- Qualquer compensação observada indica DÉFICIT FUNCIONAL no lado ${supportSide}
+LÓGICA CONTRALATERAL:
+- Se a pelve contralateral CAI (hip_drop) → indica DÉFICIT no GLÚTEO MÉDIO ${supportSide}
+- Qualquer compensação indica DÉFICIT FUNCIONAL no lado ${supportSideLower}
 
-REGRA DE SIDE_BIAS:
-- Use side_bias: "${side}" para TODAS as compensações detectadas
-- O déficit está SEMPRE no lado de APOIO (${supportSideLower}), não no lado livre
-
-REFERÊNCIA DE LATERALIDADE (vista posterior):
-- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
-- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
-═══════════════════════════════════════════════════════════════
+REGRA: Use side_bias: "${side}" para TODAS as compensações detectadas.
 
 `;
   }
   
-  // Vista anterior - contexto direto
-  return `
-═══════════════════════════════════════════════════════════════
-CONTEXTO DE LATERALIDADE - CRÍTICO PARA ESTA ANÁLISE
-═══════════════════════════════════════════════════════════════
-Este vídeo é do SINGLE-LEG SQUAT ${supportSide} - VISTA ANTERIOR.
-O paciente está APOIADO na PERNA ${supportSide}.
+  if (view === 'lateral') {
+    return `
+CONTEXTO: SINGLE-LEG SQUAT ${supportSide} - VISTA LATERAL.
+Paciente APOIADO na PERNA ${supportSide}.
 
 IMPORTANTE:
-- Todas as compensações detectadas referem-se ao lado ${supportSideLower}
-- O joelho analisado é o JOELHO ${supportSide}
-- O pé analisado é o PÉ ${supportSide}
-- A instabilidade observada é do MEMBRO INFERIOR ${supportSide}
+- Todas as compensações referem-se ao lado ${supportSideLower}
+- O joelho e quadril analisados são do lado ${supportSideLower}
 
-REGRA DE SIDE_BIAS:
-- Use side_bias: "${side}" para TODAS as compensações detectadas
-- Qualquer valgo, colapso de arco ou instabilidade é do lado ${supportSideLower}
-═══════════════════════════════════════════════════════════════
+REGRA: Use side_bias: "${side}" para TODAS as compensações detectadas.
+
+`;
+  }
+  
+  return `
+CONTEXTO: SINGLE-LEG SQUAT ${supportSide} - VISTA ANTERIOR.
+Paciente APOIADO na PERNA ${supportSide}.
+
+IMPORTANTE:
+- Todas as compensações referem-se ao lado ${supportSideLower}
+- O joelho analisado é o JOELHO ${supportSide}
+
+REGRA: Use side_bias: "${side}" para TODAS as compensações detectadas.
 
 `;
 }
 
-// Build dynamic prompt for segmental tests
-interface SegmentalTestParams {
+// Build prompt for segmental tests
+function buildSegmentalPrompt(params: {
   testName: string;
   cutoffValue?: number;
   unit?: string;
   resultType?: 'quantitative' | 'qualitative';
   isBilateral?: boolean;
   instructions?: string;
-}
-
-function buildSegmentalPrompt(params: SegmentalTestParams): string {
+}): string {
   const { testName, cutoffValue, unit, resultType, isBilateral, instructions } = params;
 
   if (resultType === 'quantitative') {
     return `Você é um fisioterapeuta especialista. Analise esta imagem/vídeo do teste "${testName}".
-
 ${instructions ? `Instruções: ${instructions}\n` : ''}
-${isBilateral ? 'Teste BILATERAL - avalie ambos os lados.' : 'Avalie o lado visível.'}
-
+${isBilateral ? 'Teste BILATERAL - avalie ambos os lados.' : ''}
 Valor de corte: ${cutoffValue} ${unit || ''}
 
 Responda em JSON:
 {
-  ${isBilateral ? `"left_value": número,
-  "right_value": número,
-  "left_result": "pass" | "partial" | "fail",
-  "right_result": "pass" | "partial" | "fail",` : `"value": número,
-  "result": "pass" | "partial" | "fail",`}
+  ${isBilateral ? `"left_value": número, "right_value": número, "left_result": "pass" | "partial" | "fail", "right_result": "pass" | "partial" | "fail",` : `"value": número, "result": "pass" | "partial" | "fail",`}
   "confidence": 0.85,
   "notes": "Observações clínicas"
 }`;
   }
 
   return `Você é um fisioterapeuta especialista. Analise esta imagem/vídeo do teste "${testName}".
-
 ${instructions ? `Instruções: ${instructions}\n` : ''}
-${isBilateral ? 'Teste BILATERAL - avalie ambos os lados.' : 'Avalie o lado visível.'}
+${isBilateral ? 'Teste BILATERAL - avalie ambos os lados.' : ''}
 
 Responda em JSON:
 {
-  ${isBilateral ? `"left_result": "pass" | "partial" | "fail",
-  "right_result": "pass" | "partial" | "fail",` : `"result": "pass" | "partial" | "fail",`}
+  ${isBilateral ? `"left_result": "pass" | "partial" | "fail", "right_result": "pass" | "partial" | "fail",` : `"result": "pass" | "partial" | "fail",`}
   "confidence": 0.85,
   "notes": "Observações clínicas"
 }`;
 }
 
 // Build prompt for quick protocol tests
-interface QuickProtocolTestParams {
+function buildQuickProtocolPrompt(params: {
   testId: string;
   testName: string;
   layer: string;
   options: string[];
   isBilateral: boolean;
   instructions?: string;
-}
-
-function buildQuickProtocolPrompt(params: QuickProtocolTestParams): string {
+}): string {
   const { testName, layer, options, isBilateral, instructions } = params;
   
   const layerDescription = {
-    mobility: 'Avalie a AMPLITUDE DE MOVIMENTO - o indivíduo consegue atingir a posição alvo?',
-    stability: 'Avalie a ESTABILIDADE DINÂMICA - consegue manter controle durante o movimento?',
-    motor_control: 'Avalie o CONTROLE NEUROMOTOR - qualidade e coordenação do padrão de movimento',
+    mobility: 'Avalie a AMPLITUDE DE MOVIMENTO',
+    stability: 'Avalie a ESTABILIDADE DINÂMICA',
+    motor_control: 'Avalie o CONTROLE NEUROMOTOR',
   }[layer] || 'Avalie a qualidade do movimento';
   
   return `Você é um fisioterapeuta especialista em protocolos rápidos de dor.
@@ -730,8 +559,7 @@ Responda em JSON:
 {
   "detected_options": ["opções_detectadas"],
   "pain_indicators": true/false,
-  ${isBilateral ? `"left_findings": ["achados_esquerda"],
-  "right_findings": ["achados_direita"],` : ''}
+  ${isBilateral ? `"left_findings": ["achados_esquerda"], "right_findings": ["achados_direita"],` : ''}
   "confidence": 0.85,
   "notes": "Observações clínicas"
 }`;
@@ -796,13 +624,11 @@ serve(async (req) => {
         prompt = OHS_PROMPTS[view] || OHS_PROMPTS.anterior;
         console.log(`Global test: ${testType} - ${view} view`);
       } else if (testType === 'single_leg_squat') {
-        // SLS requires special handling for laterality (left_anterior, right_posterior, etc.)
         const { side, baseView } = parseSLSViewType(view);
         const basePrompt = SLS_PROMPTS[baseView] || SLS_PROMPTS.anterior;
         
-        if (side && (baseView === 'anterior' || baseView === 'posterior')) {
-          // Inject laterality context for side-specific views
-          const lateralityContext = getSLSLateralityContext(side, baseView as 'anterior' | 'posterior');
+        if (side && ['anterior', 'lateral', 'posterior'].includes(baseView)) {
+          const lateralityContext = getSLSLateralityContext(side, baseView as 'anterior' | 'lateral' | 'posterior');
           prompt = lateralityContext + basePrompt;
           console.log(`Global test: ${testType} - ${baseView} view, SUPPORT SIDE: ${side.toUpperCase()}`);
         } else {
@@ -830,7 +656,7 @@ serve(async (req) => {
         ]
       }],
       max_tokens: 2500,
-      temperature: 0, // Resposta determinística para resultados consistentes
+      temperature: 0,
     };
 
     if (useToolCalling) {

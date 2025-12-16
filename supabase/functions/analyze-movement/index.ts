@@ -58,7 +58,7 @@ const COMPENSATION_DATA: Record<string, {
     detection_criteria: 'Arco plantar COLAPSA visivelmente. Calcanhares inclinam medialmente. Navicular desce.',
   },
   knee_valgus: {
-    label: 'Joelhos valgos (cavam para dentro)',
+    label: 'Valgo dinâmico de joelho',
     hyperactive: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral', 'Bíceps femoral'],
     hypoactive: ['Glúteo médio', 'Glúteo máximo', 'VMO', 'Rotadores laterais do quadril'],
     injuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA', 'Condromalácia'],
@@ -124,7 +124,7 @@ const COMPENSATION_DATA: Record<string, {
   },
   // SLS - Vista Anterior
   foot_collapse: {
-    label: 'Colapso do arco plantar',
+    label: 'Pé colapsa (arco cai)',
     hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
     hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome estresse tibial'],
@@ -279,8 +279,8 @@ const OHS_PROMPTS: Record<string, string> = {
 
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - feet_abduction: Pés giram para fora >30°
-- feet_eversion: Arco plantar colapsa, calcanhares inclinam medialmente
-- knee_valgus: Joelhos passam medialmente da linha do hálux
+- feet_eversion: Pé colapsa (arco cai), calcanhares inclinam medialmente
+- knee_valgus: Valgo dinâmico - joelho desvia medialmente da linha do hálux
 - knee_varus: Joelhos se afastam lateralmente
 
 REGRA: Reporte APENAS compensações CLARAMENTE visíveis. Na dúvida, NÃO reporte.
@@ -315,8 +315,8 @@ const SLS_PROMPTS: Record<string, string> = {
   anterior: `Analise SINGLE-LEG SQUAT - VISTA ANTERIOR.
 
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
-- knee_valgus: Joelho desvia medialmente
-- foot_collapse: Arco plantar colapsa completamente
+- knee_valgus: Valgo dinâmico - joelho desvia medialmente
+- foot_collapse: Pé colapsa (arco cai)
 - balance_loss: Oscilações grandes/repetidas, tremor visível/persistente, ou perde apoio/toca o chão
 
 Use report_analysis com detected_compensations e confidence.`,

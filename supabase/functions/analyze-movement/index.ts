@@ -830,6 +830,7 @@ serve(async (req) => {
         ]
       }],
       max_tokens: 2500,
+      temperature: 0, // Resposta determinística para resultados consistentes
     };
 
     if (useToolCalling) {

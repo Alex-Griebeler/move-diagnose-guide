@@ -479,6 +479,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
               onAnalyze={() => handleAnalyze()}
               isAnalyzing={isAnalyzing}
+              embedded
             />
 
             {/* AI Analysis Loading */}

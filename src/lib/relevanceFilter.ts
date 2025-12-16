@@ -190,7 +190,7 @@ const SURGERY_UPGRADE_RULES: UpgradeRule[] = [
         s.procedure.toLowerCase().includes('ligament') ||
         s.procedure.toLowerCase().includes('joelho')
       );
-      return hasKneeSurgery && ['knee_valgus', 'instability', 'balance_loss'].includes(comp);
+      return hasKneeSurgery && ['knee_valgus', 'balance_loss'].includes(comp);
     },
     reason: 'Risco aumentado de re-lesão pós-LCA',
     alert: true,
@@ -322,7 +322,6 @@ function getCompensationRegion(comp: string): string {
     heels_rise: 'tornozelo',
     foot_collapse: 'tornozelo',
     feet_eversion: 'tornozelo',
-    instability: 'joelho',
     balance_loss: 'tornozelo',
   };
   return regionMap[comp] || '';

@@ -46,8 +46,6 @@ const compensationLabels: Record<string, string> = {
   trunk_rotation_lateral: 'Rotação Lateral do Tronco',
   trunk_forward_lean_sls: 'Inclinação Anterior (SLS)',
   knee_flexion_insufficient: 'Flexão de Joelho Insuficiente',
-  instability: 'Instabilidade',
-  tremor: 'Tremor',
   foot_collapse: 'Colapso do Pé',
   balance_loss: 'Perda de Equilíbrio',
   scapular_winging: 'Escápula Alada',

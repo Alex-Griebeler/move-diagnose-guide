@@ -217,8 +217,6 @@ export const compensationJointMapping: Record<string, JointDemand[]> = {
   // Joelho
   knee_valgus: ['knee_stability', 'hip_external_rotation'],
   knee_varus: ['knee_stability'],
-  instability: ['knee_stability', 'ankle_dorsiflexion'],
-  tremor: ['knee_stability', 'core_stability'],
   balance_loss: ['ankle_dorsiflexion', 'knee_stability', 'core_stability'],
   knee_flexion_insufficient: ['knee_stability', 'hip_extension'],
   

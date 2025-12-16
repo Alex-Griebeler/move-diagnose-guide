@@ -138,25 +138,11 @@ export const slsAnteriorCompensations: CompensationMapping[] = [
     associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],
   },
   {
-    id: 'instability',
-    label: 'Instabilidade geral',
-    hyperactiveMuscles: ['TFL', 'Quadríceps (superficial)', 'Fibulares'],
-    hypoactiveMuscles: ['Glúteo médio', 'Core estabilizador', 'Estabilizadores do tornozelo', 'Tibial posterior'],
-    associatedInjuries: ['Entorses de tornozelo recorrentes', 'Risco lesão LCA', 'Instabilidade patelar'],
-  },
-  {
-    id: 'tremor',
-    label: 'Tremor durante o movimento',
-    hyperactiveMuscles: ['Musculatura superficial em fadiga', 'Quadríceps', 'TFL'],
-    hypoactiveMuscles: ['Estabilizadores profundos', 'Core', 'Glúteo médio', 'Multífidos'],
-    associatedInjuries: ['Risco elevado de lesão por instabilidade', 'Fadiga muscular precoce'],
-  },
-  {
     id: 'balance_loss',
     label: 'Perda de equilíbrio',
-    hyperactiveMuscles: ['Flexores dos dedos', 'Musculatura superficial', 'Gastrocnêmio'],
-    hypoactiveMuscles: ['Glúteo médio', 'Core', 'Proprioceptores do tornozelo', 'Estabilizadores profundos'],
-    associatedInjuries: ['Entorses recorrentes', 'Risco elevado de quedas', 'Instabilidade crônica'],
+    hyperactiveMuscles: ['TFL', 'Quadríceps (superficial)', 'Fibulares', 'Flexores dos dedos', 'Musculatura superficial', 'Gastrocnêmio'],
+    hypoactiveMuscles: ['Glúteo médio', 'Core estabilizador', 'Estabilizadores do tornozelo', 'Tibial posterior', 'Core', 'Proprioceptores do tornozelo', 'Estabilizadores profundos', 'Multífidos'],
+    associatedInjuries: ['Entorses de tornozelo recorrentes', 'Risco lesão LCA', 'Instabilidade patelar', 'Risco elevado de quedas', 'Instabilidade crônica', 'Fadiga muscular precoce'],
   },
 ];
 

@@ -130,26 +130,12 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome estresse tibial'],
     detection_criteria: 'Arco plantar COLAPSA completamente sob carga. Navicular desce até quase tocar o solo.',
   },
-  instability: {
-    label: 'Instabilidade geral',
-    hyperactive: ['TFL', 'Quadríceps superficial', 'Fibulares'],
-    hypoactive: ['Glúteo médio', 'Core estabilizador', 'Estabilizadores tornozelo', 'Tibial posterior'],
-    injuries: ['Entorses tornozelo recorrentes', 'Risco lesão LCA', 'Instabilidade patelar'],
-    detection_criteria: 'Oscilações GRANDES e REPETIDAS durante todo o movimento. Não consegue manter posição estável.',
-  },
-  tremor: {
-    label: 'Tremor persistente',
-    hyperactive: ['Musculatura superficial em fadiga', 'Quadríceps', 'TFL'],
-    hypoactive: ['Estabilizadores profundos', 'Core', 'Glúteo médio', 'Multífidos'],
-    injuries: ['Risco lesão por instabilidade', 'Fadiga muscular precoce'],
-    detection_criteria: 'Tremor VISÍVEL e PERSISTENTE durante toda execução. Não são apenas micromovimentos.',
-  },
   balance_loss: {
-    label: 'Perda de equilíbrio',
-    hyperactive: ['Flexores dos dedos', 'Musculatura superficial', 'Gastrocnêmio'],
-    hypoactive: ['Glúteo médio', 'Core', 'Proprioceptores tornozelo', 'Estabilizadores profundos'],
-    injuries: ['Entorses recorrentes', 'Risco quedas', 'Instabilidade crônica'],
-    detection_criteria: 'PERDE o apoio ou precisa tocar o chão com pé contralateral.',
+    label: 'Perda de equilíbrio (instabilidade, tremor, queda)',
+    hyperactive: ['TFL', 'Quadríceps superficial', 'Fibulares', 'Flexores dos dedos', 'Musculatura superficial', 'Gastrocnêmio'],
+    hypoactive: ['Glúteo médio', 'Core estabilizador', 'Estabilizadores tornozelo', 'Tibial posterior', 'Core', 'Proprioceptores tornozelo', 'Estabilizadores profundos', 'Multífidos'],
+    injuries: ['Entorses tornozelo recorrentes', 'Risco lesão LCA', 'Instabilidade patelar', 'Fadiga muscular precoce', 'Risco quedas', 'Instabilidade crônica'],
+    detection_criteria: 'Oscilações GRANDES e REPETIDAS, tremor VISÍVEL e PERSISTENTE, ou PERDE o apoio/precisa tocar o chão.',
   },
   // SLS - Vista Lateral
   trunk_forward_lean_sls: {
@@ -331,9 +317,7 @@ const SLS_PROMPTS: Record<string, string> = {
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - knee_valgus: Joelho desvia medialmente
 - foot_collapse: Arco plantar colapsa completamente
-- instability: Oscilações grandes e repetidas
-- tremor: Tremor visível e persistente
-- balance_loss: Perde apoio ou precisa tocar o chão
+- balance_loss: Oscilações grandes/repetidas, tremor visível/persistente, ou perde apoio/toca o chão
 
 Use report_analysis com detected_compensations e confidence.`,
 

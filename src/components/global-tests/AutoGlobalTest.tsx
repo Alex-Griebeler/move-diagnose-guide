@@ -439,36 +439,11 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           })}
         </div>
 
-        {/* Current View Content */}
-        <Card className="border-border/50">
-          <CardHeader className="py-3 px-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">{currentView.label}</CardTitle>
-              <div className="flex items-center gap-1.5">
-                {currentResult?.severity && (
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "text-[10px] h-5",
-                      currentResult.severity === 'marked' && 'border-destructive/50 text-destructive',
-                      currentResult.severity === 'moderate' && 'border-warning/50 text-warning',
-                      currentResult.severity === 'minimal' && 'border-success/50 text-success'
-                    )}
-                  >
-                    {currentResult.severity === 'marked' ? 'Acentuado' : 
-                     currentResult.severity === 'moderate' ? 'Moderado' : 'Leve'}
-                  </Badge>
-                )}
-                {currentResult && (
-                  <Badge variant="outline" className="text-[10px] h-5">
-                    {Math.round((currentResult.confidence || 0) * 100)}%
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">{currentView.description}</p>
-          </CardHeader>
-          <CardContent className="space-y-3 px-4 pb-4 pt-0">
+        {/* View Description - Subtle text below pills */}
+        <p className="text-xs text-muted-foreground">{currentView.description}</p>
+
+        {/* View Content - Flat structure */}
+        <div className="space-y-3">
             {/* Media Upload with Analyze Button */}
             <MediaUploader
               assessmentId={assessmentId}
@@ -568,8 +543,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                 })}
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </div>
 
         {/* View Navigation Buttons - Only show if multiple views */}
         {config.views.length > 1 && (

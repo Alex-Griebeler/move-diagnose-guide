@@ -187,7 +187,9 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          progression: string | null
           progression_criteria: string | null
+          regression: string | null
           target_classifications: Json | null
           target_muscles: Json | null
           updated_at: string
@@ -202,7 +204,9 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          progression?: string | null
           progression_criteria?: string | null
+          regression?: string | null
           target_classifications?: Json | null
           target_muscles?: Json | null
           updated_at?: string
@@ -217,7 +221,9 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          progression?: string | null
           progression_criteria?: string | null
+          regression?: string | null
           target_classifications?: Json | null
           target_muscles?: Json | null
           updated_at?: string

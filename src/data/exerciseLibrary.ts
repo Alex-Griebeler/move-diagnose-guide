@@ -16,6 +16,8 @@ export interface FabrikExercise {
   target_muscles: string[];
   video_url: string | null;
   progression_criteria: string | null;
+  regression: string | null;
+  progression: string | null;
   sets_default: number;
   reps_default: string;
   instructions: string;
@@ -25,7 +27,6 @@ const CL = CLASSIFICATION_LABELS;
 
 // ============================================
 // FASE 1: MOBILITY (10 exercícios)
-// Foco: Aumentar amplitude articular
 // ============================================
 const MOBILITY_EXERCISES: FabrikExercise[] = [
   {
@@ -38,6 +39,8 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['gastrocnêmio', 'sóleo', 'tibial anterior'],
     video_url: 'https://www.youtube.com/watch?v=5eXRznLEwkg',
     progression_criteria: 'Progredir para versão com elevação',
+    regression: 'Mobilização sentado com toalha sob o pé',
+    progression: 'Joelho na parede com elevação do calcanhar',
     sets_default: 3,
     reps_default: '10-15 cada lado',
     instructions: 'Posicione o pé próximo à parede. Avance o joelho em direção à parede mantendo o calcanhar no chão. Mantenha 2-3s em cada rep.'
@@ -52,9 +55,11 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['iliopsoas', 'reto femoral', 'tensor da fáscia lata'],
     video_url: 'https://www.youtube.com/watch?v=EqO5IZEtxbc',
     progression_criteria: 'Adicionar rotação torácica',
+    regression: 'Alongamento em pé com apoio',
+    progression: 'Adicionar rotação torácica + alcance',
     sets_default: 2,
     reps_default: '8-10 cada lado',
-    instructions: 'Em meio ajoelhado, contraia o glúteo do lado de trás e avance o quadril. Mantenha tronco ereto. Adicione alcance do braço para intensificar.'
+    instructions: 'Em meio ajoelhado, contraia o glúteo do lado de trás e avance o quadril. Mantenha tronco ereto.'
   },
   {
     id: 'mob_03',
@@ -66,6 +71,8 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['iliopsoas', 'reto femoral'],
     video_url: 'https://www.youtube.com/watch?v=LV2dGjd5A9w',
     progression_criteria: 'Aumentar tempo de sustentação',
+    regression: 'Flexores do quadril 1/2 ajoelhado',
+    progression: 'Couch stretch com elevação do braço',
     sets_default: 2,
     reps_default: '30-60s cada lado',
     instructions: 'Posicione o joelho de trás próximo à parede, pé apontado para cima. Mantenha o tronco ereto e contraia o glúteo.'
@@ -80,6 +87,8 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['piriforme', 'glúteo médio', 'rotadores externos'],
     video_url: 'https://www.youtube.com/watch?v=SqxDqBdWaZI',
     progression_criteria: 'Adicionar inclinação do tronco',
+    regression: '90/90 estático sem rotação',
+    progression: '90/90 com inclinação anterior do tronco',
     sets_default: 2,
     reps_default: '8-10 cada lado',
     instructions: 'Sente com ambos os joelhos a 90°. Alterne entre rotação interna e externa, mantendo o tronco ereto.'
@@ -94,6 +103,8 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['eretores da coluna', 'reto abdominal', 'multífidos'],
     video_url: 'https://www.youtube.com/watch?v=K9bK0BwKFjs',
     progression_criteria: 'Isolar movimento por segmento',
+    regression: 'Apenas flexão (gato)',
+    progression: 'Cat/Camel segmentar isolado',
     sets_default: 2,
     reps_default: '10-12',
     instructions: 'Em 4 apoios, alterne entre flexão total (gato) e extensão (camelo) da coluna. Mova de forma segmentar.'
@@ -108,9 +119,11 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['oblíquos', 'multífidos', 'rotadores'],
     video_url: 'https://www.youtube.com/watch?v=I0K4MNXGKZ4',
     progression_criteria: 'Aumentar amplitude progressivamente',
+    regression: 'Rotação torácica em decúbito lateral',
+    progression: 'Rotação torácica com banda de resistência',
     sets_default: 2,
     reps_default: '8-10 cada lado',
-    instructions: 'Em 4 apoios, apoie uma mão na nuca. Gire o tronco em direção ao teto, abrindo o cotovelo. Retorne com controle.'
+    instructions: 'Em 4 apoios, apoie uma mão na nuca. Gire o tronco em direção ao teto, abrindo o cotovelo.'
   },
   {
     id: 'mob_07',
@@ -122,6 +135,8 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['eretores torácicos', 'multífidos'],
     video_url: 'https://www.youtube.com/watch?v=LT_dFRnmdGs',
     progression_criteria: 'Progredir segmento por segmento',
+    regression: 'Extensão torácica no chão',
+    progression: 'Extensão torácica com braços elevados',
     sets_default: 2,
     reps_default: '10-12',
     instructions: 'Deite com o rolo posicionado na coluna torácica. Apoie a cabeça nas mãos e estenda sobre o rolo.'
@@ -136,9 +151,11 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['serrátil anterior', 'trapézio inferior', 'peitoral menor'],
     video_url: 'https://www.youtube.com/watch?v=aWv6fE7Kqx8',
     progression_criteria: 'Adicionar resistência com banda',
+    regression: 'Deslizamento com cotovelos flexionados',
+    progression: 'Deslizamento com resistência de banda',
     sets_default: 2,
     reps_default: '10-12',
-    instructions: 'De costas para a parede, deslize os braços para cima mantendo contato com a parede. Retraia as escápulas no topo.'
+    instructions: 'De costas para a parede, deslize os braços para cima mantendo contato com a parede.'
   },
   {
     id: 'mob_09',
@@ -150,9 +167,11 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['adutores magno', 'longo', 'curto'],
     video_url: 'https://www.youtube.com/watch?v=XP9bLzCfep0',
     progression_criteria: 'Aumentar amplitude da abertura',
+    regression: 'Borboleta sentado',
+    progression: 'Adutor rock com rotação do tronco',
     sets_default: 2,
     reps_default: '10-12 cada lado',
-    instructions: 'Em 4 apoios com joelhos afastados, balance o quadril para trás sentando nos calcanhares. Mantenha a coluna neutra.'
+    instructions: 'Em 4 apoios com joelhos afastados, balance o quadril para trás sentando nos calcanhares.'
   },
   {
     id: 'mob_10',
@@ -164,6 +183,8 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['iliopsoas', 'oblíquos', 'rotadores'],
     video_url: 'https://www.youtube.com/watch?v=JxPOlBvETgc',
     progression_criteria: 'Adicionar alcance do braço',
+    regression: 'Avanço estático',
+    progression: 'World\'s greatest stretch completo',
     sets_default: 2,
     reps_default: '6-8 cada lado',
     instructions: 'Em posição de avanço, gire o tronco em direção ao joelho da frente, alcançando o braço para cima.'
@@ -172,7 +193,6 @@ const MOBILITY_EXERCISES: FabrikExercise[] = [
 
 // ============================================
 // FASE 2: INHIBITION (12 exercícios)
-// Foco: Liberação miofascial e alongamentos
 // ============================================
 const INHIBITION_EXERCISES: FabrikExercise[] = [
   {
@@ -185,9 +205,11 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['gastrocnêmio', 'sóleo'],
     video_url: 'https://www.youtube.com/watch?v=x-EHULGi3xo',
     progression_criteria: 'Adicionar rotação do pé durante liberação',
+    regression: 'Pressão estática com bola',
+    progression: 'LMF com dorsiflexão ativa',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Sente com a panturrilha sobre o rolo. Role lentamente da origem à inserção, pausando em pontos de tensão.'
+    instructions: 'Sente com a panturrilha sobre o rolo. Role lentamente pausando em pontos de tensão.'
   },
   {
     id: 'inh_02',
@@ -199,9 +221,11 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['tensor da fáscia lata', 'banda iliotibial'],
     video_url: 'https://www.youtube.com/watch?v=eBjZWCnFzNk',
     progression_criteria: 'Progredir para bola de lacrosse',
+    regression: 'Pressão estática manual',
+    progression: 'LMF com bola de lacrosse',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Em decúbito lateral, posicione o rolo na lateral do quadril. Role da crista ilíaca até o trocanter maior.'
+    instructions: 'Em decúbito lateral, posicione o rolo na lateral do quadril.'
   },
   {
     id: 'inh_03',
@@ -213,9 +237,11 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['adutores magno', 'longo', 'curto', 'grácil'],
     video_url: 'https://www.youtube.com/watch?v=bC-Ynv9z8J0',
     progression_criteria: 'Trabalhar diferentes ângulos de rotação',
+    regression: 'Alongamento estático de adutores',
+    progression: 'LMF com movimento ativo da perna',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Em posição de prancha baixa, afaste uma perna com o rolo sob a coxa interna. Role da virilha ao joelho.'
+    instructions: 'Em posição de prancha baixa, afaste uma perna com o rolo sob a coxa interna.'
   },
   {
     id: 'inh_04',
@@ -227,23 +253,27 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['piriforme', 'glúteo máximo', 'glúteo médio'],
     video_url: 'https://www.youtube.com/watch?v=SvXR5-DJLFo',
     progression_criteria: 'Usar bola de lacrosse para maior especificidade',
+    regression: 'Alongamento de piriforme supino',
+    progression: 'LMF com bola de lacrosse no piriforme',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Sente sobre o rolo ou bola. Cruze uma perna sobre a outra e incline em direção ao lado a ser liberado.'
+    instructions: 'Sente sobre o rolo ou bola. Cruze uma perna sobre a outra e incline.'
   },
   {
     id: 'inh_05',
-    name: 'LMF Flexores do Quadril/Quadríceps',
+    name: 'LMF Flexores do Quadril',
     description: 'Liberação miofascial do quadríceps e flexores do quadril',
     fabrik_phase: 'inhibition',
     body_region: 'hip',
     target_classifications: [CL.HipFlexors, CL.QuadEccentric],
     target_muscles: ['reto femoral', 'vasto lateral', 'iliopsoas'],
     video_url: 'https://www.youtube.com/watch?v=RpKuTn9MLqE',
-    progression_criteria: 'Adicionar flexão ativa do joelho durante liberação',
+    progression_criteria: 'Adicionar flexão ativa do joelho',
+    regression: 'Alongamento de quadríceps em pé',
+    progression: 'LMF com flexão ativa do joelho',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Em decúbito ventral, posicione o rolo sob a coxa anterior. Role do quadril ao joelho, rotacionando para atingir diferentes porções.'
+    instructions: 'Em decúbito ventral, posicione o rolo sob a coxa anterior.'
   },
   {
     id: 'inh_06',
@@ -255,9 +285,11 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['bíceps femoral', 'semitendíneo', 'semimembranoso'],
     video_url: 'https://www.youtube.com/watch?v=wkVf6QrBqVY',
     progression_criteria: 'Progredir para liberação com extensão ativa',
+    regression: 'Alongamento estático de isquiotibiais',
+    progression: 'LMF com extensão ativa do joelho',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Sente com a coxa posterior sobre o rolo. Role do ísquio à fossa poplítea, rotacionando para medial e lateral.'
+    instructions: 'Sente com a coxa posterior sobre o rolo.'
   },
   {
     id: 'inh_07',
@@ -269,9 +301,11 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['eretores da coluna', 'romboide', 'trapézio médio'],
     video_url: 'https://www.youtube.com/watch?v=K-CrEi0ymMg',
     progression_criteria: 'Trabalhar mobilidade segmentar',
+    regression: 'Extensão torácica no chão',
+    progression: 'LMF segmentar com pausa',
     sets_default: 1,
     reps_default: '60-90s',
-    instructions: 'Deite com o rolo perpendicular à coluna. Apoie a cabeça e role da região torácica alta à média.'
+    instructions: 'Deite com o rolo perpendicular à coluna. Apoie a cabeça e role.'
   },
   {
     id: 'inh_08',
@@ -282,10 +316,12 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_classifications: [CL.Lats, CL.ShoulderFlexion],
     target_muscles: ['latíssimo do dorso'],
     video_url: 'https://www.youtube.com/watch?v=4Lr6fBmb9IY',
-    progression_criteria: 'Adicionar movimento do braço durante liberação',
+    progression_criteria: 'Adicionar movimento do braço',
+    regression: 'Alongamento de lat em pé',
+    progression: 'LMF com movimento do braço',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Em decúbito lateral com braço estendido, posicione o rolo na axila. Role da axila até a borda da escápula.'
+    instructions: 'Em decúbito lateral com braço estendido, posicione o rolo na axila.'
   },
   {
     id: 'inh_09',
@@ -297,9 +333,11 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['peitoral maior', 'peitoral menor'],
     video_url: 'https://www.youtube.com/watch?v=IHgwkNTNJN0',
     progression_criteria: 'Progredir para alongamento ativo',
+    regression: 'Alongamento de peitoral na porta',
+    progression: 'LMF com rotação do braço',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'De frente para a parede, posicione a bola no peitoral. Pressione e mova o braço em diferentes direções.'
+    instructions: 'De frente para a parede, posicione a bola no peitoral.'
   },
   {
     id: 'inh_10',
@@ -311,9 +349,11 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['fáscia plantar', 'intrínsecos do pé'],
     video_url: 'https://www.youtube.com/watch?v=f-DFjmOyTVE',
     progression_criteria: 'Progredir para exercícios de ativação',
+    regression: 'Alongamento manual da planta',
+    progression: 'LMF com movimentos circulares',
     sets_default: 1,
     reps_default: '60-90s cada lado',
-    instructions: 'Em pé, role uma bola sob a planta do pé. Foque no arco e calcâneo, pausando em pontos de tensão.'
+    instructions: 'Em pé, role uma bola sob a planta do pé.'
   },
   {
     id: 'inh_11',
@@ -325,29 +365,32 @@ const INHIBITION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['gastrocnêmio', 'sóleo'],
     video_url: 'https://www.youtube.com/watch?v=1radAfqhks4',
     progression_criteria: 'Manter progressão de tempo',
+    regression: 'Alongamento na escada (gastrocnêmio)',
+    progression: 'Alongamento excêntrico em step',
     sets_default: 2,
     reps_default: '30s cada posição/lado',
-    instructions: 'Primeira fase: joelho estendido (gastrocnêmio). Segunda fase: joelho levemente flexionado (sóleo).'
+    instructions: 'Fase 1: joelho estendido (gastrocnêmio). Fase 2: joelho flexionado (sóleo).'
   },
   {
     id: 'inh_12',
     name: 'Respiração 4-7-8',
-    description: 'Técnica de respiração para ativação parassimpática e inibição neural',
+    description: 'Técnica de respiração para ativação parassimpática',
     fabrik_phase: 'inhibition',
     body_region: 'lumbar',
     target_classifications: [CL.CoreDeep],
     target_muscles: ['diafragma', 'transverso abdominal'],
     video_url: null,
     progression_criteria: 'Aumentar ciclos progressivamente',
+    regression: 'Respiração diafragmática simples',
+    progression: 'Respiração 4-7-8 com retenção prolongada',
     sets_default: 3,
     reps_default: '4-6 ciclos',
-    instructions: 'Inspire por 4 segundos, segure por 7 segundos, expire por 8 segundos. Use entre exercícios ou no início da sessão.'
+    instructions: 'Inspire por 4s, segure por 7s, expire por 8s.'
   },
 ];
 
 // ============================================
 // FASE 3: ACTIVATION (12 exercícios)
-// Foco: Ativar músculos hipoativos isoladamente
 // ============================================
 const ACTIVATION_EXERCISES: FabrikExercise[] = [
   {
@@ -360,9 +403,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo médio', 'glúteo mínimo'],
     video_url: 'https://www.youtube.com/watch?v=cFmMG5Bvt0w',
     progression_criteria: 'Adicionar mini-band',
+    regression: 'Clam shell com amplitude reduzida',
+    progression: 'Clam shell com mini-band',
     sets_default: 2,
     reps_default: '12-15 cada lado',
-    instructions: 'Em decúbito lateral com joelhos flexionados, abra o joelho superior mantendo os pés unidos. Mantenha a pelve estável.'
+    instructions: 'Em decúbito lateral com joelhos flexionados, abra o joelho superior.'
   },
   {
     id: 'act_02',
@@ -374,9 +419,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo médio', 'glúteo mínimo'],
     video_url: 'https://www.youtube.com/watch?v=aJ0IZiGEb4w',
     progression_criteria: 'Aumentar resistência da banda',
+    regression: 'Clam shell sem banda',
+    progression: 'Clam shell com banda pesada + isometria',
     sets_default: 2,
     reps_default: '12-15 cada lado',
-    instructions: 'Com mini-band acima dos joelhos, execute o clam shell contra a resistência. Controle a fase excêntrica.'
+    instructions: 'Com mini-band acima dos joelhos, execute o clam shell contra a resistência.'
   },
   {
     id: 'act_03',
@@ -388,9 +435,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'isquiotibiais'],
     video_url: 'https://www.youtube.com/watch?v=8bbE64NuDTU',
     progression_criteria: 'Progredir para ponte unilateral',
+    regression: 'Ponte com pés elevados',
+    progression: 'Ponte com marcha',
     sets_default: 2,
     reps_default: '12-15',
-    instructions: 'Em decúbito dorsal, eleve o quadril contraindo os glúteos. Mantenha no topo por 2s. Evite hiperextensão lombar.'
+    instructions: 'Em decúbito dorsal, eleve o quadril contraindo os glúteos.'
   },
   {
     id: 'act_04',
@@ -402,9 +451,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'glúteo médio'],
     video_url: 'https://www.youtube.com/watch?v=AVAXhy6pl7o',
     progression_criteria: 'Adicionar elevação de calcâneo',
+    regression: 'Ponte bilateral',
+    progression: 'Ponte unilateral com elevação de calcâneo',
     sets_default: 2,
     reps_default: '10-12 cada lado',
-    instructions: 'Em ponte, estenda uma perna e mantenha a pelve nivelada. Execute a elevação com controle.'
+    instructions: 'Em ponte, estenda uma perna e mantenha a pelve nivelada.'
   },
   {
     id: 'act_05',
@@ -416,9 +467,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['trapézio inferior', 'trapézio médio'],
     video_url: 'https://www.youtube.com/watch?v=K_pS_b4hy3U',
     progression_criteria: 'Adicionar carga leve',
+    regression: 'Retração escapular em pé',
+    progression: 'Prone Y com carga leve',
     sets_default: 2,
     reps_default: '10-12',
-    instructions: 'Em decúbito ventral, eleve os braços em Y com polegares para cima. Foque na retração e depressão escapular.'
+    instructions: 'Em decúbito ventral, eleve os braços em Y com polegares para cima.'
   },
   {
     id: 'act_06',
@@ -430,9 +483,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['trapézio inferior', 'serrátil anterior'],
     video_url: 'https://www.youtube.com/watch?v=fYO0X4mZz2g',
     progression_criteria: 'Progredir para posição inclinada',
+    regression: 'Y em pé na parede',
+    progression: 'Y inclinado em banco',
     sets_default: 2,
     reps_default: '10-12',
-    instructions: 'Em DV, braços em Y. Eleve os braços mantendo polegares para cima. Sustente 2-3s no topo.'
+    instructions: 'Em DV, braços em Y. Eleve mantendo polegares para cima.'
   },
   {
     id: 'act_07',
@@ -444,9 +499,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['trapézio médio', 'romboides', 'infraespinhal'],
     video_url: 'https://www.youtube.com/watch?v=1GrhWMJQNn8',
     progression_criteria: 'Adicionar resistência com banda',
+    regression: 'W sentado com banda',
+    progression: 'W com carga ou em banco inclinado',
     sets_default: 2,
     reps_default: '10-12',
-    instructions: 'Em DV, cotovelos flexionados a 90°. Eleve os braços em W, rodando externamente. Aperte as escápulas.'
+    instructions: 'Em DV, cotovelos flexionados a 90°. Eleve os braços em W.'
   },
   {
     id: 'act_08',
@@ -458,9 +515,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'glúteo médio', 'core'],
     video_url: 'https://www.youtube.com/watch?v=6ANlvwwBmek',
     progression_criteria: 'Progredir para perdigueiro',
+    regression: 'Extensão de quadril em pé',
+    progression: 'Bird-dog (perdigueiro)',
     sets_default: 2,
     reps_default: '10-12 cada lado',
-    instructions: 'Em 4 apoios, estenda uma perna para trás mantendo o joelho flexionado a 90°. Mantenha a coluna neutra.'
+    instructions: 'Em 4 apoios, estenda uma perna para trás.'
   },
   {
     id: 'act_09',
@@ -471,10 +530,12 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_classifications: [CL.CoreDeep, CL.LumbarControl, CL.Core],
     target_muscles: ['transverso abdominal', 'oblíquos', 'multífidos'],
     video_url: 'https://www.youtube.com/watch?v=g_BYB0R-4Ws',
-    progression_criteria: 'Adicionar resistência com banda ou kettlebell',
+    progression_criteria: 'Adicionar resistência',
+    regression: 'Dead bug com pés apoiados',
+    progression: 'Dead bug com banda ou kettlebell',
     sets_default: 2,
     reps_default: '8-10 cada lado',
-    instructions: 'Em DD, braços e pernas a 90°. Estenda braço e perna opostos mantendo a lombar pressionada no chão.'
+    instructions: 'Em DD, braços e pernas a 90°. Estenda braço e perna opostos.'
   },
   {
     id: 'act_10',
@@ -486,9 +547,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['oblíquos', 'quadrado lombar', 'glúteo médio'],
     video_url: 'https://www.youtube.com/watch?v=0yKShEHB65E',
     progression_criteria: 'Progredir para prancha lateral completa',
+    regression: 'Prancha lateral de ombro elevado',
+    progression: 'Prancha lateral completa',
     sets_default: 2,
     reps_default: '20-30s cada lado',
-    instructions: 'Em decúbito lateral, apoie no cotovelo e joelhos. Eleve o quadril formando linha reta. Mantenha a posição.'
+    instructions: 'Em decúbito lateral, apoie no cotovelo e joelhos.'
   },
   {
     id: 'act_11',
@@ -500,9 +563,11 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['intrínsecos do pé', 'tibial posterior'],
     video_url: 'https://www.youtube.com/watch?v=DFOIW9AJBX0',
     progression_criteria: 'Aumentar carga do kettlebell',
+    regression: 'Transferência de peso em pé',
+    progression: 'Troca de pegada com KB mais pesado',
     sets_default: 2,
     reps_default: '10-12 cada lado',
-    instructions: 'Em pé, passe o KB de uma mão para outra ao redor do corpo. Mantenha o arco do pé ativo durante as transferências.'
+    instructions: 'Em pé, passe o KB de uma mão para outra ao redor do corpo.'
   },
   {
     id: 'act_12',
@@ -514,15 +579,16 @@ const ACTIVATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['fibular longo', 'fibular curto'],
     video_url: null,
     progression_criteria: 'Progredir para versão unilateral',
+    regression: 'Eversão com banda sentado',
+    progression: 'Flexão plantar unilateral',
     sets_default: 2,
     reps_default: '12-15 cada lado',
-    instructions: 'Sentado, pressione a lateral do pé contra a bola. Execute eversão controlada contra resistência.'
+    instructions: 'Sentado, pressione a lateral do pé contra a bola.'
   },
 ];
 
 // ============================================
 // FASE 4: STABILITY (12 exercícios)
-// Foco: Estabilização articular estática
 // ============================================
 const STABILITY_EXERCISES: FabrikExercise[] = [
   {
@@ -535,9 +601,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['reto abdominal', 'transverso', 'eretores'],
     video_url: 'https://www.youtube.com/watch?v=ASdvN_XEl_c',
     progression_criteria: 'Progredir para variações dinâmicas',
+    regression: 'Prancha de joelhos',
+    progression: 'Prancha com perturbação ou alcance',
     sets_default: 3,
     reps_default: '30-45s',
-    instructions: 'Apoie em antebraços e dedos dos pés. Mantenha linha reta dos ombros aos calcanhares. Contraia glúteos e core.'
+    instructions: 'Apoie em antebraços e dedos dos pés. Mantenha linha reta.'
   },
   {
     id: 'stab_02',
@@ -549,9 +617,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['oblíquos', 'quadrado lombar', 'glúteo médio'],
     video_url: 'https://www.youtube.com/watch?v=K2VljzCC16g',
     progression_criteria: 'Adicionar elevação de perna',
+    regression: 'Prancha lateral de joelhos',
+    progression: 'Prancha lateral com elevação de perna',
     sets_default: 3,
     reps_default: '20-30s cada lado',
-    instructions: 'Apoie no cotovelo e pés empilhados. Eleve o quadril mantendo alinhamento. Mantenha a posição sem rotação.'
+    instructions: 'Apoie no cotovelo e pés empilhados. Eleve o quadril.'
   },
   {
     id: 'stab_03',
@@ -563,9 +633,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo médio', 'oblíquos', 'quadrado lombar'],
     video_url: 'https://www.youtube.com/watch?v=3_qP3vu6wDo',
     progression_criteria: 'Adicionar mini-band',
+    regression: 'Prancha lateral sem abdução',
+    progression: 'Prancha lateral com abdução + banda',
     sets_default: 2,
     reps_default: '10-12 cada lado',
-    instructions: 'Em prancha lateral, eleve a perna superior mantendo o quadril estável. Controle o movimento.'
+    instructions: 'Em prancha lateral, eleve a perna superior.'
   },
   {
     id: 'stab_04',
@@ -577,9 +649,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['transverso abdominal', 'reto abdominal', 'serrátil'],
     video_url: 'https://www.youtube.com/watch?v=4psrgMltXnQ',
     progression_criteria: 'Progredir para bear crawl',
+    regression: 'Posição de 4 apoios estática',
+    progression: 'Bear crawl',
     sets_default: 3,
     reps_default: '20-30s',
-    instructions: 'Em 4 apoios, eleve os joelhos 2-3cm do chão. Mantenha a coluna neutra e respire normalmente.'
+    instructions: 'Em 4 apoios, eleve os joelhos 2-3cm do chão.'
   },
   {
     id: 'stab_05',
@@ -591,9 +665,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['multífidos', 'glúteo máximo', 'core'],
     video_url: 'https://www.youtube.com/watch?v=wiFNA3sqjCA',
     progression_criteria: 'Adicionar resistência com banda',
+    regression: 'Bird-dog com apoio de joelho',
+    progression: 'Bird-dog com banda de resistência',
     sets_default: 2,
     reps_default: '10-12 cada lado',
-    instructions: 'Em 4 apoios, estenda braço e perna opostos. Mantenha a pelve nivelada e coluna neutra.'
+    instructions: 'Em 4 apoios, estenda braço e perna opostos.'
   },
   {
     id: 'stab_06',
@@ -604,10 +680,12 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_classifications: [CL.Core, CL.RotationalControl, CL.Obliques],
     target_muscles: ['oblíquos', 'transverso abdominal', 'multífidos'],
     video_url: 'https://www.youtube.com/watch?v=AH_QZLm_0-s',
-    progression_criteria: 'Aumentar resistência ou adicionar instabilidade',
+    progression_criteria: 'Aumentar resistência',
+    regression: 'Pallof press isométrico',
+    progression: 'Pallof press com rotação ou step',
     sets_default: 3,
     reps_default: '10-12 cada lado',
-    instructions: 'Com cabo ou banda lateral ao corpo, pressione as mãos à frente resistindo à rotação. Mantenha o core ativo.'
+    instructions: 'Com cabo lateral ao corpo, pressione as mãos à frente.'
   },
   {
     id: 'stab_07',
@@ -619,9 +697,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo médio', 'glúteo mínimo', 'tensor da fáscia lata'],
     video_url: 'https://www.youtube.com/watch?v=068LBaaNQb0',
     progression_criteria: 'Aumentar resistência da banda',
+    regression: 'Abdução de quadril em pé',
+    progression: 'Monster walk com banda pesada',
     sets_default: 2,
     reps_default: '12-15 cada direção',
-    instructions: 'Com mini-band acima dos joelhos, caminhe lateralmente em semi-agachamento. Mantenha tensão na banda.'
+    instructions: 'Com mini-band, caminhe lateralmente em semi-agachamento.'
   },
   {
     id: 'stab_08',
@@ -633,9 +713,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'glúteo médio', 'isquiotibiais'],
     video_url: 'https://www.youtube.com/watch?v=Oj3LHCsU0b4',
     progression_criteria: 'Adicionar carga externa',
+    regression: 'SLDL com apoio',
+    progression: 'SLDL com carga',
     sets_default: 2,
     reps_default: '8-10 cada lado',
-    instructions: 'Em apoio unilateral, incline o tronco à frente estendendo a perna de trás. Mantenha a pelve nivelada.'
+    instructions: 'Em apoio unilateral, incline o tronco à frente.'
   },
   {
     id: 'stab_09',
@@ -647,9 +729,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo médio', 'glúteo máximo', 'core'],
     video_url: 'https://www.youtube.com/watch?v=Qrv8dSvD2E0',
     progression_criteria: 'Adicionar perturbação externa',
+    regression: 'SLDL estático',
+    progression: 'Airplane com perturbação externa',
     sets_default: 2,
     reps_default: '8-10 cada lado',
-    instructions: 'Em SLDL, rotacione o tronco abrindo os braços em cruz. Mantenha o controle pélvico durante a rotação.'
+    instructions: 'Em SLDL, rotacione o tronco abrindo os braços em cruz.'
   },
   {
     id: 'stab_10',
@@ -661,9 +745,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['serrátil anterior', 'peitoral'],
     video_url: 'https://www.youtube.com/watch?v=xYS5B6kfqJg',
     progression_criteria: 'Progredir para prancha alta com alcance',
+    regression: 'Flexão normal',
+    progression: 'Push-up plus em instabilidade',
     sets_default: 2,
     reps_default: '12-15',
-    instructions: 'No topo da flexão, protraia as escápulas empurrando o chão. Separe as escápulas maximamente.'
+    instructions: 'No topo da flexão, protraia as escápulas empurrando o chão.'
   },
   {
     id: 'stab_11',
@@ -675,9 +761,11 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['core', 'serrátil anterior', 'deltóide'],
     video_url: 'https://www.youtube.com/watch?v=0aGFVSMwKPQ',
     progression_criteria: 'Adicionar objeto para tocar',
+    regression: 'Prancha alta estática',
+    progression: 'Prancha com alcance alternado',
     sets_default: 2,
     reps_default: '8-10 cada lado',
-    instructions: 'Em prancha alta, alcance um braço à frente. Mantenha os quadris nivelados sem rotação.'
+    instructions: 'Em prancha alta, alcance um braço à frente.'
   },
   {
     id: 'stab_12',
@@ -689,15 +777,16 @@ const STABILITY_EXERCISES: FabrikExercise[] = [
     target_muscles: ['trapézio inferior', 'estabilizadores do tornozelo'],
     video_url: 'https://www.youtube.com/watch?v=HFaXYS6WN80',
     progression_criteria: 'Aumentar amplitude dos alcances',
+    regression: 'Y teste com apoio',
+    progression: 'Y teste com maior amplitude',
     sets_default: 2,
     reps_default: '6-8 cada direção/lado',
-    instructions: 'Em apoio unilateral, alcance com a perna livre em 3 direções formando Y. Mantenha o tronco estável.'
+    instructions: 'Em apoio unilateral, alcance com a perna livre em 3 direções.'
   },
 ];
 
 // ============================================
 // FASE 5: STRENGTH (12 exercícios)
-// Foco: Força em padrões de movimento
 // ============================================
 const STRENGTH_EXERCISES: FabrikExercise[] = [
   {
@@ -709,10 +798,12 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_classifications: [CL.GluteMax, CL.VMO, CL.Core, CL.Dorsiflexion],
     target_muscles: ['glúteo máximo', 'quadríceps', 'core'],
     video_url: 'https://www.youtube.com/watch?v=PKmrXTx6jZs',
-    progression_criteria: 'Aumentar carga ou progredir para back squat',
+    progression_criteria: 'Aumentar carga',
+    regression: 'Agachamento bodyweight',
+    progression: 'Agachamento frontal com barra',
     sets_default: 3,
     reps_default: '10-12',
-    instructions: 'Segure o peso junto ao peito. Agache mantendo tronco ereto e joelhos alinhados. Profundidade até paralelo.'
+    instructions: 'Segure o peso junto ao peito. Agache mantendo tronco ereto.'
   },
   {
     id: 'str_02',
@@ -724,9 +815,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'isquiotibiais', 'eretores'],
     video_url: 'https://www.youtube.com/watch?v=XBZvaP0Yd48',
     progression_criteria: 'Aumentar carga progressivamente',
+    regression: 'RDL com bastão',
+    progression: 'RDL com barra pesada',
     sets_default: 3,
     reps_default: '10-12',
-    instructions: 'Com pés na largura do quadril, empurre o quadril para trás deslizando o peso pelas coxas. Mantenha coluna neutra.'
+    instructions: 'Com pés na largura do quadril, empurre o quadril para trás.'
   },
   {
     id: 'str_03',
@@ -737,10 +830,12 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_classifications: [CL.GluteMax, CL.GluteMed, CL.Core],
     target_muscles: ['glúteo máximo', 'glúteo médio', 'isquiotibiais'],
     video_url: 'https://www.youtube.com/watch?v=xDmFkJxPzeM',
-    progression_criteria: 'Aumentar carga ou progredir para unilateral',
+    progression_criteria: 'Aumentar carga',
+    regression: 'Ponte com peso no quadril',
+    progression: 'Hip thrust unilateral',
     sets_default: 3,
     reps_default: '10-12',
-    instructions: 'Com escápulas apoiadas no banco, eleve o quadril com a barra sobre a pelve. Aperte os glúteos no topo.'
+    instructions: 'Com escápulas apoiadas no banco, eleve o quadril com barra.'
   },
   {
     id: 'str_04',
@@ -752,9 +847,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'glúteo médio', 'isquiotibiais'],
     video_url: 'https://www.youtube.com/watch?v=XBMrCyR9BRk',
     progression_criteria: 'Aumentar carga ou adicionar rotação',
+    regression: 'SLDL sem carga',
+    progression: 'Deadlift unilateral com rotação',
     sets_default: 3,
     reps_default: '8-10 cada lado',
-    instructions: 'Com KB em uma mão, execute SLDL mantendo a pelve nivelada. Controle a fase excêntrica.'
+    instructions: 'Com KB em uma mão, execute SLDL mantendo a pelve nivelada.'
   },
   {
     id: 'str_05',
@@ -766,9 +863,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'quadríceps', 'isquiotibiais'],
     video_url: 'https://www.youtube.com/watch?v=xrPteyQLGAo',
     progression_criteria: 'Adicionar carga ou deficit',
+    regression: 'Lunge reverso bodyweight',
+    progression: 'Lunge reverso com deficit',
     sets_default: 3,
     reps_default: '10-12 cada lado',
-    instructions: 'Dê um passo para trás, descendo até o joelho quase tocar o chão. Mantenha o tronco ereto e joelho alinhado.'
+    instructions: 'Dê um passo para trás, descendo até o joelho quase tocar o chão.'
   },
   {
     id: 'str_06',
@@ -779,10 +878,12 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_classifications: [CL.GluteMax, CL.GluteMed, CL.VMO],
     target_muscles: ['glúteo máximo', 'glúteo médio', 'quadríceps'],
     video_url: 'https://www.youtube.com/watch?v=dQqApCGd5Ss',
-    progression_criteria: 'Aumentar altura da caixa ou carga',
+    progression_criteria: 'Aumentar altura ou carga',
+    regression: 'Step up baixo sem carga',
+    progression: 'Step up alto com carga',
     sets_default: 3,
     reps_default: '10-12 cada lado',
-    instructions: 'Suba na caixa impulsionando com a perna de cima. Controle a descida sem impulso da perna de baixo.'
+    instructions: 'Suba na caixa impulsionando com a perna de cima.'
   },
   {
     id: 'str_07',
@@ -794,9 +895,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['isquiotibiais'],
     video_url: 'https://www.youtube.com/watch?v=Rl_t7arDleY',
     progression_criteria: 'Aumentar amplitude progressivamente',
+    regression: 'Nordic com assistência',
+    progression: 'Nordic completo',
     sets_default: 3,
     reps_default: '4-6',
-    instructions: 'Ajoelhado com tornozelos fixos, desça o tronco lentamente controlando com os isquiotibiais. Use as mãos para auxiliar na subida.'
+    instructions: 'Ajoelhado com tornozelos fixos, desça lentamente.'
   },
   {
     id: 'str_08',
@@ -808,9 +911,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['trapézio médio', 'romboides', 'latíssimo'],
     video_url: 'https://www.youtube.com/watch?v=Ef7z7DREC-s',
     progression_criteria: 'Aumentar inclinação ou adicionar pausa',
+    regression: 'Remada invertida no TRX',
+    progression: 'Remada com pausa no topo',
     sets_default: 3,
     reps_default: '10-12',
-    instructions: 'Suspenso nas argolas, puxe o peito em direção às mãos. Retraia as escápulas completamente no topo.'
+    instructions: 'Suspenso nas argolas, puxe o peito em direção às mãos.'
   },
   {
     id: 'str_09',
@@ -822,9 +927,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['trapézio médio', 'trapézio inferior', 'deltóide posterior'],
     video_url: 'https://www.youtube.com/watch?v=rep-qVOkqgk',
     progression_criteria: 'Aumentar carga mantendo qualidade',
+    regression: 'Face pull com banda leve',
+    progression: 'Face pull com rotação externa acentuada',
     sets_default: 3,
     reps_default: '12-15',
-    instructions: 'Com cabo na altura do rosto, puxe separando as mãos e rodando externamente. Aperte as escápulas.'
+    instructions: 'Com cabo na altura do rosto, puxe separando as mãos.'
   },
   {
     id: 'str_10',
@@ -836,9 +943,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['peitoral maior', 'tríceps', 'serrátil anterior'],
     video_url: 'https://www.youtube.com/watch?v=IODxDxX7oi4',
     progression_criteria: 'Progredir para variações avançadas',
+    regression: 'Flexão inclinada',
+    progression: 'Flexão com feet elevated',
     sets_default: 3,
     reps_default: '10-15',
-    instructions: 'Execute a flexão completa. No topo, protraia as escápulas (push-up plus). Mantenha o core ativo.'
+    instructions: 'Execute a flexão completa. No topo, protraia as escápulas.'
   },
   {
     id: 'str_11',
@@ -850,9 +959,11 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['serrátil anterior', 'deltóide anterior', 'core'],
     video_url: 'https://www.youtube.com/watch?v=Oy4DeDvYpQg',
     progression_criteria: 'Aumentar carga ou adicionar rotação',
+    regression: 'Press de ombro em pé',
+    progression: 'Press landmine com rotação',
     sets_default: 3,
     reps_default: '10-12 cada lado',
-    instructions: 'Em meio ajoelhado, pressione a barra para cima e à frente. Mantenha o core ativo e tronco estável.'
+    instructions: 'Em meio ajoelhado, pressione a barra para cima e à frente.'
   },
   {
     id: 'str_12',
@@ -864,15 +975,16 @@ const STRENGTH_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'quadríceps', 'estabilizadores'],
     video_url: 'https://www.youtube.com/watch?v=vq5-vdgJc0I',
     progression_criteria: 'Aumentar carga ou amplitude',
+    regression: 'Agachamento búlgaro',
+    progression: 'Pistol squat',
     sets_default: 3,
     reps_default: '8-10 cada lado',
-    instructions: 'Execute agachamento unilateral mantendo o joelho alinhado. Controle a descida e impulsione pelo calcanhar.'
+    instructions: 'Execute agachamento unilateral mantendo o joelho alinhado.'
   },
 ];
 
 // ============================================
 // FASE 6: INTEGRATION (10 exercícios)
-// Foco: Movimentos funcionais integrados
 // ============================================
 const INTEGRATION_EXERCISES: FabrikExercise[] = [
   {
@@ -885,9 +997,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['core', 'deltóides', 'glúteos', 'quadríceps'],
     video_url: 'https://www.youtube.com/watch?v=RD_vUnqwqqI',
     progression_criteria: 'Adicionar carga com bastão ou barra',
+    regression: 'Agachamento com bastão',
+    progression: 'OHS com barra',
     sets_default: 3,
     reps_default: '8-10',
-    instructions: 'Com braços estendidos acima da cabeça, execute agachamento profundo. Mantenha braços alinhados com as orelhas.'
+    instructions: 'Com braços estendidos acima da cabeça, execute agachamento profundo.'
   },
   {
     id: 'int_02',
@@ -899,9 +1013,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['oblíquos', 'glúteos', 'estabilizadores do ombro'],
     video_url: 'https://www.youtube.com/watch?v=kbGIxmYLdgs',
     progression_criteria: 'Aumentar carga ou adicionar KB inferior',
+    regression: 'Windmill sem carga',
+    progression: 'Windmill com KB duplo',
     sets_default: 2,
     reps_default: '6-8 cada lado',
-    instructions: 'Com KB elevado, gire o tronco descendo a mão livre em direção ao pé. Mantenha os olhos no KB.'
+    instructions: 'Com KB elevado, gire o tronco descendo a mão livre.'
   },
   {
     id: 'int_03',
@@ -913,9 +1029,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteos', 'quadríceps', 'adutores', 'core'],
     video_url: 'https://www.youtube.com/watch?v=HGwpXzLH5M0',
     progression_criteria: 'Adicionar carga ou velocidade',
+    regression: 'Lunge frontal apenas',
+    progression: 'Lunge matrix com carga',
     sets_default: 2,
     reps_default: '6-8 cada direção',
-    instructions: 'Execute lunges em frente, lateral e posterior. Mantenha o tronco estável em todas as direções.'
+    instructions: 'Execute lunges em frente, lateral e posterior.'
   },
   {
     id: 'int_04',
@@ -927,9 +1045,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['core', 'serrátil', 'deltóides', 'glúteos'],
     video_url: 'https://www.youtube.com/watch?v=N1qGLgDLHiA',
     progression_criteria: 'Aumentar distância ou adicionar carga',
+    regression: 'Bear hold',
+    progression: 'Bear crawl com carga ou obstáculos',
     sets_default: 2,
     reps_default: '10-15m cada direção',
-    instructions: 'Em posição de bear, avance movendo mão e pé opostos. Mantenha os joelhos baixos e coluna neutra.'
+    instructions: 'Em posição de bear, avance movendo mão e pé opostos.'
   },
   {
     id: 'int_05',
@@ -941,9 +1061,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'isquiotibiais', 'core'],
     video_url: 'https://www.youtube.com/watch?v=YSxHifyI6s8',
     progression_criteria: 'Aumentar carga ou progredir para clean',
+    regression: 'Deadlift com KB',
+    progression: 'KB swing one-arm',
     sets_default: 3,
     reps_default: '12-15',
-    instructions: 'Impulsione o KB com extensão explosiva de quadril. Deixe os braços como pêndulos. Core sempre ativo.'
+    instructions: 'Impulsione o KB com extensão explosiva de quadril.'
   },
   {
     id: 'int_06',
@@ -955,9 +1077,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'quadríceps', 'trapézio', 'core'],
     video_url: 'https://www.youtube.com/watch?v=4fH5dNiWXyI',
     progression_criteria: 'Aumentar altura da caixa ou carga',
+    regression: 'Step up com KB',
+    progression: 'Clean to box com altura maior',
     sets_default: 3,
     reps_default: '8-10 cada lado',
-    instructions: 'Execute clean do KB e suba na caixa em um movimento fluido. Desça com controle.'
+    instructions: 'Execute clean do KB e suba na caixa em um movimento fluido.'
   },
   {
     id: 'int_07',
@@ -969,9 +1093,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['core', 'glúteos', 'ombro', 'quadríceps'],
     video_url: 'https://www.youtube.com/watch?v=0bWRPC6g8N0',
     progression_criteria: 'Progredir para TGU completo',
+    regression: 'TGU parcial (até cotovelo)',
+    progression: 'TGU completo',
     sets_default: 2,
     reps_default: '3-5 cada lado',
-    instructions: 'Inicie deitado, role para o cotovelo, depois para a mão, elevando o quadril. Execute cada etapa com controle.'
+    instructions: 'Inicie deitado, role para o cotovelo, depois para a mão.'
   },
   {
     id: 'int_08',
@@ -983,9 +1109,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['peitoral', 'core', 'quadríceps', 'glúteos'],
     video_url: 'https://www.youtube.com/watch?v=TU8QYVW0gDU',
     progression_criteria: 'Adicionar variações (pull-up, box jump)',
+    regression: 'Burpee sem salto',
+    progression: 'Burpee com pull-up ou box jump',
     sets_default: 3,
     reps_default: '8-10',
-    instructions: 'Agache, coloque as mãos no chão, salte para prancha, execute flexão, retorne e salte. Mantenha ritmo controlado.'
+    instructions: 'Agache, coloque as mãos no chão, salte para prancha, retorne e salte.'
   },
   {
     id: 'int_09',
@@ -997,9 +1125,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['glúteo máximo', 'quadríceps', 'panturrilha'],
     video_url: 'https://www.youtube.com/watch?v=hxldG9FX4j4',
     progression_criteria: 'Aumentar altura da caixa',
+    regression: 'Box step up',
+    progression: 'Box jump com altura maior',
     sets_default: 3,
     reps_default: '6-8',
-    instructions: 'Salte na caixa aterrissando com os dois pés. Desça com controle, um pé de cada vez. Foque na aterrissagem suave.'
+    instructions: 'Salte na caixa aterrissando com os dois pés.'
   },
   {
     id: 'int_10',
@@ -1011,9 +1141,11 @@ const INTEGRATION_EXERCISES: FabrikExercise[] = [
     target_muscles: ['oblíquos', 'deltóides', 'core', 'glúteos'],
     video_url: 'https://www.youtube.com/watch?v=1Y4Z0h0Vjug',
     progression_criteria: 'Aumentar peso da bola ou velocidade',
+    regression: 'Arremesso frontal sem passada',
+    progression: 'Arremesso rotacional com med ball pesada',
     sets_default: 2,
     reps_default: '8-10 cada lado',
-    instructions: 'Com medicine ball, execute passada e arremesse a bola overhead ou na parede. Integre a rotação do tronco.'
+    instructions: 'Com medicine ball, execute passada e arremesse overhead.'
   },
 ];
 
@@ -1030,7 +1162,6 @@ export const EXERCISE_LIBRARY: FabrikExercise[] = [
   ...INTEGRATION_EXERCISES,
 ];
 
-// Funções de consulta
 export function getExercisesByPhase(phase: FabrikExercise['fabrik_phase']): FabrikExercise[] {
   return EXERCISE_LIBRARY.filter(ex => ex.fabrik_phase === phase);
 }
@@ -1047,7 +1178,6 @@ export function getExerciseById(id: string): FabrikExercise | undefined {
   return EXERCISE_LIBRARY.find(ex => ex.id === id);
 }
 
-// Mapeamento de classificação para exercícios
 export function getExercisesForFindings(classifications: string[]): FabrikExercise[] {
   const matchingExercises = new Set<FabrikExercise>();
   
@@ -1056,14 +1186,12 @@ export function getExercisesForFindings(classifications: string[]): FabrikExerci
     exercises.forEach(ex => matchingExercises.add(ex));
   }
   
-  // Ordenar por fase FABRIK
   const phaseOrder = ['mobility', 'inhibition', 'activation', 'stability', 'strength', 'integration'];
   return Array.from(matchingExercises).sort((a, b) => 
     phaseOrder.indexOf(a.fabrik_phase) - phaseOrder.indexOf(b.fabrik_phase)
   );
 }
 
-// Estatísticas da biblioteca
 export const LIBRARY_STATS = {
   total: EXERCISE_LIBRARY.length,
   byPhase: {

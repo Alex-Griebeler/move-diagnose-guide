@@ -172,17 +172,6 @@ export const compensacaoCausas: Record<string, CausaProvavel[]> = {
     { id: CAUSE_IDS.GLUTE_MAX_HYPO, label: 'Glúteo Máximo Hipoativo', categoria: 'HYPO', baseWeight: 2 },
   ],
 
-  instability: [
-    { id: CAUSE_IDS.GLUTE_MED_HYPO, label: 'Glúteo Médio Hipoativo', categoria: 'HYPO', baseWeight: 3 },
-    { id: CAUSE_IDS.ANKLE_STABILITY_DEFICIT, label: 'Déficit Estabilidade Tornozelo', categoria: 'INSTAB', baseWeight: 3 },
-    { id: CAUSE_IDS.CORE_STABILITY_DEFICIT, label: 'Déficit Estabilidade Core', categoria: 'INSTAB', baseWeight: 2 },
-  ],
-
-  tremor: [
-    { id: CAUSE_IDS.MOTOR_CONTROL_DEFICIT, label: 'Déficit Controle Motor Global', categoria: 'CM', baseWeight: 3 },
-    { id: CAUSE_IDS.MUSCLE_FATIGUE, label: 'Fadiga Muscular', categoria: 'HYPO', baseWeight: 2 },
-  ],
-
   foot_collapse: [
     { id: CAUSE_IDS.TIB_POST_HYPO, label: 'Tibial Posterior Hipoativo', categoria: 'HYPO', baseWeight: 4 },
     { id: CAUSE_IDS.FOOT_INTRINSIC_HYPO, label: 'Intrínsecos do Pé Hipoativos', categoria: 'HYPO', baseWeight: 3 },
@@ -190,9 +179,12 @@ export const compensacaoCausas: Record<string, CausaProvavel[]> = {
   ],
 
   balance_loss: [
-    { id: CAUSE_IDS.PROPRIOCEPTION_DEFICIT, label: 'Déficit Proprioceptivo', categoria: 'CM', baseWeight: 3 },
+    { id: CAUSE_IDS.GLUTE_MED_HYPO, label: 'Glúteo Médio Hipoativo', categoria: 'HYPO', baseWeight: 3 },
     { id: CAUSE_IDS.ANKLE_STABILITY_DEFICIT, label: 'Déficit Estabilidade Tornozelo', categoria: 'INSTAB', baseWeight: 3 },
-    { id: CAUSE_IDS.GLUTE_MED_HYPO, label: 'Glúteo Médio Hipoativo', categoria: 'HYPO', baseWeight: 2 },
+    { id: CAUSE_IDS.CORE_STABILITY_DEFICIT, label: 'Déficit Estabilidade Core', categoria: 'INSTAB', baseWeight: 2 },
+    { id: CAUSE_IDS.MOTOR_CONTROL_DEFICIT, label: 'Déficit Controle Motor Global', categoria: 'CM', baseWeight: 3 },
+    { id: CAUSE_IDS.PROPRIOCEPTION_DEFICIT, label: 'Déficit Proprioceptivo', categoria: 'CM', baseWeight: 3 },
+    { id: CAUSE_IDS.MUSCLE_FATIGUE, label: 'Fadiga Muscular', categoria: 'HYPO', baseWeight: 2 },
   ],
 
   // ============================================

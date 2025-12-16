@@ -94,7 +94,7 @@ const COMPENSATION_DATA: Record<string, {
     detection_criteria: 'Arredondamento EVIDENTE da lombar no fundo do agachamento. Pelve posterioriza (butt wink pronunciado).',
   },
   heels_rise: {
-    label: 'Calcanhares sobem',
+    label: 'Déficit de dorsiflexão do tornozelo',
     hyperactive: ['Sóleo', 'Gastrocnêmio', 'Flexores plantares'],
     hypoactive: ['Tibial anterior', 'Dorsiflexores do tornozelo'],
     injuries: ['Tendinopatia Aquiles', 'Fascite plantar', 'Instabilidade anterior joelho'],
@@ -187,6 +187,34 @@ const COMPENSATION_DATA: Record<string, {
     hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome estresse tibial'],
     detection_criteria: 'Calcâneo inclina medialmente. Tendão de Aquiles não alinha reto. Navicular desce visível da vista posterior.',
+  },
+  feet_abduction_sls: {
+    label: 'Pés abduzidos (giram para fora)',
+    hyperactive: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral'],
+    hypoactive: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório'],
+    injuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome banda IT'],
+    detection_criteria: 'Pé de apoio rotado externamente >30°. Ponta do pé aponta para fora da linha média.',
+  },
+  trunk_rotation_medial_anterior: {
+    label: 'Rotação medial do tronco',
+    hyperactive: ['Oblíquos internos', 'Oblíquos externos', 'TFL'],
+    hypoactive: ['Glúteo médio', 'Glúteo máximo', 'Core estabilizador'],
+    injuries: ['Valgo persistente', 'Sobrecarga lombar'],
+    detection_criteria: 'Tronco rota >15° para dentro (medialmente). Ombro do lado de apoio gira para frente.',
+  },
+  trunk_rotation_lateral_anterior: {
+    label: 'Rotação lateral do tronco',
+    hyperactive: ['Oblíquos externos contralateral', 'Quadrado lombar'],
+    hypoactive: ['Glúteo médio', 'Oblíquos internos', 'Core estabilizador'],
+    injuries: ['Desequilíbrio rotacional', 'Dor lombar'],
+    detection_criteria: 'Tronco rota >15° para fora (lateralmente). Ombro do lado de apoio gira para trás.',
+  },
+  feet_abduction_posterior: {
+    label: 'Pés abduzidos (vista posterior)',
+    hyperactive: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral'],
+    hypoactive: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório'],
+    injuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome banda IT'],
+    detection_criteria: 'Pé de apoio visível da vista posterior rotado externamente. Ponta do pé claramente aponta para fora.',
   },
   // Push-up - Vista Lateral
   hip_elevation: {
@@ -299,7 +327,7 @@ COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - trunk_forward_lean: Tronco inclina >45° da vertical
 - lumbar_hyperextension: Lordose EXAGERADA (barriga projetada)
 - spine_flexion: Butt wink - lombar ARREDONDA no fundo do agachamento
-- heels_rise: Calcanhares elevam do chão
+- heels_rise: Déficit de dorsiflexão do tornozelo - calcanhares elevam do chão
 - arms_fall_forward: Braços caem abaixo da linha da cabeça
 
 ATENÇÃO: spine_flexion e lumbar_hyperextension são OPOSTOS - só um pode ocorrer.
@@ -325,6 +353,9 @@ const SLS_PROMPTS: Record<string, string> = {
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - knee_valgus: Valgo dinâmico - joelho desvia medialmente
 - foot_collapse: Queda do arco plantar
+- feet_abduction_sls: Pé de apoio rotado externamente >30°
+- trunk_rotation_medial_anterior: Tronco rota >15° para dentro (medialmente)
+- trunk_rotation_lateral_anterior: Tronco rota >15° para fora (lateralmente)
 - balance_loss: Oscilações grandes/repetidas, tremor visível/persistente, ou perde apoio/toca o chão
 
 Use report_analysis com detected_compensations e confidence.`,
@@ -350,6 +381,7 @@ COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - trunk_rotation_medial: Tronco rota >15° para dentro
 - trunk_rotation_lateral: Tronco rota >15° para fora
 - foot_collapse_posterior: Queda do arco plantar - calcâneo inclina medialmente
+- feet_abduction_posterior: Pé de apoio rotado externamente
 
 Use report_analysis com detected_compensations e confidence.`,
 };

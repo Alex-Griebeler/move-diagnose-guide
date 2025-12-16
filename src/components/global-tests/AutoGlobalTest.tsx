@@ -467,14 +467,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               embedded
             />
 
-            {/* AI Analysis Loading */}
-            {isLoadingAnalysis && (
-              <div className="flex items-center justify-center py-3 gap-2 text-muted-foreground text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Analisando...</span>
-              </div>
-            )}
-
             {/* Low confidence warning only */}
             {currentResult && !isLoadingAnalysis && currentResult.confidence < 0.6 && (
               <div className="flex items-center gap-2 text-xs text-warning">

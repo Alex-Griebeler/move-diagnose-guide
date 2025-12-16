@@ -97,7 +97,7 @@ export function PainHistoryStep({ data, updateData }: PainHistoryStepProps) {
             <button
               key={region.value}
               type="button"
-              onClick={() => setSelectedRegion(region.value)}
+              onClick={() => setSelectedRegion(selectedRegion === region.value ? '' : region.value)}
               className={cn(
                 "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
                 selectedRegion === region.value

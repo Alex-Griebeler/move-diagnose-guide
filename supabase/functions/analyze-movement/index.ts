@@ -264,7 +264,7 @@ const ANALYSIS_TOOL = {
   type: "function" as const,
   function: {
     name: "report_analysis",
-    description: "Report comprehensive movement analysis with clinical depth and biomechanical insight",
+    description: "Report concise movement analysis with essential clinical findings",
     parameters: {
       type: "object",
       properties: {
@@ -287,21 +287,21 @@ const ANALYSIS_TOOL = {
         primary_compensation: {
           type: "string",
           nullable: true,
-          description: "Most clinically significant compensation requiring priority attention"
+          description: "Most clinically significant compensation"
         },
         side_bias: {
           type: "string",
           enum: ["left", "right", "bilateral", "symmetric"],
-          description: "Which side shows more dysfunction, or symmetric if equal"
+          description: "Which side shows more dysfunction"
         },
         requires_attention: {
           type: "boolean",
-          description: "True if compensations indicate injury risk or require immediate clinical attention"
+          description: "True if indicates injury risk"
         },
         technical_note: {
           type: "string",
-          maxLength: 600,
-          description: "Análise clínica DETALHADA em português. Inclua: (1) Descrição qualitativa de cada compensação detectada e sua magnitude, (2) Momento do movimento onde ocorre (descida, fundo, subida), (3) Padrão de compensação (consistente, intermitente, progressivo), (4) Cadeia cinética afetada e implicações musculares, (5) Correlação entre compensações quando houver. NÃO cite ângulos ou medidas numéricas."
+          maxLength: 200,
+          description: "Resumo CONCISO em português: compensações detectadas + magnitude (leve/moderada/acentuada) + assimetria se houver. Máximo 2 frases. NÃO cite músculos, cadeias cinéticas ou implicações - apenas o que foi OBSERVADO."
         }
       },
       required: ["detected_compensations", "confidence", "severity", "side_bias", "requires_attention", "technical_note"]
@@ -310,293 +310,109 @@ const ANALYSIS_TOOL = {
 };
 
 // ============================================
-// PROMPTS ENRIQUECIDOS POR VISTA
+// PROMPTS CONCISOS POR VISTA
 // ============================================
 
-const CLINICAL_ANALYSIS_TEMPLATE = `
-ESTRUTURA DA ANÁLISE CLÍNICA:
-1. Para CADA compensação detectada, descreva:
-   - Magnitude: sutil, moderada, ou acentuada
-   - Fase do movimento: início da descida, durante descida, no fundo, durante subida
-   - Padrão: consistente (toda repetição), intermitente (algumas repetições), ou progressivo (piora com fadiga)
-
-2. Identifique CORRELAÇÕES biomecânicas:
-   - Compensações que ocorrem juntas (ex: valgo + colapso arco = cadeia pronação)
-   - Sequência compensatória (ex: restrição tornozelo → inclinação tronco)
-
-3. Implicações clínicas:
-   - Músculos provavelmente hiperativos/tensos
-   - Músculos provavelmente hipoativos/fracos
-   - Regiões sob maior estresse mecânico
-
-IMPORTANTE: Seja ESPECÍFICO e DETALHADO. Uma análise pobre seria "valgo de joelhos durante descida". 
-Uma análise RICA seria "Valgo dinâmico bilateral moderado, mais acentuado à esquerda, iniciando no terço médio da descida e intensificando-se no fundo do movimento. Padrão consistente em todas as repetições, sugerindo déficit de controle de glúteo médio bilateral com predomínio esquerdo. Correlaciona-se com leve colapso do arco plantar ipsilateral, indicando cadeia de pronação ativa."`;
+const ANALYSIS_INSTRUCTIONS = `
+REGRAS DO TECHNICAL_NOTE:
+- Máximo 2 frases curtas
+- Descreva APENAS o que observa (ex: "Valgo moderado bilateral, pés abduzidos")
+- Inclua magnitude: leve, moderado, acentuado
+- Inclua assimetria se houver: "mais à direita/esquerda"
+- NÃO inclua: músculos, cadeias, implicações, riscos
+- Detalhes serão adicionados no relatório final`;
 
 const OHS_PROMPTS: Record<string, string> = {
-  anterior: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de OVERHEAD SQUAT - VISTA ANTERIOR (frontal) com PROFUNDIDADE CLÍNICA.
+  anterior: `Analise OVERHEAD SQUAT - VISTA ANTERIOR.
 
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['feet_abduction', 'feet_eversion', 'knee_valgus', 'knee_varus'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA:
+Observe: posição dos pés, arco plantar, alinhamento dos joelhos.
+${ANALYSIS_INSTRUCTIONS}
 
-1. COMPLEXO PÉ-TORNOZELO:
-   - Posição dos pés: alinhados, abduzidos, aduzidos?
-   - Arco plantar: mantido, colapsando, rígido?
-   - Calcanhares: estáveis, invertendo, evertendo?
+Use report_analysis para resultado estruturado.`,
 
-2. COMPLEXO JOELHO:
-   - Alinhamento frontal: neutro, valgo dinâmico, varo?
-   - Simetria: bilateral, unilateral (qual lado mais afetado)?
-   - Timing: quando inicia o desvio? Piora no fundo?
+  lateral: `Analise OVERHEAD SQUAT - VISTA LATERAL.
 
-3. CORRELAÇÕES:
-   - Pé e joelho se correlacionam? (ex: pronação + valgo)
-   - Há assimetria entre lados?
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
-
-  lateral: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de OVERHEAD SQUAT - VISTA LATERAL (perfil) com PROFUNDIDADE CLÍNICA.
-
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['trunk_forward_lean', 'lumbar_hyperextension', 'spine_flexion', 'heels_rise', 'arms_fall_forward'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA:
+Observe: inclinação do tronco, lordose/cifose lombar, posição dos braços, calcanhares.
+${ANALYSIS_INSTRUCTIONS}
 
-1. COLUNA VERTEBRAL:
-   - Lordose lombar: mantida, exagerada (hiperlordose), ou perdida (butt wink)?
-   - Em que momento do movimento ocorre a alteração?
-   - Há flexão torácica compensatória?
+Use report_analysis para resultado estruturado.`,
 
-2. INCLINAÇÃO DO TRONCO:
-   - Magnitude: leve, moderada, acentuada?
-   - É proporcional à amplitude do agachamento?
-   - Tronco permanece sobre base de suporte?
+  posterior: `Analise OVERHEAD SQUAT - VISTA POSTERIOR.
 
-3. MEMBROS SUPERIORES:
-   - Braços mantêm posição overhead?
-   - Quando caem: desde o início ou apenas no fundo?
-   - Há extensão de cotovelos adequada?
+LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
 
-4. TORNOZELO:
-   - Calcanhares permanecem no solo?
-   - Há dorsiflexão suficiente?
-
-5. CORRELAÇÕES:
-   - Inclinação tronco + elevação calcanhares (déficit dorsiflexão)
-   - Braços caem + hiperlordose (rigidez latíssimo/peitoral)
-   - Butt wink + tronco inclina (restrição quadril/isquiotibiais)
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
-
-  posterior: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de OVERHEAD SQUAT - VISTA POSTERIOR (de trás) com PROFUNDIDADE CLÍNICA.
-
-REFERÊNCIA CRÍTICA DE LATERALIDADE:
-- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
-- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
-SEMPRE reporte usando a lateralidade ANATÔMICA do paciente, não da imagem.
-
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['asymmetric_shift', 'trunk_rotation'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA:
+Observe: simetria pélvica, rotação do tronco, distribuição de peso.
+${ANALYSIS_INSTRUCTIONS}
 
-1. SIMETRIA PÉLVICA:
-   - Pelve permanece nivelada ou há shift lateral?
-   - Se há shift, para qual lado (ANATÔMICO)?
-   - Magnitude: sutil, moderado, acentuado?
-   - Timing: ocorre em que fase do movimento?
-
-2. ROTAÇÃO DO TRONCO:
-   - Ombros e pelve rotam?
-   - Rotação é consistente ou varia?
-   - Para qual lado rota (use referência ANATÔMICA)?
-
-3. DISTRIBUIÇÃO DE PESO:
-   - Peso parece equalizado ou há preferência unilateral?
-   - Há assimetria na profundidade do agachamento entre lados?
-
-4. ESCÁPULAS (se visível):
-   - Há elevação assimétrica?
-   - Uma escápula mais protraída que outra?
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
+Use report_analysis para resultado estruturado.`,
 };
 
 const SLS_PROMPTS: Record<string, string> = {
-  anterior: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de SINGLE-LEG SQUAT - VISTA ANTERIOR (frontal) com PROFUNDIDADE CLÍNICA.
+  anterior: `Analise SINGLE-LEG SQUAT - VISTA ANTERIOR.
 
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['knee_valgus', 'foot_collapse', 'instability', 'tremor', 'balance_loss'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA:
+Observe: alinhamento do joelho, arco plantar, estabilidade geral.
+${ANALYSIS_INSTRUCTIONS}
 
-1. COMPLEXO JOELHO:
-   - Alinhamento: joelho permanece sobre 2º-3º dedo ou desvia medialmente (valgo)?
-   - Magnitude do desvio: sutil, moderado, acentuado?
-   - Timing: valgo inicia quando? Piora no fundo?
+Use report_analysis para resultado estruturado.`,
 
-2. COMPLEXO PÉ:
-   - Arco plantar: mantido ou colapsa sob carga unipodal?
-   - Correlação arco-joelho: colapso precede valgo?
+  lateral: `Analise SINGLE-LEG SQUAT - VISTA LATERAL.
 
-3. CONTROLE MOTOR:
-   - Oscilações: ausentes, mínimas (normais), excessivas?
-   - Tremor: ausente, leve, persistente/significativo?
-   - Perda de equilíbrio: mantém apoio ou toca chão?
-
-4. QUALIDADE DO MOVIMENTO:
-   - Fluido e controlado ou hesitante e instável?
-   - Velocidade: controlada ou "despenca" na descida?
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
-
-  lateral: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de SINGLE-LEG SQUAT - VISTA LATERAL (perfil) com PROFUNDIDADE CLÍNICA.
-
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['trunk_forward_lean_sls', 'knee_flexion_insufficient'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA:
+Observe: inclinação do tronco, amplitude de flexão do joelho.
+${ANALYSIS_INSTRUCTIONS}
 
-1. INCLINAÇÃO DO TRONCO:
-   - Tronco mantém-se relativamente vertical ou inclina excessivamente?
-   - Inclinação é compensatória (para manter equilíbrio) ou padrão habitual?
-   - Magnitude: leve, moderada, acentuada?
+Use report_analysis para resultado estruturado.`,
 
-2. AMPLITUDE DE FLEXÃO:
-   - Joelho atinge flexão funcional adequada (mínimo 45-60°)?
-   - Amplitude é limitada por: dor, fraqueza, restrição mobilidade?
-   - Há hesitação ou "travamento" em algum ponto?
+  posterior: `Analise SINGLE-LEG SQUAT - VISTA POSTERIOR.
 
-3. CONTROLE EXCÊNTRICO:
-   - Descida é controlada ou "desaba"?
-   - Há freio adequado no fundo do movimento?
+LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
 
-4. ALINHAMENTO COLUNA-PELVE:
-   - Pelve permanece neutra ou há anterversão/retroversão?
-   - Lombar mantém curvatura natural?
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
-
-  posterior: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de SINGLE-LEG SQUAT - VISTA POSTERIOR (de trás) com PROFUNDIDADE CLÍNICA.
-
-REFERÊNCIA CRÍTICA DE LATERALIDADE:
-- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
-- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
-SEMPRE reporte usando a lateralidade ANATÔMICA do paciente.
-
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA - TESTE DE TRENDELENBURG:
+Observe: nível da pelve (Trendelenburg), rotação do tronco.
+Hip drop = déficit glúteo médio do lado de APOIO.
+${ANALYSIS_INSTRUCTIONS}
 
-1. CONTROLE PÉLVICO-GLÚTEO (CRÍTICO):
-   - Pelve do lado da perna livre: mantém nivelada, cai (hip drop), ou eleva (hip hike)?
-   - Se hip drop: Trendelenburg POSITIVO → déficit de glúteo médio do lado de APOIO
-   - Magnitude: sutil (<5°), moderado (5-10°), acentuado (>10°)
-   - Timing: queda é imediata ou progressiva durante descida?
-
-2. ROTAÇÃO DO TRONCO:
-   - Tronco rota para dentro (medial) ou para fora (lateral)?
-   - Rotação é compensatória ao hip drop?
-   - Correlação: rotação medial frequentemente acompanha hip drop
-
-3. ESTABILIDADE LATERAL:
-   - Shift lateral do tronco: presente ou ausente?
-   - Trunk lean: inclina sobre perna de apoio (compensação)?
-
-4. IMPLICAÇÕES CLÍNICAS:
-   - Hip drop = fraqueza glúteo médio lado apoio
-   - Hip hike = compensação por quadrado lombar
-   - Rotação = déficit controle rotacional core
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
+Use report_analysis para resultado estruturado.`,
 };
 
 const PUSHUP_PROMPTS: Record<string, string> = {
-  lateral: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de PUSH-UP - VISTA LATERAL (perfil) com PROFUNDIDADE CLÍNICA.
+  lateral: `Analise PUSH-UP - VISTA LATERAL.
 
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['hip_elevation', 'hip_drop_pushup'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA:
+Observe: alinhamento corporal, posição do quadril (pike ou drop).
+${ANALYSIS_INSTRUCTIONS}
 
-1. ALINHAMENTO CORPORAL:
-   - Linha cabeça-ombros-quadril-tornozelos: mantida ou quebrada?
-   - Se quebrada: quadril sobe (pike) ou afunda (lordose)?
+Use report_analysis para resultado estruturado.`,
 
-2. CONTROLE DO QUADRIL:
-   - Hip pike: quadril eleva formando "V" invertido?
-   - Hip drop: quadril afunda criando lordose acentuada?
-   - Timing: ocorre no início, durante descida, ou no esforço da subida?
+  posterior: `Analise PUSH-UP - VISTA POSTERIOR.
 
-3. ESTABILIDADE DO CORE:
-   - Core mantém rigidez ou "cede" durante movimento?
-   - Há ondulação da coluna durante o ciclo?
+LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
 
-4. PADRÃO DE MOVIMENTO:
-   - Consistente ou deteriora com repetições?
-   - Compensação é estratégia consciente ou fadiga?
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
-
-  posterior: `Você é um fisioterapeuta especialista em biomecânica funcional com experiência em avaliação de movimento.
-Analise esta imagem/vídeo de PUSH-UP - VISTA POSTERIOR (de trás) com PROFUNDIDADE CLÍNICA.
-
-REFERÊNCIA CRÍTICA DE LATERALIDADE:
-- O que aparece à ESQUERDA da imagem = lado DIREITO anatômico do paciente
-- O que aparece à DIREITA da imagem = lado ESQUERDO anatômico do paciente
-SEMPRE reporte usando a lateralidade ANATÔMICA do paciente.
-
-COMPENSAÇÕES DETECTÁVEIS NESTA VISTA (use APENAS estes IDs):
+COMPENSAÇÕES (use APENAS estes IDs):
 ${getCompensationContext(['scapular_winging', 'elbow_flare', 'shoulder_protraction', 'shoulder_retraction_insufficient'])}
 
-ANÁLISE BIOMECÂNICA DETALHADA:
+Observe: escápulas (winging), ângulo dos cotovelos, posição dos ombros.
+${ANALYSIS_INSTRUCTIONS}
 
-1. ESCÁPULAS (CRÍTICO):
-   - Winging: borda medial descola do tórax? Unilateral ou bilateral?
-   - Timing: ocorre na descida, no fundo, ou na subida (concêntrico)?
-   - Winging no esforço concêntrico = déficit serrátil anterior
-   - Magnitude: sutil, moderado, acentuado?
-
-2. COTOVELOS:
-   - Ângulo cotovelo-tronco: ~45° (ideal), 60-75° (leve flare), >75° (flare significativo)?
-   - Flare é simétrico ou mais de um lado?
-   - Implicação: flare excessivo → estresse subacromial
-
-3. COMPLEXO OMBRO:
-   - Protração excessiva: ombros muito arredondados no topo?
-   - Retração insuficiente: escápulas não se aproximam na descida?
-   - Simetria: um ombro mais protraído que outro?
-
-4. CORRELAÇÕES:
-   - Winging + protração excessiva = cadeia de instabilidade escapular
-   - Flare + winging = padrão comum de déficit serrátil/core
-
-${CLINICAL_ANALYSIS_TEMPLATE}
-
-Use a função report_analysis para reportar resultados com RIQUEZA CLÍNICA.`,
+Use report_analysis para resultado estruturado.`,
 };
 
 // ============================================

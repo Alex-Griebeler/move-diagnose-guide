@@ -158,7 +158,7 @@ export const slsLateralCompensations: CompensationMapping[] = [
   },
   {
     id: 'ankle_mobility_deficit_sls',
-    label: 'Déficit de mobilidade de tornozelo (calcanhar sobe)',
+    label: 'Déficit de mobilidade de tornozelo',
     hyperactiveMuscles: ['Gastrocnêmio', 'Sóleo', 'Flexores plantares', 'Tibial posterior'],
     hypoactiveMuscles: ['Tibial anterior', 'Dorsiflexores do tornozelo'],
     associatedInjuries: ['Tendinopatia do Aquiles', 'Fascite plantar', 'Compensação proximal em joelho e quadril', 'Instabilidade anterior do joelho'],

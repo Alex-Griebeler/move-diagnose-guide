@@ -51,7 +51,7 @@ const COMPENSATION_DATA: Record<string, {
     detection_criteria: 'Ângulo pés-frente >30° (15-30° pode ser normal). Pés claramente apontando para fora da linha média.',
   },
   feet_eversion: {
-    label: 'Eversão dos pés (pronação/pé colapsa)',
+    label: 'Eversão dos pés (pronação/queda do arco plantar)',
     hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Bíceps femoral', 'TFL'],
     hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Tibial anterior', 'Glúteo médio'],
     injuries: ['Fascite plantar', 'Síndrome do estresse tibial', 'Tendinopatia tibial posterior'],
@@ -124,7 +124,7 @@ const COMPENSATION_DATA: Record<string, {
   },
   // SLS - Vista Anterior
   foot_collapse: {
-    label: 'Pé colapsa (arco cai)',
+    label: 'Queda do arco plantar',
     hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
     hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome estresse tibial'],
@@ -279,7 +279,7 @@ const OHS_PROMPTS: Record<string, string> = {
 
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - feet_abduction: Pés giram para fora >30°
-- feet_eversion: Pé colapsa (arco cai), calcanhares inclinam medialmente
+- feet_eversion: Queda do arco plantar, calcanhares inclinam medialmente
 - knee_valgus: Valgo dinâmico - joelho desvia medialmente da linha do hálux
 - knee_varus: Joelhos se afastam lateralmente
 
@@ -316,7 +316,7 @@ const SLS_PROMPTS: Record<string, string> = {
 
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
 - knee_valgus: Valgo dinâmico - joelho desvia medialmente
-- foot_collapse: Pé colapsa (arco cai)
+- foot_collapse: Queda do arco plantar
 - balance_loss: Oscilações grandes/repetidas, tremor visível/persistente, ou perde apoio/toca o chão
 
 Use report_analysis com detected_compensations e confidence.`,

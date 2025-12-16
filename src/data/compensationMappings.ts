@@ -24,7 +24,7 @@ export const ohsAnteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'feet_eversion',
-    label: 'Eversão dos pés (pronação/pé colapsa)',
+    label: 'Eversão dos pés (pronação/queda do arco plantar)',
     hyperactiveMuscles: ['Fibulares (curto e longo)', 'Gastrocnêmio lateral', 'Bíceps femoral', 'TFL'],
     hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Tibial anterior', 'Glúteo médio'],
     associatedInjuries: ['Fascite plantar', 'Síndrome do estresse tibial medial', 'Tendinopatia tibial posterior'],
@@ -132,7 +132,7 @@ export const slsAnteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'foot_collapse',
-    label: 'Pé colapsa (arco cai)',
+    label: 'Queda do arco plantar',
     hyperactiveMuscles: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
     hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],

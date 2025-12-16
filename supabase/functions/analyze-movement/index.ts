@@ -145,26 +145,12 @@ const COMPENSATION_DATA: Record<string, {
     injuries: ['Sobrecarga lombar', 'Impacto do quadril'],
     detection_criteria: 'Inclinação >30° para frente. Tronco projeta significativamente sobre coxa.',
   },
-  knee_flexion_insufficient: {
-    label: 'Flexão insuficiente de joelho',
-    hyperactive: ['Quadríceps em proteção', 'Gastrocnêmio'],
-    hypoactive: ['Glúteo máximo', 'Controle excêntrico quadríceps'],
-    injuries: ['Compensação por dor ou restrição', 'Déficit controle motor'],
-    detection_criteria: 'Joelho flexiona <30° (amplitude MUITO limitada). Agachamento extremamente raso.',
-  },
-  heels_rise_sls: {
-    label: 'Calcanhar sobe (déficit dorsiflexão)',
-    hyperactive: ['Sóleo', 'Gastrocnêmio', 'Flexores plantares'],
+  ankle_mobility_deficit_sls: {
+    label: 'Déficit de mobilidade de tornozelo',
+    hyperactive: ['Gastrocnêmio', 'Sóleo', 'Flexores plantares', 'Tibial posterior'],
     hypoactive: ['Tibial anterior', 'Dorsiflexores tornozelo'],
-    injuries: ['Tendinopatia Aquiles', 'Déficit mobilidade tornozelo', 'Instabilidade anterior joelho'],
-    detection_criteria: 'Calcanhar de apoio ELEVA do chão durante agachamento unipodal. Peso transfere para antepé.',
-  },
-  ankle_dorsiflexion_limit: {
-    label: 'Restrição de dorsiflexão de tornozelo',
-    hyperactive: ['Gastrocnêmio', 'Sóleo', 'Tibial posterior'],
-    hypoactive: ['Tibial anterior', 'Dorsiflexores'],
-    injuries: ['Fascite plantar', 'Tendinopatia Aquiles', 'Disfunção marcha', 'Compensação proximal joelho/quadril'],
-    detection_criteria: 'Tíbia NÃO avança adequadamente sobre pé. Joelho não passa dos dedos. Amplitude de tornozelo visivelmente limitada.',
+    injuries: ['Tendinopatia Aquiles', 'Fascite plantar', 'Compensação proximal joelho/quadril', 'Instabilidade anterior joelho'],
+    detection_criteria: 'Calcanhar ELEVA do chão OU tíbia NÃO avança sobre pé OU joelho não passa dos dedos. Amplitude de tornozelo visivelmente limitada.',
   },
   // SLS - Vista Posterior
   hip_drop: {
@@ -339,12 +325,10 @@ Use report_analysis com detected_compensations e confidence.`,
 MELHOR VISTA PARA AVALIAR MOBILIDADE DE TORNOZELO.
 
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
-- trunk_forward_lean_sls: Inclinação >30° para frente
-- knee_flexion_insufficient: Joelho flexiona <30° (muito raso)
-- heels_rise_sls: Calcanhar de apoio ELEVA do chão
-- ankle_dorsiflexion_limit: Tíbia não avança sobre pé, joelho não passa dos dedos, amplitude tornozelo limitada
+- trunk_forward_lean_sls: Inclinação >30° para frente (pode indicar déficit de mobilidade de tornozelo/quadril ou fraqueza glútea)
+- ankle_mobility_deficit_sls: Calcanhar ELEVA do chão OU tíbia não avança sobre pé OU amplitude tornozelo limitada
 
-ATENÇÃO: heels_rise_sls e ankle_dorsiflexion_limit são indicadores de DÉFICIT DE MOBILIDADE DE TORNOZELO.
+NOTA: trunk_forward_lean_sls frequentemente acompanha ankle_mobility_deficit_sls como compensação.
 
 Use report_analysis com detected_compensations e confidence.`,
 

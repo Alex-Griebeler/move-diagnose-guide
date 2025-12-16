@@ -124,17 +124,15 @@ export function TestSummary({ data, anamnesisContext }: TestSummaryProps) {
 
   if (totalCompensations === 0) {
     return (
-      <Card className="border-success/30 bg-success/5">
-        <CardContent className="py-8 text-center">
-          <Activity className="w-12 h-12 mx-auto text-success mb-4" />
-          <h3 className="text-lg font-semibold text-success mb-2">
-            Nenhuma compensação identificada
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            O aluno apresenta bons padrões de movimento nos testes globais.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="py-8 text-center">
+        <Activity className="w-12 h-12 mx-auto text-success mb-4" />
+        <h3 className="text-lg font-semibold text-success mb-2 uppercase tracking-wide">
+          Nenhuma compensação identificada
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          O aluno apresenta bons padrões de movimento nos testes globais.
+        </p>
+      </div>
     );
   }
 

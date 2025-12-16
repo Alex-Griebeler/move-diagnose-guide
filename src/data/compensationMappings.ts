@@ -219,7 +219,7 @@ export const slsPosteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'feet_abduction_posterior',
-    label: 'Pés abduzidos',
+    label: 'Pés abduzidos (giram para fora)',
     hyperactiveMuscles: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral (cabeça curta)'],
     hypoactiveMuscles: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório', 'Poplíteo'],
     associatedInjuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome da banda iliotibial'],

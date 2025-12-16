@@ -6,7 +6,7 @@ interface StudentIdentityBannerProps {
   studentId?: string;
 }
 
-export function StudentIdentityBanner({ studentName, studentId }: StudentIdentityBannerProps) {
+export function StudentIdentityBanner({ studentName }: StudentIdentityBannerProps) {
   const initials = studentName
     .split(' ')
     .map(n => n[0])
@@ -15,15 +15,15 @@ export function StudentIdentityBanner({ studentName, studentId }: StudentIdentit
     .toUpperCase();
 
   return (
-    <div className="flex items-center gap-3 py-3 px-4 bg-muted/30 border-b">
-      <Avatar className="h-9 w-9 border border-border">
-        <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-          {initials || <User className="h-4 w-4" />}
+    <div className="flex items-center gap-2.5">
+      <Avatar className="h-8 w-8 border border-primary/20">
+        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+          {initials || <User className="h-3.5 w-3.5" />}
         </AvatarFallback>
       </Avatar>
-      <div className="flex flex-col">
-        <span className="text-xs text-muted-foreground">Avaliando</span>
-        <span className="font-medium text-foreground">{studentName}</span>
+      <div className="flex flex-col leading-tight">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Avaliando</span>
+        <span className="text-sm font-medium text-foreground">{studentName}</span>
       </div>
     </div>
   );

@@ -325,94 +325,120 @@ REGRAS DO TECHNICAL_NOTE:
 const OHS_PROMPTS: Record<string, string> = {
   anterior: `Analise OVERHEAD SQUAT - VISTA ANTERIOR.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['feet_abduction', 'feet_eversion', 'knee_valgus', 'knee_varus'])}
 
-Observe: posição dos pés, arco plantar, alinhamento dos joelhos.
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST DE ANÁLISE:
+- Pés: alinhados/abduzidos? Arco: mantido/colapsado?
+- Joelhos: neutros/valgo/varo? Bilateral ou unilateral?
 
-Use report_analysis para resultado estruturado.`,
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 
   lateral: `Analise OVERHEAD SQUAT - VISTA LATERAL.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['trunk_forward_lean', 'lumbar_hyperextension', 'spine_flexion', 'heels_rise', 'arms_fall_forward'])}
 
-Observe: inclinação do tronco, lordose/cifose lombar, posição dos braços, calcanhares.
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST DE ANÁLISE - OBSERVE CADA ITEM:
+1. TRONCO: Inclinação excessiva à frente?
+2. LOMBAR NO FUNDO DO MOVIMENTO:
+   - Hiperlordose (lombar arqueia PARA TRÁS)? → LUMBAR_HYPEREXTENSION
+   - OU Butt wink (lombar ARREDONDA, pelve posterioriza)? → SPINE_FLEXION
+   - São OPOSTOS - só um pode ocorrer
+3. CALCANHARES: Elevam do solo?
+4. BRAÇOS: Caem da posição overhead?
 
-Use report_analysis para resultado estruturado.`,
+IMPORTANTE: Analise o FUNDO do agachamento para detectar butt wink.
+
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 
   posterior: `Analise OVERHEAD SQUAT - VISTA POSTERIOR.
 
 LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['asymmetric_shift', 'trunk_rotation'])}
 
-Observe: simetria pélvica, rotação do tronco, distribuição de peso.
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST DE ANÁLISE:
+- Pelve: nivelada ou shift lateral?
+- Tronco: alinhado ou rotação?
+- Peso: equalizado ou preferência unilateral?
 
-Use report_analysis para resultado estruturado.`,
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 };
 
 const SLS_PROMPTS: Record<string, string> = {
   anterior: `Analise SINGLE-LEG SQUAT - VISTA ANTERIOR.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['knee_valgus', 'foot_collapse', 'instability', 'tremor', 'balance_loss'])}
 
-Observe: alinhamento do joelho, arco plantar, estabilidade geral.
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST DE ANÁLISE:
+- Joelho: sobre 2º-3º dedo ou desvia medialmente (valgo)?
+- Arco plantar: mantido ou colapsa?
+- Estabilidade: controlado, oscilações, ou perde equilíbrio?
 
-Use report_analysis para resultado estruturado.`,
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 
   lateral: `Analise SINGLE-LEG SQUAT - VISTA LATERAL.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['trunk_forward_lean_sls', 'knee_flexion_insufficient'])}
 
-Observe: inclinação do tronco, amplitude de flexão do joelho.
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST DE ANÁLISE:
+- Tronco: vertical ou inclinação excessiva à frente?
+- Amplitude: joelho flexiona adequadamente ou amplitude limitada?
 
-Use report_analysis para resultado estruturado.`,
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 
   posterior: `Analise SINGLE-LEG SQUAT - VISTA POSTERIOR.
 
 LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['hip_drop', 'hip_hike', 'trunk_rotation_medial', 'trunk_rotation_lateral'])}
 
-Observe: nível da pelve (Trendelenburg), rotação do tronco.
-Hip drop = déficit glúteo médio do lado de APOIO.
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST - TESTE DE TRENDELENBURG:
+- Pelve do lado livre: nivelada, cai (hip drop), ou eleva (hip hike)?
+- Hip drop = déficit glúteo médio do lado de APOIO
+- Tronco: alinhado ou rota?
 
-Use report_analysis para resultado estruturado.`,
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 };
 
 const PUSHUP_PROMPTS: Record<string, string> = {
   lateral: `Analise PUSH-UP - VISTA LATERAL.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['hip_elevation', 'hip_drop_pushup'])}
 
-Observe: alinhamento corporal, posição do quadril (pike ou drop).
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST DE ANÁLISE:
+- Alinhamento: cabeça-ombros-quadril-tornozelos em linha?
+- Quadril: sobe formando "V" (pike) ou afunda criando lordose (drop)?
 
-Use report_analysis para resultado estruturado.`,
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 
   posterior: `Analise PUSH-UP - VISTA POSTERIOR.
 
 LATERALIDADE: esquerda da imagem = direito anatômico, direita da imagem = esquerdo anatômico.
 
-COMPENSAÇÕES (use APENAS estes IDs):
+COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs):
 ${getCompensationContext(['scapular_winging', 'elbow_flare', 'shoulder_protraction', 'shoulder_retraction_insufficient'])}
 
-Observe: escápulas (winging), ângulo dos cotovelos, posição dos ombros.
-${ANALYSIS_INSTRUCTIONS}
+CHECKLIST DE ANÁLISE:
+- Escápulas: borda medial descola do tórax (winging)?
+- Cotovelos: ~45° (ideal) ou abrem excessivamente (flare)?
+- Ombros: protração excessiva ou retração insuficiente?
 
-Use report_analysis para resultado estruturado.`,
+${ANALYSIS_INSTRUCTIONS}
+Use report_analysis.`,
 };
 
 // ============================================

@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await supabaseAdmin.storage
       .from("assessment-media")
-      .createSignedUrl(filePath, 900);
+      .createSignedUrl(filePath, 3600); // 1 hora de validade
 
     if (error) {
       console.error("Error creating signed URL:", error);

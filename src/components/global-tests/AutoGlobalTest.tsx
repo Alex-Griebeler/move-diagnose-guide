@@ -290,7 +290,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     let videoUrl = media?.videoUrl;
     
     // Refresh signed URL if expired (contains token parameter)
-    const refreshSignedUrl = async (url: string): Promise<string> => {
+    const refreshSignedUrl = async (url: string): Promise<string | null> => {
       if (!url.includes('token=')) return url;
       
       const filePath = extractFilePathFromSignedUrl(url);
@@ -300,11 +300,19 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         const { data: signedData, error } = await supabase.functions.invoke('get-signed-url', {
           body: { filePath }
         });
-        if (error) throw error;
+        if (error) {
+          // Check if it's a "not found" error - file was deleted
+          if (error.message?.includes('500') || error.message?.includes('not found')) {
+            toast.error('Vídeo não encontrado. Por favor, faça upload novamente.');
+            return null;
+          }
+          throw error;
+        }
         return signedData?.signedUrl || url;
       } catch (err) {
         console.error('Failed to refresh signed URL:', err);
-        return url;
+        toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
+        return null;
       }
     };
     
@@ -313,6 +321,10 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       try {
         // Refresh video URL before extracting frame
         const freshVideoUrl = await refreshSignedUrl(videoUrl);
+        if (!freshVideoUrl) {
+          // File doesn't exist, user needs to re-upload
+          return;
+        }
         imageUrl = await extractFrameFromVideo(freshVideoUrl);
         videoUrl = freshVideoUrl;
       } catch (error) {

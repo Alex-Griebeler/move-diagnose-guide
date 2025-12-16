@@ -21,7 +21,38 @@ const guideConfigs: Record<string, { instruction: string; guideType: 'full-body'
     instruction: 'Posicione a pessoa de costas, corpo inteiro visível',
     guideType: 'full-body',
   },
-  // Single Leg Squat
+  
+  // Single Leg Squat - Anterior views
+  'single_leg_squat_left_anterior': {
+    instruction: 'De frente, perna esquerda de apoio, corpo inteiro visível',
+    guideType: 'full-body',
+  },
+  'single_leg_squat_right_anterior': {
+    instruction: 'De frente, perna direita de apoio, corpo inteiro visível',
+    guideType: 'full-body',
+  },
+  
+  // Single Leg Squat - Lateral views (NOVAS)
+  'single_leg_squat_left_lateral': {
+    instruction: 'De lado, perna esquerda de apoio, observe inclinação do tronco',
+    guideType: 'side-view',
+  },
+  'single_leg_squat_right_lateral': {
+    instruction: 'De lado, perna direita de apoio, observe inclinação do tronco',
+    guideType: 'side-view',
+  },
+  
+  // Single Leg Squat - Posterior views
+  'single_leg_squat_left_posterior': {
+    instruction: 'Por trás, perna esquerda de apoio, observe pelve e quadril',
+    guideType: 'full-body',
+  },
+  'single_leg_squat_right_posterior': {
+    instruction: 'Por trás, perna direita de apoio, observe pelve e quadril',
+    guideType: 'full-body',
+  },
+  
+  // Legacy SLS configs for backward compatibility
   'single_leg_squat_left': {
     instruction: 'Posicione de frente, foco no joelho e quadril',
     guideType: 'full-body',
@@ -30,15 +61,19 @@ const guideConfigs: Record<string, { instruction: string; guideType: 'full-body'
     instruction: 'Posicione de frente, foco no joelho e quadril',
     guideType: 'full-body',
   },
-  // Push-up
+  
+  // Push-up - Lateral view (NOVA)
   'pushup_lateral': {
-    instruction: 'Posicione de lado, corpo inteiro na horizontal',
+    instruction: 'De lado, corpo na horizontal, observe alinhamento do quadril',
     guideType: 'side-view',
   },
+  
+  // Push-up - Posterior view
   'pushup_posterior': {
-    instruction: 'Posicione de cima/trás, escápulas visíveis',
+    instruction: 'De cima/trás, escápulas e cotovelos visíveis',
     guideType: 'upper-body',
   },
+  
   // Default
   'default': {
     instruction: 'Posicione a pessoa inteira no enquadramento',

@@ -118,7 +118,7 @@ export const ohsPosteriorCompensations: CompensationMapping[] = [
 
 // ============================================
 // Single-Leg Squat (SLS) Compensations
-// Separado por vista: Anterior e Posterior
+// Separado por vista: Anterior, Lateral, Posterior
 // ============================================
 
 // SLS - Vista Anterior (observar de frente)
@@ -160,7 +160,27 @@ export const slsAnteriorCompensations: CompensationMapping[] = [
   },
 ];
 
+// SLS - Vista Lateral (observar de lado) - NOVA VISTA
+// Compensações de plano sagital que NÃO são detectáveis da vista posterior
+export const slsLateralCompensations: CompensationMapping[] = [
+  {
+    id: 'trunk_forward_lean_sls',
+    label: 'Inclinação anterior do tronco',
+    hyperactiveMuscles: ['Iliopsoas', 'Reto femoral', 'Eretores da espinha lombar'],
+    hypoactiveMuscles: ['Glúteo máximo', 'Core anterior', 'Transverso abdominal'],
+    associatedInjuries: ['Sobrecarga lombar', 'Impacto do quadril'],
+  },
+  {
+    id: 'knee_flexion_insufficient',
+    label: 'Flexão insuficiente de joelho',
+    hyperactiveMuscles: ['Quadríceps (em proteção)', 'Gastrocnêmio'],
+    hypoactiveMuscles: ['Glúteo máximo', 'Controle excêntrico de quadríceps'],
+    associatedInjuries: ['Compensação por dor ou restrição', 'Déficit de controle motor'],
+  },
+];
+
 // SLS - Vista Posterior (observar por trás)
+// APENAS compensações do plano frontal/transversal (detectáveis por trás)
 export const slsPosteriorCompensations: CompensationMapping[] = [
   {
     id: 'hip_drop',
@@ -190,34 +210,41 @@ export const slsPosteriorCompensations: CompensationMapping[] = [
     hypoactiveMuscles: ['Glúteo médio', 'Oblíquos internos', 'Core estabilizador'],
     associatedInjuries: ['Desequilíbrio rotacional', 'Dor lombar'],
   },
-  {
-    id: 'trunk_forward_lean_sls',
-    label: 'Inclinação anterior do tronco',
-    hyperactiveMuscles: ['Iliopsoas', 'Reto femoral', 'Eretores da espinha lombar'],
-    hypoactiveMuscles: ['Glúteo máximo', 'Core anterior', 'Transverso abdominal'],
-    associatedInjuries: ['Sobrecarga lombar', 'Impacto do quadril'],
-  },
-  {
-    id: 'knee_flexion_insufficient',
-    label: 'Flexão insuficiente de joelho',
-    hyperactiveMuscles: ['Quadríceps (em proteção)', 'Gastrocnêmio'],
-    hypoactiveMuscles: ['Glúteo máximo', 'Controle excêntrico de quadríceps'],
-    associatedInjuries: ['Compensação por dor ou restrição', 'Déficit de controle motor'],
-  },
 ];
 
 // SLS - Todas as compensações (para backward compatibility)
 export const slsCompensations: CompensationMapping[] = [
   ...slsAnteriorCompensations,
+  ...slsLateralCompensations,
   ...slsPosteriorCompensations,
 ];
 
 // ============================================
 // Push-up Test Compensations
-// Vista única: Posterior (para escápulas e cotovelos)
+// Vistas: Lateral (plano sagital) e Posterior (escápulas)
 // ============================================
 
-// Push-up - Vista Posterior (compensações únicas, não cobertas pelo OHS)
+// Push-up - Vista Lateral (observar de lado) - NOVA VISTA
+// Compensações de plano sagital que NÃO são detectáveis da vista posterior
+export const pushupLateralCompensations: CompensationMapping[] = [
+  {
+    id: 'hip_elevation',
+    label: 'Elevação do quadril (pike)',
+    hyperactiveMuscles: ['Flexores quadril', 'Reto abdominal'],
+    hypoactiveMuscles: ['Glúteos', 'Core estabilizador', 'Transverso abdominal'],
+    associatedInjuries: ['Sobrecarga lombar', 'Déficit core'],
+  },
+  {
+    id: 'hip_drop_pushup',
+    label: 'Queda do quadril (push-up)',
+    hyperactiveMuscles: ['Eretores lombares', 'Quadrado lombar'],
+    hypoactiveMuscles: ['Core anterior', 'Glúteos', 'Transverso abdominal'],
+    associatedInjuries: ['Dor lombar', 'Hiperlordose'],
+  },
+];
+
+// Push-up - Vista Posterior (observar por trás)
+// APENAS compensações escapulares e de ombro (detectáveis por trás)
 export const pushupPosteriorCompensations: CompensationMapping[] = [
   {
     id: 'scapular_winging',
@@ -251,13 +278,8 @@ export const pushupPosteriorCompensations: CompensationMapping[] = [
 
 // Push-up - Todas as compensações (para backward compatibility)
 export const pushupCompensations: CompensationMapping[] = [
+  ...pushupLateralCompensations,
   ...pushupPosteriorCompensations,
-  // Compensações removidas (redundantes com OHS):
-  // hips_drop → coberto por spine_flexion no OHS
-  // hip_elevation → coberto por lumbar_hyperextension no OHS
-  // lumbar_extension → coberto por lumbar_hyperextension no OHS
-  // head_forward → pode ser inferido
-  // misalignment → coberto por asymmetric_shift e trunk_rotation no OHS
 ];
 
 // ============================================
@@ -292,7 +314,7 @@ export function getAllOHSCompensations(): CompensationMapping[] {
 
 // Get all SLS compensations combined
 export function getAllSLSCompensations(): CompensationMapping[] {
-  return [...slsAnteriorCompensations, ...slsPosteriorCompensations];
+  return [...slsAnteriorCompensations, ...slsLateralCompensations, ...slsPosteriorCompensations];
 }
 
 // Get all compensations for a specific test

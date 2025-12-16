@@ -113,7 +113,7 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
               <button
                 key={region.value}
                 type="button"
-                onClick={() => setSelectedRegion(region.value)}
+                onClick={() => setSelectedRegion(selectedRegion === region.value ? '' : region.value)}
                 className={cn(
                   "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
                   selectedRegion === region.value
@@ -138,7 +138,7 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setSelectedLaterality(option.value)}
+                    onClick={() => setSelectedLaterality(selectedLaterality === option.value ? '' : option.value)}
                     className={cn(
                       "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
                       selectedLaterality === option.value

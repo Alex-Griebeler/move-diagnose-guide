@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Info, Sparkles, X, Plus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Info, Sparkles, X, Plus, Loader2, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -465,38 +464,11 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               </div>
             )}
 
-            {/* AI Analysis Result - Structured Display */}
-            {currentResult && !isAnalyzing && (
-              <div className="p-3 rounded-lg bg-accent/5 border border-accent/20 space-y-2">
-                {/* Structured badges row */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {currentResult.side_bias && currentResult.side_bias !== 'symmetric' && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      {currentResult.side_bias === 'left' ? 'Viés E' : 
-                       currentResult.side_bias === 'right' ? 'Viés D' : 'Bilateral'}
-                    </Badge>
-                  )}
-                  {currentResult.requires_attention && (
-                    <Badge variant="destructive" className="text-[10px]">
-                      Atenção necessária
-                    </Badge>
-                  )}
-                  {currentResult.primary_compensation && (
-                    <Badge variant="outline" className="text-[10px]">
-                      Principal: {currentResult.primary_compensation}
-                    </Badge>
-                  )}
-                </div>
-                
-                {/* Technical note */}
-                {(currentResult.notes || currentResult.technical_note) && (
-                  <div className="flex items-start gap-2">
-                    <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted-foreground italic leading-relaxed">
-                      {currentResult.notes || currentResult.technical_note}
-                    </p>
-                  </div>
-                )}
+            {/* Low confidence warning only */}
+            {currentResult && !isAnalyzing && currentResult.confidence < 0.6 && (
+              <div className="flex items-center gap-2 text-xs text-warning">
+                <AlertCircle className="h-4 w-4" />
+                <span>Baixa confiança - revise manualmente</span>
               </div>
             )}
 
@@ -507,9 +479,9 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                   Compensações
                 </Label>
                 {currentCompensations.length > 0 && (
-                  <Badge variant="secondary" className="h-5 text-[10px]">
+                  <span className="text-[10px] text-muted-foreground">
                     {currentCompensations.length} selecionadas
-                  </Badge>
+                  </span>
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">

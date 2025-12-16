@@ -210,6 +210,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     });
   }, [data, onUpdate]);
   
+  const [isProcessing, setIsProcessing] = useState(false);
+  
   const { analyzeMovement, isAnalyzing } = useMovementAnalysis({
     onAnalysisComplete: (result) => {
       if (!currentViewId || !currentView) return;
@@ -224,6 +226,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       }
     },
   });
+  
+  const isLoadingAnalysis = isProcessing || isAnalyzing;
 
   // Early returns AFTER all hooks
   if (!config) {
@@ -305,61 +309,68 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     
     if (!targetViewId || !targetView) return;
     
-    let imageUrl = media?.photoUrl;
-    let videoUrl = media?.videoUrl;
+    // Start loading immediately for instant feedback
+    setIsProcessing(true);
     
-    // Refresh signed URL if expired
-    const refreshSignedUrl = async (url: string): Promise<string | null> => {
-      if (!url.includes('token=')) return url;
+    try {
+      let imageUrl = media?.photoUrl;
+      let videoUrl = media?.videoUrl;
       
-      const filePath = extractFilePathFromSignedUrl(url);
-      if (!filePath) return url;
-      
-      try {
-        const { data: signedData, error } = await supabase.functions.invoke('get-signed-url', {
-          body: { filePath }
-        });
+      // Refresh signed URL if expired
+      const refreshSignedUrl = async (url: string): Promise<string | null> => {
+        if (!url.includes('token=')) return url;
         
-        if (error || signedData?.error) {
-          const errorCode = signedData?.code || 500;
-          if (errorCode === 404) {
-            toast.error('Vídeo não encontrado. Por favor, faça upload novamente.');
-          } else {
-            toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
+        const filePath = extractFilePathFromSignedUrl(url);
+        if (!filePath) return url;
+        
+        try {
+          const { data: signedData, error } = await supabase.functions.invoke('get-signed-url', {
+            body: { filePath }
+          });
+          
+          if (error || signedData?.error) {
+            const errorCode = signedData?.code || 500;
+            if (errorCode === 404) {
+              toast.error('Vídeo não encontrado. Por favor, faça upload novamente.');
+            } else {
+              toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
+            }
+            return null;
           }
+          
+          return signedData?.signedUrl || url;
+        } catch (err) {
+          console.error('Failed to refresh signed URL:', err);
+          toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
           return null;
         }
-        
-        return signedData?.signedUrl || url;
-      } catch (err) {
-        console.error('Failed to refresh signed URL:', err);
-        toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
-        return null;
+      };
+      
+      // If no photo but video exists, extract a frame
+      if (!imageUrl && videoUrl) {
+        try {
+          const freshVideoUrl = await refreshSignedUrl(videoUrl);
+          if (!freshVideoUrl) return;
+          imageUrl = await extractFrameFromVideo(freshVideoUrl);
+          videoUrl = freshVideoUrl;
+        } catch (error) {
+          console.error('Failed to extract frame from video:', error);
+          toast.error('Erro ao extrair frame do vídeo');
+          return;
+        }
       }
-    };
-    
-    // If no photo but video exists, extract a frame
-    if (!imageUrl && videoUrl) {
-      try {
-        const freshVideoUrl = await refreshSignedUrl(videoUrl);
-        if (!freshVideoUrl) return;
-        imageUrl = await extractFrameFromVideo(freshVideoUrl);
-        videoUrl = freshVideoUrl;
-      } catch (error) {
-        console.error('Failed to extract frame from video:', error);
-        toast.error('Erro ao extrair frame do vídeo');
-        return;
-      }
+      
+      if (!imageUrl) return;
+      
+      await analyzeMovement({
+        testType: config.aiTestType,
+        imageUrl,
+        videoUrl,
+        viewType: targetViewId,
+      });
+    } finally {
+      setIsProcessing(false);
     }
-    
-    if (!imageUrl) return;
-    
-    await analyzeMovement({
-      testType: config.aiTestType,
-      imageUrl,
-      videoUrl,
-      viewType: targetViewId,
-    });
   };
 
   const toggleCompensation = (compId: string) => {
@@ -452,12 +463,12 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               initialVideoUrl={currentMedia.videoUrl}
               onUploadComplete={(urls) => handleMediaUpload(currentView.id, urls)}
               onAnalyze={() => handleAnalyze()}
-              isAnalyzing={isAnalyzing}
+              isAnalyzing={isLoadingAnalysis}
               embedded
             />
 
             {/* AI Analysis Loading */}
-            {isAnalyzing && (
+            {isLoadingAnalysis && (
               <div className="flex items-center justify-center py-3 gap-2 text-muted-foreground text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Analisando...</span>
@@ -465,7 +476,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
             )}
 
             {/* Low confidence warning only */}
-            {currentResult && !isAnalyzing && currentResult.confidence < 0.6 && (
+            {currentResult && !isLoadingAnalysis && currentResult.confidence < 0.6 && (
               <div className="flex items-center gap-2 text-xs text-warning">
                 <AlertCircle className="h-4 w-4" />
                 <span>Baixa confiança - revise manualmente</span>

@@ -182,7 +182,7 @@ const COMPENSATION_DATA: Record<string, {
     detection_criteria: 'Tronco rota >15° para fora (lateralmente). Ombro do lado de apoio gira para trás.',
   },
   foot_collapse_posterior: {
-    label: 'Queda do arco plantar (vista posterior)',
+    label: 'Queda do arco plantar',
     hyperactive: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
     hypoactive: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     injuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome estresse tibial'],
@@ -210,7 +210,7 @@ const COMPENSATION_DATA: Record<string, {
     detection_criteria: 'Tronco rota >15° para fora (lateralmente). Ombro do lado de apoio gira para trás.',
   },
   feet_abduction_posterior: {
-    label: 'Pés abduzidos (vista posterior)',
+    label: 'Pés abduzidos (giram para fora)',
     hyperactive: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral'],
     hypoactive: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório'],
     injuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome banda IT'],

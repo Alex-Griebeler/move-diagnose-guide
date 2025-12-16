@@ -122,7 +122,7 @@ export function PainHistoryStep({ data, updateData }: PainHistoryStepProps) {
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => setSelectedDuration(option.value)}
+                  onClick={() => setSelectedDuration(selectedDuration === option.value ? '' : option.value)}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
                     selectedDuration === option.value

@@ -74,7 +74,7 @@ export function RoutineHabitsStep({ data, updateData }: RoutineHabitsStepProps) 
             <button
               key={option.value}
               type="button"
-              onClick={() => updateData({ workType: option.value })}
+              onClick={() => updateData({ workType: data.workType === option.value ? '' : option.value })}
               className={cn(
                 "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
                 data.workType === option.value

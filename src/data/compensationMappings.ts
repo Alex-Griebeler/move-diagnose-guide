@@ -163,6 +163,20 @@ export const slsLateralCompensations: CompensationMapping[] = [
     hypoactiveMuscles: ['Glúteo máximo', 'Controle excêntrico de quadríceps'],
     associatedInjuries: ['Compensação por dor ou restrição', 'Déficit de controle motor'],
   },
+  {
+    id: 'heels_rise_sls',
+    label: 'Calcanhar sobe (déficit de dorsiflexão)',
+    hyperactiveMuscles: ['Sóleo', 'Gastrocnêmio', 'Flexores plantares'],
+    hypoactiveMuscles: ['Tibial anterior', 'Dorsiflexores do tornozelo'],
+    associatedInjuries: ['Tendinopatia do Aquiles', 'Déficit de mobilidade de tornozelo', 'Instabilidade anterior do joelho'],
+  },
+  {
+    id: 'ankle_dorsiflexion_limit',
+    label: 'Restrição de dorsiflexão de tornozelo',
+    hyperactiveMuscles: ['Gastrocnêmio', 'Sóleo', 'Tibial posterior'],
+    hypoactiveMuscles: ['Tibial anterior', 'Dorsiflexores'],
+    associatedInjuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Disfunção de marcha', 'Compensação proximal em joelho e quadril'],
+  },
 ];
 
 // SLS - Vista Posterior (observar por trás)

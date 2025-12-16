@@ -212,14 +212,14 @@ export const slsPosteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'foot_collapse_posterior',
-    label: 'Queda do arco plantar (vista posterior)',
+    label: 'Queda do arco plantar',
     hyperactiveMuscles: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
     hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],
   },
   {
     id: 'feet_abduction_posterior',
-    label: 'Pés abduzidos (vista posterior)',
+    label: 'Pés abduzidos',
     hyperactiveMuscles: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral (cabeça curta)'],
     hypoactiveMuscles: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório', 'Poplíteo'],
     associatedInjuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome da banda iliotibial'],

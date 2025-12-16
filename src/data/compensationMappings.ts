@@ -70,7 +70,7 @@ export const ohsLateralCompensations: CompensationMapping[] = [
   },
   {
     id: 'heels_rise',
-    label: 'Calcanhares sobem',
+    label: 'Déficit de dorsiflexão do tornozelo',
     hyperactiveMuscles: ['Sóleo', 'Gastrocnêmio', 'Flexores plantares'],
     hypoactiveMuscles: ['Tibial anterior', 'Dorsiflexores do tornozelo'],
     associatedInjuries: ['Tendinopatia do Aquiles', 'Fascite plantar', 'Instabilidade anterior do joelho'],
@@ -107,13 +107,6 @@ export const ohsPosteriorCompensations: CompensationMapping[] = [
     hypoactiveMuscles: ['Tibial posterior', 'Glúteo médio', 'Flexor longo dos dedos'],
     associatedInjuries: ['Lesões plantares', 'Lesões tibiais', 'Instabilidade de tornozelo'],
   },
-  {
-    id: 'heels_rise_posterior',
-    label: 'Calcanhares sobem (vista posterior)',
-    hyperactiveMuscles: ['Sóleo', 'Gastrocnêmio', 'Tibial anterior'],
-    hypoactiveMuscles: ['Dorsiflexores do tornozelo'],
-    associatedInjuries: ['Déficit de dorsiflexão', 'Impacto no agachamento'],
-  },
 ];
 
 // ============================================
@@ -136,6 +129,27 @@ export const slsAnteriorCompensations: CompensationMapping[] = [
     hyperactiveMuscles: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
     hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],
+  },
+  {
+    id: 'feet_abduction_sls',
+    label: 'Pés abduzidos (giram para fora)',
+    hyperactiveMuscles: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral (cabeça curta)'],
+    hypoactiveMuscles: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório', 'Poplíteo'],
+    associatedInjuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome da banda iliotibial'],
+  },
+  {
+    id: 'trunk_rotation_medial_anterior',
+    label: 'Rotação medial do tronco',
+    hyperactiveMuscles: ['Oblíquos internos (mesmo lado)', 'Oblíquos externos', 'TFL'],
+    hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'Core estabilizador'],
+    associatedInjuries: ['Valgo persistente', 'Sobrecarga lombar'],
+  },
+  {
+    id: 'trunk_rotation_lateral_anterior',
+    label: 'Rotação lateral do tronco',
+    hyperactiveMuscles: ['Oblíquos externos (lado oposto)', 'Quadrado lombar'],
+    hypoactiveMuscles: ['Glúteo médio', 'Oblíquos internos', 'Core estabilizador'],
+    associatedInjuries: ['Desequilíbrio rotacional', 'Dor lombar'],
   },
   {
     id: 'balance_loss',
@@ -202,6 +216,13 @@ export const slsPosteriorCompensations: CompensationMapping[] = [
     hyperactiveMuscles: ['Fibulares', 'Gastrocnêmio lateral', 'Extensor longo dos dedos'],
     hypoactiveMuscles: ['Tibial posterior', 'Flexor longo dos dedos', 'Intrínsecos do pé', 'Tibial anterior'],
     associatedInjuries: ['Fascite plantar', 'Tendinopatia tibial posterior', 'Síndrome do estresse tibial'],
+  },
+  {
+    id: 'feet_abduction_posterior',
+    label: 'Pés abduzidos (vista posterior)',
+    hyperactiveMuscles: ['Piriforme', 'Rotadores laterais do quadril', 'Sóleo', 'Gastrocnêmio lateral', 'Bíceps femoral (cabeça curta)'],
+    hypoactiveMuscles: ['Rotadores mediais do quadril', 'Gastrocnêmio medial', 'Grácil', 'Sartório', 'Poplíteo'],
+    associatedInjuries: ['Fascite plantar', 'Tendinopatia do Aquiles', 'Síndrome da banda iliotibial'],
   },
 ];
 

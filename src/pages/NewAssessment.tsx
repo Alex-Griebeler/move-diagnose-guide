@@ -238,6 +238,7 @@ export default function NewAssessment() {
         {step === 'anamnesis' && assessmentId && (
           <AnamnesisWizard
             assessmentId={assessmentId}
+            studentId={selectedStudent?.id}
             onComplete={handleAnamnesisComplete}
           />
         )}

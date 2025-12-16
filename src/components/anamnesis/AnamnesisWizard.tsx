@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/lib/logger';
 
 // Step components
 import { PersonalDataStep } from './steps/PersonalDataStep';
@@ -16,7 +17,9 @@ import { SleepRecoveryStep } from './steps/SleepRecoveryStep';
 import { PhysicalActivitySportsStep } from './steps/PhysicalActivitySportsStep';
 import { ObjectivesStep } from './steps/ObjectivesStep';
 import { ConsentStep } from './steps/ConsentStep';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+const logger = createLogger('AnamnesisWizard');
 
 export interface AnamnesisData {
   // Block 1: Personal Data
@@ -130,10 +133,11 @@ const steps = [
 
 interface AnamnesisWizardProps {
   assessmentId: string;
+  studentId?: string;
   onComplete: () => void;
 }
 
-export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardProps) {
+export function AnamnesisWizard({ assessmentId, studentId, onComplete }: AnamnesisWizardProps) {
   const {
     data,
     updateData: baseUpdateData,
@@ -148,8 +152,85 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [resolvedStudentId, setResolvedStudentId] = useState<string | null>(studentId || null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Fetch student profile data on mount to pre-populate personal data
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        // If no studentId provided, fetch from assessment
+        let targetStudentId = resolvedStudentId;
+        
+        if (!targetStudentId) {
+          const { data: assessment } = await supabase
+            .from('assessments')
+            .select('student_id')
+            .eq('id', assessmentId)
+            .maybeSingle();
+          
+          if (assessment?.student_id) {
+            targetStudentId = assessment.student_id;
+            setResolvedStudentId(targetStudentId);
+          }
+        }
+
+        if (!targetStudentId) {
+          setIsLoadingProfile(false);
+          return;
+        }
+
+        // Fetch student profile with personal data
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('birth_date, laterality, weight_kg, height_cm, occupation')
+          .eq('id', targetStudentId)
+          .maybeSingle();
+
+        if (error) {
+          logger.error('Error fetching student profile', error);
+          setIsLoadingProfile(false);
+          return;
+        }
+
+        // Pre-populate if profile has data and current data is empty
+        if (profile) {
+          const updates: Partial<AnamnesisData> = {};
+          
+          if (profile.birth_date && !data.birthDate) {
+            updates.birthDate = new Date(profile.birth_date);
+          }
+          if (profile.laterality && !data.laterality) {
+            updates.laterality = profile.laterality as AnamnesisData['laterality'];
+          }
+          if (profile.weight_kg && !data.weightKg) {
+            updates.weightKg = String(profile.weight_kg);
+          }
+          if (profile.height_cm && !data.heightCm) {
+            updates.heightCm = String(profile.height_cm);
+          }
+          if (profile.occupation && !data.occupation) {
+            updates.occupation = profile.occupation;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            logger.debug('Pre-populating from profile', updates);
+            baseUpdateData(prev => ({ ...prev, ...updates }));
+          }
+        }
+      } catch (error) {
+        logger.error('Error in fetchStudentData', error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    if (!isLoadingPersistence) {
+      fetchStudentData();
+    }
+  }, [assessmentId, resolvedStudentId, isLoadingPersistence]);
 
   const updateData = (updates: Partial<AnamnesisData>) => {
     baseUpdateData((prev) => {
@@ -193,6 +274,7 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
       const frequencyMap: Record<string, number> = { '1-2x': 2, '3-4x': 4, '5+': 6 };
       const durationMap: Record<string, number> = { '30-45min': 38, '45-60min': 52, '60-90min': 75 };
 
+      // Save anamnesis response
       const { error } = await supabase.from('anamnesis_responses').insert({
         assessment_id: assessmentId,
         birth_date: data.birthDate?.toISOString().split('T')[0] || null,
@@ -219,6 +301,41 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
       });
 
       if (error) throw error;
+
+      // Save personal data back to student profile for future assessments
+      if (resolvedStudentId) {
+        const profileUpdate: Record<string, unknown> = {};
+        
+        if (data.birthDate) {
+          profileUpdate.birth_date = data.birthDate.toISOString().split('T')[0];
+        }
+        if (data.laterality) {
+          profileUpdate.laterality = data.laterality;
+        }
+        if (data.weightKg) {
+          profileUpdate.weight_kg = parseFloat(data.weightKg);
+        }
+        if (data.heightCm) {
+          profileUpdate.height_cm = parseFloat(data.heightCm);
+        }
+        if (data.occupation) {
+          profileUpdate.occupation = data.occupation;
+        }
+
+        if (Object.keys(profileUpdate).length > 0) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update(profileUpdate)
+            .eq('id', resolvedStudentId);
+
+          if (profileError) {
+            logger.error('Error updating student profile', profileError);
+            // Don't fail the whole submission if profile update fails
+          } else {
+            logger.debug('Student profile updated with personal data');
+          }
+        }
+      }
 
       // Update assessment status
       await supabase
@@ -274,11 +391,11 @@ export function AnamnesisWizard({ assessmentId, onComplete }: AnamnesisWizardPro
     }
   };
 
-  if (isLoadingPersistence) {
+  if (isLoadingPersistence || isLoadingProfile) {
     return (
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-pulse text-muted-foreground">Carregando dados salvos...</div>
+          <div className="animate-pulse text-muted-foreground">Carregando dados do aluno...</div>
         </div>
       </div>
     );

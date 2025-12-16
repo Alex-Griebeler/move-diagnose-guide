@@ -102,7 +102,7 @@ export const ohsPosteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'feet_eversion_posterior',
-    label: 'Queda do arco plantar (vista posterior)',
+    label: 'Queda do arco plantar',
     hyperactiveMuscles: ['Gastrocnêmio lateral', 'Bíceps femoral', 'TFL', 'Fibulares'],
     hypoactiveMuscles: ['Tibial posterior', 'Glúteo médio', 'Flexor longo dos dedos'],
     associatedInjuries: ['Lesões plantares', 'Lesões tibiais', 'Instabilidade de tornozelo'],

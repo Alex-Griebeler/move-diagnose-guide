@@ -104,8 +104,13 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("Error creating signed URL:", error);
-      return new Response(JSON.stringify({ error: "Failed to create signed URL" }), {
-        status: 500,
+      // Return 404 if file not found, 500 for other errors
+      const isNotFound = error.message?.toLowerCase().includes('not found') || 
+                         (error as any).statusCode === '404';
+      const status = isNotFound ? 404 : 500;
+      const errorMessage = isNotFound ? "File not found" : "Failed to create signed URL";
+      return new Response(JSON.stringify({ error: errorMessage, code: status }), {
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

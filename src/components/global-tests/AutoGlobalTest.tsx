@@ -300,14 +300,18 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         const { data: signedData, error } = await supabase.functions.invoke('get-signed-url', {
           body: { filePath }
         });
-        if (error) {
-          // Check if it's a "not found" error - file was deleted
-          if (error.message?.includes('500') || error.message?.includes('not found')) {
+        
+        // Check for file not found (404) or other errors
+        if (error || signedData?.error) {
+          const errorCode = signedData?.code || 500;
+          if (errorCode === 404) {
             toast.error('Vídeo não encontrado. Por favor, faça upload novamente.');
-            return null;
+          } else {
+            toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
           }
-          throw error;
+          return null;
         }
+        
         return signedData?.signedUrl || url;
       } catch (err) {
         console.error('Failed to refresh signed URL:', err);

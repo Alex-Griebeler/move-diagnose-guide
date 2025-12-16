@@ -31,7 +31,7 @@ export const ohsAnteriorCompensations: CompensationMapping[] = [
   },
   {
     id: 'knee_valgus',
-    label: 'Joelhos valgos (cavam para dentro)',
+    label: 'Valgo dinâmico de joelho',
     hyperactiveMuscles: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral', 'Bíceps femoral (cabeça curta)'],
     hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'Vasto medial oblíquo (VMO)', 'Rotadores laterais do quadril'],
     associatedInjuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA', 'Condromalácia'],
@@ -125,7 +125,7 @@ export const ohsPosteriorCompensations: CompensationMapping[] = [
 export const slsAnteriorCompensations: CompensationMapping[] = [
   {
     id: 'knee_valgus',
-    label: 'Valgismo de joelho',
+    label: 'Valgo dinâmico de joelho',
     hyperactiveMuscles: ['Adutores', 'TFL', 'Gastrocnêmio lateral', 'Vasto lateral', 'Bíceps femoral (cabeça curta)'],
     hypoactiveMuscles: ['Glúteo médio', 'Glúteo máximo', 'Vasto medial oblíquo (VMO)', 'Rotadores laterais do quadril'],
     associatedInjuries: ['Síndrome patelofemoral', 'Tendinopatia patelar', 'Lesão LCA'],

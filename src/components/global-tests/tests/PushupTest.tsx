@@ -114,6 +114,9 @@ export function PushupTest({ data, updateData }: PushupTestProps) {
                 <li>Realizar 5-10 repetições para observação</li>
                 <li>Versão modificada (joelhos) se necessário</li>
               </ul>
+              <p className="text-xs text-muted-foreground/80 mt-2 pt-2 border-t border-border/50">
+                💡 Para melhor precisão da análise de IA: homens sem camisa, mulheres com top ajustado.
+              </p>
             </div>
           </div>
         </CardContent>

@@ -219,17 +219,17 @@ const COMPENSATION_DATA: Record<string, {
   // Push-up - Vista Lateral
   hip_elevation: {
     label: 'Elevação do quadril (pike)',
-    hyperactive: ['Flexores quadril', 'Reto abdominal'],
-    hypoactive: ['Glúteos', 'Core estabilizador', 'Transverso abdominal'],
-    injuries: ['Sobrecarga lombar', 'Déficit core'],
-    detection_criteria: 'Quadril sobe formando "pirâmide". Pike EVIDENTE quebrando alinhamento corporal.',
+    hyperactive: ['Flexores do quadril', 'Reto abdominal', 'Iliopsoas'],
+    hypoactive: ['Glúteo máximo', 'Core profundo', 'Transverso abdominal', 'Multífidos'],
+    injuries: ['Sobrecarga lombar', 'Disfunção do assoalho pélvico', 'Déficit de estabilidade core'],
+    detection_criteria: 'Crista ilíaca posicionada ACIMA da linha reta ombro-tornozelo. Forma de "pirâmide" ou "V invertido" com pelve no ápice. Quadril SOBE quebrando alinhamento corporal.',
   },
   hip_drop_pushup: {
     label: 'Queda do quadril (push-up)',
-    hyperactive: ['Eretores lombares', 'Quadrado lombar'],
-    hypoactive: ['Core anterior', 'Glúteos', 'Transverso abdominal'],
-    injuries: ['Dor lombar', 'Hiperlordose'],
-    detection_criteria: 'Quadril afunda criando lordose EXAGERADA. Barriga cai em direção ao solo.',
+    hyperactive: ['Eretores espinhais lombares', 'Iliopsoas', 'Quadrado lombar'],
+    hypoactive: ['Transverso abdominal', 'Oblíquos internos', 'Glúteo máximo', 'Reto abdominal'],
+    injuries: ['Lombalgia', 'Dor sacroilíaca', 'Hérnia discal', 'Hiperlordose'],
+    detection_criteria: 'Crista ilíaca posicionada ABAIXO da linha reta ombro-tornozelo. Lordose lombar EXAGERADA. Abdômen aproxima-se do solo. Pelve em anterversão acentuada.',
   },
   // Push-up - Vista Posterior
   scapular_winging: {
@@ -389,21 +389,52 @@ Use report_analysis com detected_compensations e confidence.`,
 const PUSHUP_PROMPTS: Record<string, string> = {
   lateral: `Analise PUSH-UP - VISTA LATERAL.
 
+LINHA DE REFERÊNCIA NEUTRA:
+A linha imaginária OMBRO → QUADRIL → TORNOZELO deve estar ALINHADA durante todo o movimento.
+
+PONTOS ANATÔMICOS DE REFERÊNCIA:
+- Use a CRISTA ILÍACA (borda superior da pelve) como referência principal
+- Em mulheres com top: a BORDA INFERIOR DO TOP serve como referência secundária
+- Em homens sem camisa: use diretamente a silhueta do quadril/pelve
+
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
-- hip_elevation: Quadril sobe formando "pirâmide" (pike)
-- hip_drop_pushup: Quadril afunda criando lordose exagerada
+
+- hip_elevation: Quadril SOBE acima da linha ombro-tornozelo.
+  Critério: Crista ilíaca posicionada ACIMA da linha reta ombro-tornozelo.
+  Resultado: Forma de "pirâmide" ou "V invertido" com pelve no ápice.
+  
+- hip_drop_pushup: Quadril AFUNDA abaixo da linha ombro-tornozelo.
+  Critério: Crista ilíaca posicionada ABAIXO da linha reta ombro-tornozelo.
+  Resultado: Lordose lombar exagerada, abdômen aproxima-se do solo.
+
+NOTA: Analise na fase de DESCIDA (excêntrica) e na fase de APOIO INFERIOR do movimento.
+Reporte apenas compensações VISÍVEIS e CONSISTENTES em múltiplas repetições.
 
 Use report_analysis com detected_compensations e confidence.`,
 
   posterior: `Analise PUSH-UP - VISTA POSTERIOR.
 
-LATERALIDADE: esquerda da imagem = direito anatômico.
+LATERALIDADE: esquerda da imagem = direito anatômico do paciente.
+
+PONTOS ANATÔMICOS DE REFERÊNCIA:
+- Use as ESCÁPULAS como referência principal
+- Observe a SIMETRIA dos ombros e coluna
+- Analise o ângulo dos cotovelos em relação ao tronco
 
 COMPENSAÇÕES POSSÍVEIS (use APENAS estes IDs se detectadas):
-- scapular_winging: Borda medial da escápula projeta-se >2cm do tórax
-- elbow_flare: Cotovelos abrem >60° do tronco (forma de "T")
-- shoulder_protraction: Ombros muito arredondados para frente
-- shoulder_retraction_insufficient: Escápulas não se aproximam na fase excêntrica
+
+- scapular_winging: Borda medial da escápula PROJETA-SE >2cm do tórax.
+  Critério: Escápula "descola" das costelas, especialmente na fase concêntrica (subida).
+  
+- elbow_flare: Cotovelos abrem >60° do tronco (forma de "T").
+  Critério: Ângulo entre braço e tronco excede 45-60° bilateralmente.
+  Normal: cotovelos formam ~45° com o tronco (forma de seta).
+  
+- shoulder_protraction: Ombros muito arredondados para frente.
+  Critério: Ombros colapsam anteriormente, cifose torácica acentuada no topo.
+  
+- shoulder_retraction_insufficient: Escápulas NÃO se aproximam na fase excêntrica.
+  Critério: Distância entre bordas mediais das escápulas não diminui durante descida.
 
 Use report_analysis com detected_compensations e confidence.`,
 };

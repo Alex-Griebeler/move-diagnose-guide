@@ -1,15 +1,13 @@
 import { useState, useCallback } from 'react';
-import { Sparkles, Loader2, Check, X, AlertTriangle, ChevronDown, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Sparkles, Loader2, Check, X, AlertTriangle, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { MediaUploader } from '@/components/media/MediaUploader';
 import { useMovementAnalysis, AnalysisResult } from '@/hooks/useMovementAnalysis';
 import { SegmentalTest } from '@/data/segmentalTestMappings';
 import { cn } from '@/lib/utils';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ResultStatus = 'pass' | 'partial' | 'fail' | null;
@@ -146,7 +144,6 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   }) => {
     const isSelected = status === currentStatus;
     
-    // Neutral colors for idle, semantic colors only when selected
     const selectedColors = {
       pass: 'bg-success/10 border-success/30 text-success ring-1 ring-success/20',
       partial: 'bg-warning/10 border-warning/30 text-warning ring-1 ring-warning/20',
@@ -247,107 +244,102 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* Header with Instructions Tooltip - Same as Global Tests */}
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🔬</span>
-          <h3 className="text-lg font-medium">{test.name}</h3>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="p-1 rounded-full hover:bg-muted/80 transition-colors">
-                <Info className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs">
-              <p className="text-xs">{test.instructions}</p>
-              {test.cutoffValue !== undefined && (
-                <p className="text-xs mt-1 text-muted-foreground">
-                  Cutoff: ≥{test.cutoffValue} {test.unit}
-                </p>
-              )}
-            </TooltipContent>
-          </Tooltip>
+        {/* Header with test name and instructions tooltip */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔬</span>
+            <h3 className="text-lg font-medium">{test.name}</h3>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="p-1 rounded-full hover:bg-muted/80 transition-colors">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p className="text-xs">{test.instructions}</p>
+                {test.cutoffValue !== undefined && (
+                  <p className="text-xs mt-1 text-muted-foreground">
+                    Cutoff: ≥{test.cutoffValue} {test.unit}
+                  </p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          {analysisResult && (
+            <Badge variant="outline" className="text-[10px] h-5">
+              {Math.round((analysisResult.confidence || 0) * 100)}% confiança
+            </Badge>
+          )}
         </div>
 
-        {/* Current View Content - Card wrapper like Global Tests */}
-        <Card className="border-border/50">
-          <CardHeader className="py-3 px-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">
-                {test.isBilateral ? 'Bilateral' : 'Unilateral'}
-              </CardTitle>
-              {analysisResult && (
-                <Badge variant="outline" className="text-[10px] h-5">
-                  {Math.round((analysisResult.confidence || 0) * 100)}% confiança
-                </Badge>
-              )}
+        {/* Description */}
+        <p className="text-xs text-muted-foreground">{test.description}</p>
+
+        {/* Media Upload - flat, embedded */}
+        <MediaUploader
+          assessmentId={assessmentId}
+          testName={test.id}
+          onUploadComplete={handleMediaUpload}
+          onAnalyze={handleAnalyze}
+          isAnalyzing={isAnalyzing}
+          embedded
+        />
+
+        {/* AI Analysis Loading */}
+        {isAnalyzing && (
+          <div className="flex items-center justify-center py-3 gap-2 text-muted-foreground text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Analisando...</span>
+          </div>
+        )}
+
+        {/* AI Analysis Result */}
+        {analysisResult && !isAnalyzing && analysisResult.notes && (
+          <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground italic leading-relaxed">
+                {analysisResult.notes}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">{test.description}</p>
-          </CardHeader>
-          <CardContent className="space-y-4 px-4 pb-4 pt-0">
-            {/* Media Upload */}
-            <MediaUploader
-              assessmentId={assessmentId}
-              testName={test.id}
-              onUploadComplete={handleMediaUpload}
-              onAnalyze={handleAnalyze}
-              isAnalyzing={isAnalyzing}
-            />
+          </div>
+        )}
 
-            {/* AI Analysis Loading */}
-            {isAnalyzing && (
-              <div className="flex items-center justify-center py-3 gap-2 text-muted-foreground text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Analisando...</span>
+        {/* Result Inputs */}
+        <div className="space-y-3">
+          <Label className="text-xs text-muted-foreground">
+            Resultado ({test.isBilateral ? 'Bilateral' : 'Unilateral'})
+          </Label>
+          {test.isBilateral ? (
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2.5">
+                <Label className="text-xs text-muted-foreground font-normal tracking-wide uppercase">E</Label>
+                {renderResultInput('left')}
               </div>
-            )}
-
-            {/* AI Analysis Result - Compact like Global Tests */}
-            {analysisResult && !isAnalyzing && analysisResult.notes && (
-              <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
-                <div className="flex items-start gap-2">
-                  <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground italic leading-relaxed">
-                    {analysisResult.notes}
-                  </p>
-                </div>
+              <div className="space-y-2.5">
+                <Label className="text-xs text-muted-foreground font-normal tracking-wide uppercase">D</Label>
+                {renderResultInput('right')}
               </div>
-            )}
-
-            {/* Result Inputs */}
-            <div className="space-y-3">
-              <Label className="text-xs text-muted-foreground">Resultado</Label>
-              {test.isBilateral ? (
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2.5">
-                    <Label className="text-xs text-muted-foreground font-normal tracking-wide uppercase">E</Label>
-                    {renderResultInput('left')}
-                  </div>
-                  <div className="space-y-2.5">
-                    <Label className="text-xs text-muted-foreground font-normal tracking-wide uppercase">D</Label>
-                    {renderResultInput('right')}
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-xs">
-                  {renderResultInput('left')}
-                </div>
-              )}
             </div>
+          ) : (
+            <div className="max-w-xs">
+              {renderResultInput('left')}
+            </div>
+          )}
+        </div>
 
-            {/* Asymmetry Warning */}
-            {test.isBilateral && 
-              result.leftValue !== null && 
-              result.rightValue !== null && 
-              Math.abs(result.leftValue - result.rightValue) > (test.cutoffValue ? test.cutoffValue * 0.15 : 2) && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 text-warning text-sm">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>
-                  Assimetria: {Math.abs(result.leftValue - result.rightValue).toFixed(1)} {test.unit}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Asymmetry Warning */}
+        {test.isBilateral && 
+          result.leftValue !== null && 
+          result.rightValue !== null && 
+          Math.abs(result.leftValue - result.rightValue) > (test.cutoffValue ? test.cutoffValue * 0.15 : 2) && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 text-warning text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>
+              Assimetria: {Math.abs(result.leftValue - result.rightValue).toFixed(1)} {test.unit}
+            </span>
+          </div>
+        )}
 
         {/* Notes */}
         <Textarea

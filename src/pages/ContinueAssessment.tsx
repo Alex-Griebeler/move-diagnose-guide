@@ -207,6 +207,11 @@ export default function ContinueAssessment() {
         <AssessmentBreadcrumb 
           currentStep={step || 'anamnesis'} 
           studentName={studentName}
+          onNavigateToStep={(targetStep) => {
+            if (targetStep !== 'select-student') {
+              setStep(targetStep as Step);
+            }
+          }}
         />
       </div>
 

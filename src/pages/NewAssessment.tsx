@@ -234,6 +234,11 @@ export default function NewAssessment() {
         <AssessmentBreadcrumb 
           currentStep={step} 
           studentName={selectedStudent?.full_name}
+          onNavigateToStep={(targetStep) => {
+            if (assessmentId) {
+              setStep(targetStep);
+            }
+          }}
         />
       </div>
 

@@ -316,8 +316,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       let imageUrl = media?.photoUrl;
       let videoUrl = media?.videoUrl;
       
-      // Refresh signed URL if expired
-      const refreshSignedUrl = async (url: string): Promise<string | null> => {
+      // Refresh signed URL if expired, clearing invalid URLs from state
+      const refreshSignedUrl = async (url: string, mediaType: 'photo' | 'video'): Promise<string | null> => {
         if (!url.includes('token=')) return url;
         
         const filePath = extractFilePathFromSignedUrl(url);
@@ -330,10 +330,12 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           
           if (error || signedData?.error) {
             const errorCode = signedData?.code || 500;
+            // Clear invalid URL from state
             if (errorCode === 404) {
-              toast.error('Vídeo não encontrado. Por favor, faça upload novamente.');
+              handleMediaUpload(targetViewId, mediaType === 'video' ? { videoUrl: undefined } : { photoUrl: undefined });
+              toast.error(`${mediaType === 'video' ? 'Vídeo' : 'Foto'} não encontrado. Por favor, faça upload novamente.`);
             } else {
-              toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
+              toast.error(`Erro ao acessar ${mediaType === 'video' ? 'vídeo' : 'foto'}. Por favor, faça upload novamente.`);
             }
             return null;
           }
@@ -341,7 +343,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           return signedData?.signedUrl || url;
         } catch (err) {
           console.error('Failed to refresh signed URL:', err);
-          toast.error('Erro ao acessar vídeo. Por favor, faça upload novamente.');
+          toast.error(`Erro ao acessar ${mediaType === 'video' ? 'vídeo' : 'foto'}. Por favor, faça upload novamente.`);
           return null;
         }
       };
@@ -349,15 +351,29 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       // If no photo but video exists, extract a frame
       if (!imageUrl && videoUrl) {
         try {
-          const freshVideoUrl = await refreshSignedUrl(videoUrl);
-          if (!freshVideoUrl) return;
+          const freshVideoUrl = await refreshSignedUrl(videoUrl, 'video');
+          if (!freshVideoUrl) {
+            setIsProcessing(false);
+            return;
+          }
           imageUrl = await extractFrameFromVideo(freshVideoUrl);
           videoUrl = freshVideoUrl;
         } catch (error) {
           console.error('Failed to extract frame from video:', error);
           toast.error('Erro ao extrair frame do vídeo');
+          setIsProcessing(false);
           return;
         }
+      }
+      
+      // Refresh photo URL if needed
+      if (imageUrl && imageUrl.includes('token=')) {
+        const freshPhotoUrl = await refreshSignedUrl(imageUrl, 'photo');
+        if (!freshPhotoUrl) {
+          setIsProcessing(false);
+          return;
+        }
+        imageUrl = freshPhotoUrl;
       }
       
       if (!imageUrl) return;

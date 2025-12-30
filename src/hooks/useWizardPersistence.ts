@@ -95,9 +95,37 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
     loadFromDatabase();
   }, [assessmentId, stepType, storageKey]);
 
+  // Helper to validate URLs before persisting (filter out blob/data URLs)
+  const sanitizeMediaUrls = useCallback((obj: unknown): unknown => {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === 'string') {
+      // Filter out local/blob URLs that won't work across sessions
+      if (obj.startsWith('blob:') || obj.startsWith('data:')) {
+        return undefined;
+      }
+      return obj;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(sanitizeMediaUrls);
+    }
+    if (typeof obj === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+        const sanitized = sanitizeMediaUrls(value);
+        if (sanitized !== undefined) {
+          result[key] = sanitized;
+        }
+      }
+      return result;
+    }
+    return obj;
+  }, []);
+
   // Sync to database with debounce
   const syncToDatabase = useCallback(async (dataToSync: T, stepToSync: number) => {
-    const syncKey = JSON.stringify({ data: dataToSync, step: stepToSync });
+    // Sanitize data before syncing (remove blob/data URLs)
+    const sanitizedData = sanitizeMediaUrls(dataToSync) as T;
+    const syncKey = JSON.stringify({ data: sanitizedData, step: stepToSync });
     
     // Skip if data hasn't changed
     if (syncKey === lastSyncedDataRef.current) {
@@ -120,7 +148,7 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
         const result = await supabase
           .from('assessment_drafts')
           .update({
-            draft_data: dataToSync as unknown as Json,
+            draft_data: sanitizedData as unknown as Json,
             current_step: stepToSync,
           })
           .eq('id', existing.id);
@@ -132,7 +160,7 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
           .insert([{
             assessment_id: assessmentId,
             step_type: stepType,
-            draft_data: dataToSync as unknown as Json,
+            draft_data: sanitizedData as unknown as Json,
             current_step: stepToSync,
           }]);
         error = result.error;

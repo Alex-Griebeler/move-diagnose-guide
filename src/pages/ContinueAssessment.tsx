@@ -20,6 +20,8 @@ const logger = createLogger('ContinueAssessment');
 
 type Step = 'anamnesis' | 'global-tests' | 'segmental-tests' | 'protocol';
 
+const stepOrder: Step[] = ['anamnesis', 'global-tests', 'segmental-tests', 'protocol'];
+
 export default function ContinueAssessment() {
   const [searchParams] = useSearchParams();
   const assessmentId = searchParams.get('assessmentId');
@@ -176,6 +178,15 @@ export default function ContinueAssessment() {
     navigate('/dashboard');
   };
 
+  // Navigate to previous assessment step (between wizards)
+  const handleGoToPreviousStep = () => {
+    if (!step) return;
+    const currentIndex = stepOrder.indexOf(step);
+    if (currentIndex > 0) {
+      setStep(stepOrder[currentIndex - 1]);
+    }
+  };
+
   if (authLoading || loading) {
     return <PageLoading variant="minimal" />;
   }
@@ -211,6 +222,7 @@ export default function ContinueAssessment() {
           <GlobalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleGlobalTestsComplete}
+            onGoBack={handleGoToPreviousStep}
           />
         )}
 
@@ -218,6 +230,7 @@ export default function ContinueAssessment() {
           <SegmentalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleSegmentalTestsComplete}
+            onGoBack={handleGoToPreviousStep}
           />
         )}
 

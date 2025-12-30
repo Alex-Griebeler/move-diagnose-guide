@@ -21,6 +21,8 @@ const logger = createLogger('NewAssessment');
 
 type Step = 'select-student' | 'anamnesis' | 'global-tests' | 'segmental-tests' | 'protocol';
 
+const stepOrder: Step[] = ['select-student', 'anamnesis', 'global-tests', 'segmental-tests', 'protocol'];
+
 export default function NewAssessment() {
   const [searchParams] = useSearchParams();
   const [students, setStudents] = useState<StudentItem[]>([]);
@@ -201,6 +203,19 @@ export default function NewAssessment() {
     navigate('/dashboard');
   };
 
+  // Navigate to previous assessment step (between wizards)
+  const handleGoToPreviousStep = () => {
+    const currentIndex = stepOrder.indexOf(step);
+    if (currentIndex > 0) {
+      const previousStep = stepOrder[currentIndex - 1];
+      // Don't go back to select-student after assessment started
+      if (previousStep === 'select-student' && assessmentId) {
+        return;
+      }
+      setStep(previousStep);
+    }
+  };
+
   if (loading || isRestoringState) {
     return <PageLoading variant="minimal" />;
   }
@@ -247,6 +262,7 @@ export default function NewAssessment() {
           <GlobalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleGlobalTestsComplete}
+            onGoBack={handleGoToPreviousStep}
           />
         )}
 
@@ -254,6 +270,7 @@ export default function NewAssessment() {
           <SegmentalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleSegmentalTestsComplete}
+            onGoBack={handleGoToPreviousStep}
           />
         )}
 

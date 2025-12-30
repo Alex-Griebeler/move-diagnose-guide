@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 interface SegmentalTestsWizardProps {
   assessmentId: string;
   onComplete: () => void;
+  onGoBack?: () => void;
 }
 
 interface TestResult {
@@ -44,7 +45,7 @@ const initialWizardData: WizardData = {
   testResults: {},
 };
 
-export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
+export function SegmentalTestsWizard({ assessmentId, onComplete, onGoBack }: SegmentalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -181,6 +182,8 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+    } else if (onGoBack) {
+      onGoBack();
     }
   };
 
@@ -397,7 +400,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         <Button
           variant="outline"
           onClick={handlePrevious}
-          disabled={currentStep === 1}
+          disabled={currentStep === 1 && !onGoBack}
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
           Anterior

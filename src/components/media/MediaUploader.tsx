@@ -179,7 +179,21 @@ export function MediaUploader({
 
     logger.debug('Upload successful:', data.path);
 
+    // Verify file exists before returning URL
     const signedUrl = await getSignedUrl(data.path);
+    
+    // Double-check the file is accessible
+    try {
+      const response = await fetch(signedUrl, { method: 'HEAD' });
+      if (!response.ok) {
+        throw new Error(`File verification failed: ${response.status}`);
+      }
+    } catch (verifyError) {
+      logger.error('File verification failed after upload', verifyError);
+      // File upload succeeded but verification failed - still return URL
+      // as the file might be eventually consistent
+    }
+    
     return signedUrl;
   };
 

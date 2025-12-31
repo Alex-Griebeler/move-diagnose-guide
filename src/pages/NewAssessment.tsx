@@ -8,11 +8,10 @@ import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
-import { AssessmentBreadcrumb } from '@/components/assessment/AssessmentBreadcrumb';
+import { AssessmentNavBar } from '@/components/assessment/AssessmentNavBar';
 import { StudentSearchList, type StudentItem } from '@/components/students/StudentSearchList';
 import { 
   PageLayout, 
-  PageHeader, 
   PageContent,
   PageLoading 
 } from '@/components/layout/PageLayout';
@@ -33,22 +32,18 @@ export default function NewAssessment() {
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
   const [isRestoringState, setIsRestoringState] = useState(true);
   
-  // Initialize step - will be updated after checking for saved state
   const [step, setStep] = useState<Step>('select-student');
 
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Restore state ONLY from URL params on mount
-  // localStorage is only used for step recovery within same session, not for auto-restoring assessments
+  // Restore state from URL params on mount
   useEffect(() => {
     const studentIdParam = searchParams.get('studentId');
     const assessmentIdParam = searchParams.get('assessmentId');
     const studentNameParam = searchParams.get('studentName');
 
-    // Only restore from URL parameters (from in-person registration or explicit continue)
-    // "Nova Avaliação" without params always shows student selection
     if (studentIdParam && assessmentIdParam) {
       setSelectedStudent({
         id: studentIdParam,
@@ -57,7 +52,6 @@ export default function NewAssessment() {
       });
       setAssessmentId(assessmentIdParam);
       
-      // Check saved step for this assessment
       const savedStep = localStorage.getItem(`assessment_step_${assessmentIdParam}`);
       if (savedStep && ['anamnesis', 'global-tests', 'segmental-tests', 'protocol'].includes(savedStep)) {
         setStep(savedStep as Step);
@@ -65,7 +59,6 @@ export default function NewAssessment() {
         setStep('anamnesis');
       }
     }
-    // If no URL params, stay on 'select-student' step (default)
     
     setIsRestoringState(false);
   }, [searchParams]);
@@ -124,7 +117,6 @@ export default function NewAssessment() {
 
       if (error) throw error;
 
-      // Save current assessment state to localStorage for recovery
       localStorage.setItem('current_assessment_id', data.id);
       localStorage.setItem('current_student_id', studentId);
       localStorage.setItem('current_student_name', selectedStudent?.full_name || '');
@@ -147,7 +139,6 @@ export default function NewAssessment() {
   const handleSelectStudent = async (student: StudentItem) => {
     setSelectingStudentId(student.id);
     setSelectedStudent(student);
-    // Store student name before creating assessment
     localStorage.setItem('current_student_name', student.full_name);
     await createAssessment(student.id);
     setSelectingStudentId(null);
@@ -187,7 +178,6 @@ export default function NewAssessment() {
   };
 
   const handleProtocolComplete = () => {
-    // Clear all localStorage state for this assessment
     if (assessmentId) {
       localStorage.removeItem(`assessment_step_${assessmentId}`);
       localStorage.removeItem('globalTests_assessmentId');
@@ -206,13 +196,11 @@ export default function NewAssessment() {
   // Navigate to previous assessment step (between wizards)
   const handleGoToPreviousStep = () => {
     const currentIndex = stepOrder.indexOf(step);
-    if (currentIndex > 0) {
-      const previousStep = stepOrder[currentIndex - 1];
-      // Don't go back to select-student after assessment started
-      if (previousStep === 'select-student' && assessmentId) {
-        return;
-      }
-      setStep(previousStep);
+    if (currentIndex > 1) {
+      // Don't go back to select-student
+      setStep(stepOrder[currentIndex - 1]);
+    } else {
+      navigate('/dashboard');
     }
   };
 
@@ -222,25 +210,12 @@ export default function NewAssessment() {
 
   return (
     <PageLayout>
-      <PageHeader
-        variant="minimal"
-        title="Nova Avaliação"
-        showBack
-        onBack={() => navigate('/dashboard')}
-        className="border-b"
+      <AssessmentNavBar 
+        currentStep={step}
+        studentName={selectedStudent?.full_name}
+        onGoBack={handleGoToPreviousStep}
+        canGoBack={true}
       />
-      
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-2 border-b bg-card">
-        <AssessmentBreadcrumb 
-          currentStep={step} 
-          studentName={selectedStudent?.full_name}
-          onNavigateToStep={(targetStep) => {
-            if (assessmentId) {
-              setStep(targetStep);
-            }
-          }}
-        />
-      </div>
 
       <PageContent size="lg" className="py-8">
         {step === 'select-student' && (
@@ -267,7 +242,6 @@ export default function NewAssessment() {
           <GlobalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleGlobalTestsComplete}
-            onGoBack={handleGoToPreviousStep}
           />
         )}
 
@@ -275,7 +249,6 @@ export default function NewAssessment() {
           <SegmentalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleSegmentalTestsComplete}
-            onGoBack={handleGoToPreviousStep}
           />
         )}
 

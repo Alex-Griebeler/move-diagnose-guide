@@ -471,15 +471,17 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentStep === 1}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Anterior
-        </Button>
+      <div className="flex justify-end gap-3">
+        {currentStep > 1 && (
+          <Button
+            variant="ghost"
+            onClick={handlePrevious}
+            className="text-muted-foreground"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Anterior
+          </Button>
+        )}
 
         {currentStep < 8 ? (
           <Button onClick={handleNext}>

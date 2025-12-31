@@ -7,11 +7,10 @@ import { AnamnesisWizard } from '@/components/anamnesis/AnamnesisWizard';
 import { GlobalTestsWizard } from '@/components/global-tests/GlobalTestsWizard';
 import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTestsWizard';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
-import { AssessmentBreadcrumb } from '@/components/assessment/AssessmentBreadcrumb';
+import { AssessmentNavBar } from '@/components/assessment/AssessmentNavBar';
 import { useToast } from '@/hooks/use-toast';
 import { 
   PageLayout, 
-  PageHeader, 
   PageContent,
   PageLoading 
 } from '@/components/layout/PageLayout';
@@ -55,7 +54,6 @@ export default function ContinueAssessment() {
     setLoading(true);
 
     try {
-      // First, validate that assessment exists
       const { data: assessment, error: assessmentError } = await supabase
         .from('assessments')
         .select('id, status')
@@ -69,7 +67,6 @@ export default function ContinueAssessment() {
           description: 'Esta avaliação não existe ou foi removida.',
           variant: 'destructive',
         });
-        // Clear any stale localStorage data
         localStorage.removeItem(`wizard_anamnesis_${assessmentId}`);
         localStorage.removeItem(`wizard_global_tests_${assessmentId}`);
         localStorage.removeItem(`wizard_segmental_tests_${assessmentId}`);
@@ -77,7 +74,6 @@ export default function ContinueAssessment() {
         return;
       }
 
-      // Check if anamnesis exists
       const { data: anamnesis } = await supabase
         .from('anamnesis_responses')
         .select('id')
@@ -90,7 +86,6 @@ export default function ContinueAssessment() {
         return;
       }
 
-      // Check if global tests exist
       const { data: globalTests } = await supabase
         .from('global_test_results')
         .select('id')
@@ -103,7 +98,6 @@ export default function ContinueAssessment() {
         return;
       }
 
-      // Check if segmental tests exist
       const { data: segmentalTests } = await supabase
         .from('segmental_test_results')
         .select('id')
@@ -116,7 +110,6 @@ export default function ContinueAssessment() {
         return;
       }
 
-      // Check if protocol exists
       const { data: protocol } = await supabase
         .from('protocols')
         .select('id')
@@ -126,7 +119,6 @@ export default function ContinueAssessment() {
       if (!protocol) {
         setStep('protocol');
       } else {
-        // Assessment already completed
         toast({
           title: 'Avaliação já concluída',
           description: 'Esta avaliação já possui um protocolo gerado.',
@@ -184,6 +176,8 @@ export default function ContinueAssessment() {
     const currentIndex = stepOrder.indexOf(step);
     if (currentIndex > 0) {
       setStep(stepOrder[currentIndex - 1]);
+    } else {
+      navigate('/dashboard');
     }
   };
 
@@ -195,25 +189,12 @@ export default function ContinueAssessment() {
 
   return (
     <PageLayout>
-      <PageHeader
-        variant="minimal"
-        title="Continuar Avaliação"
-        showBack
-        onBack={() => navigate('/dashboard')}
-        className="border-b"
+      <AssessmentNavBar 
+        currentStep={step || 'anamnesis'}
+        studentName={studentName}
+        onGoBack={handleGoToPreviousStep}
+        canGoBack={true}
       />
-      
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-2 border-b bg-card">
-        <AssessmentBreadcrumb 
-          currentStep={step || 'anamnesis'} 
-          studentName={studentName}
-          onNavigateToStep={(targetStep) => {
-            if (targetStep !== 'select-student') {
-              setStep(targetStep as Step);
-            }
-          }}
-        />
-      </div>
 
       <PageContent size="lg" className="py-8">
         {step === 'anamnesis' && (
@@ -227,7 +208,6 @@ export default function ContinueAssessment() {
           <GlobalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleGlobalTestsComplete}
-            onGoBack={handleGoToPreviousStep}
           />
         )}
 
@@ -235,7 +215,6 @@ export default function ContinueAssessment() {
           <SegmentalTestsWizard
             assessmentId={assessmentId}
             onComplete={handleSegmentalTestsComplete}
-            onGoBack={handleGoToPreviousStep}
           />
         )}
 

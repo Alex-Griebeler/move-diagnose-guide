@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils';
 interface SegmentalTestsWizardProps {
   assessmentId: string;
   onComplete: () => void;
-  onGoBack?: () => void;
 }
 
 interface TestResult {
@@ -45,7 +44,7 @@ const initialWizardData: WizardData = {
   testResults: {},
 };
 
-export function SegmentalTestsWizard({ assessmentId, onComplete, onGoBack }: SegmentalTestsWizardProps) {
+export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -182,8 +181,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete, onGoBack }: Seg
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-    } else if (onGoBack) {
-      onGoBack();
     }
   };
 
@@ -395,46 +392,46 @@ export function SegmentalTestsWizard({ assessmentId, onComplete, onGoBack }: Seg
         ) : null}
       </div>
 
-      {/* Navigation - Same as Global Tests */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentStep === 1 && !onGoBack}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Anterior
-        </Button>
+      {/* Navigation */}
+      <div className="flex justify-end gap-3">
+        {currentStep > 1 && (
+          <Button
+            variant="ghost"
+            onClick={handlePrevious}
+            className="text-muted-foreground"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Anterior
+          </Button>
+        )}
 
-        <div className="flex gap-2">
-          {!isSummaryStep && (
-            <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
-              Pular
-            </Button>
-          )}
+        {!isSummaryStep && (
+          <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
+            Pular
+          </Button>
+        )}
 
-          {isSummaryStep ? (
-            <Button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="bg-success hover:bg-success/90"
-            >
-              {saving ? (
-                <span className="animate-pulse-soft">Salvando...</span>
-              ) : (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Concluir Testes Segmentados
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button onClick={handleNext}>
-              Próximo
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          )}
-        </div>
+        {isSummaryStep ? (
+          <Button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="bg-success hover:bg-success/90"
+          >
+            {saving ? (
+              <span className="animate-pulse-soft">Salvando...</span>
+            ) : (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Concluir Testes Segmentados
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button onClick={handleNext}>
+            Próximo
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
       </div>
     </div>
   );

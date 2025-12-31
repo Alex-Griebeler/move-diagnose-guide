@@ -59,7 +59,6 @@ const steps = [
 interface GlobalTestsWizardProps {
   assessmentId: string;
   onComplete: () => void;
-  onGoBack?: () => void;
 }
 
 // Convert new format to legacy format for TestSummary
@@ -104,7 +103,7 @@ function toLegacyFormat(data: GlobalTestData): LegacyTestData {
   };
 }
 
-export function GlobalTestsWizard({ assessmentId, onComplete, onGoBack }: GlobalTestsWizardProps) {
+export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
   
   const {
@@ -149,8 +148,6 @@ export function GlobalTestsWizard({ assessmentId, onComplete, onGoBack }: Global
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-    } else if (onGoBack) {
-      onGoBack();
     }
   };
 
@@ -363,15 +360,17 @@ export function GlobalTestsWizard({ assessmentId, onComplete, onGoBack }: Global
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentStep === 1 && !onGoBack}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Anterior
-        </Button>
+      <div className="flex justify-end gap-3">
+        {currentStep > 1 && (
+          <Button
+            variant="ghost"
+            onClick={handlePrevious}
+            className="text-muted-foreground"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Anterior
+          </Button>
+        )}
 
         {currentStep < 4 ? (
           <Button onClick={handleNext}>

@@ -123,6 +123,7 @@ export function QuickProtocolWizardV2({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Create session immediately - we need the sessionId for media uploads
       const { data: session, error } = await supabase
         .from('quick_protocol_sessions')
         .insert({
@@ -139,6 +140,7 @@ export function QuickProtocolWizardV2({
 
       if (error) throw error;
 
+      logger.info('Session created', { sessionId: session.id });
       setSessionId(session.id);
       
       // Go to AI flow if available, otherwise manual

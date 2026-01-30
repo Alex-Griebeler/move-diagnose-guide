@@ -70,7 +70,7 @@ export function MediaUploader({
   };
 
   const verifyAssessmentOwnership = async (): Promise<boolean> => {
-    logger.debug('Verifying assessment ownership:', assessmentId);
+    logger.debug('Verifying ownership for:', assessmentId);
     
     if (!assessmentId) {
       logger.error('No assessmentId provided');
@@ -86,6 +86,26 @@ export function MediaUploader({
 
     logger.debug('Current user:', user.id);
 
+    // First, check if it's a quick_protocol_sessions ID
+    const { data: session, error: sessionError } = await supabase
+      .from('quick_protocol_sessions')
+      .select('id, professional_id, student_id')
+      .eq('id', assessmentId)
+      .maybeSingle();
+
+    if (session) {
+      const hasAccess = session.professional_id === user.id || session.student_id === user.id;
+      logger.debug('Quick protocol session check:', {
+        sessionId: assessmentId,
+        professional_id: session.professional_id,
+        student_id: session.student_id,
+        userId: user.id,
+        hasAccess,
+      });
+      return hasAccess;
+    }
+
+    // If not a session, check if it's an assessment
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
       .select('id, professional_id, student_id')
@@ -98,7 +118,7 @@ export function MediaUploader({
     }
 
     if (!assessment) {
-      logger.error('Assessment not found:', assessmentId);
+      logger.error('Assessment/Session not found:', assessmentId);
       return false;
     }
 

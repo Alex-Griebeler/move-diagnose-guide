@@ -65,25 +65,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    const assessmentId = pathParts[0];
-    console.log("Checking ownership for assessment:", assessmentId);
+    const folderId = pathParts[0];
+    console.log("Checking ownership for folder:", folderId);
 
-    const { data: assessment, error: assessmentError } = await supabase
+    // Check if folder matches an assessment the user owns
+    const { data: assessment } = await supabase
       .from('assessments')
       .select('id')
-      .eq('id', assessmentId)
+      .eq('id', folderId)
       .or(`professional_id.eq.${user.id},student_id.eq.${user.id}`)
       .maybeSingle();
 
-    if (assessmentError) {
-      console.error("Error checking assessment ownership:", assessmentError);
-      return new Response(JSON.stringify({ error: "Failed to verify access" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Check if folder matches a quick_protocol_session the user owns
+    const { data: quickSession } = await supabase
+      .from('quick_protocol_sessions')
+      .select('id')
+      .eq('id', folderId)
+      .or(`professional_id.eq.${user.id},student_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!assessment) {
+    const hasAccess = !!assessment || !!quickSession;
+    console.log("Access check result:", { assessment: !!assessment, quickSession: !!quickSession, hasAccess });
+
+    if (!hasAccess) {
       console.error("Access denied: user", user.id, "attempted to access", filePath);
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,

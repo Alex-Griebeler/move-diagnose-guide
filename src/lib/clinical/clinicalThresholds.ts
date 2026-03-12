@@ -256,6 +256,7 @@ export function getClinicalThresholds(): ClinicalThresholdsConfig {
   if (!overrides) {
     cachedConfig = defaults;
     currentSource = 'defaults';
+    cachedProfileId = null;
     return cachedConfig;
   }
 

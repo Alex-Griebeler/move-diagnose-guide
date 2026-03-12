@@ -176,6 +176,7 @@ type ThresholdSource = 'defaults' | 'localStorage' | 'backend';
 
 let cachedConfig: ClinicalThresholdsConfig | null = null;
 let currentSource: ThresholdSource = 'defaults';
+let cachedProfileId: string | null = null;
 
 // ============================================
 // localStorage Override Management
@@ -239,6 +240,7 @@ export function resetClinicalThresholdOverrides(): void {
   localStorage.removeItem(OVERRIDES_KEY);
   cachedConfig = null;
   currentSource = 'defaults';
+  cachedProfileId = null;
 }
 
 /**
@@ -254,10 +256,12 @@ export function getClinicalThresholds(): ClinicalThresholdsConfig {
   if (!overrides) {
     cachedConfig = defaults;
     currentSource = 'defaults';
+    cachedProfileId = null;
     return cachedConfig;
   }
 
   currentSource = 'localStorage';
+  cachedProfileId = null;
   cachedConfig = {
     evidenceVersion: defaults.evidenceVersion,
     mediaQuality: { ...defaults.mediaQuality, ...overrides.mediaQuality },
@@ -318,7 +322,8 @@ export async function refreshClinicalThresholdsFromBackend(): Promise<void> {
         : defaults.poseObjective,
     };
     currentSource = 'backend';
-    console.info('[ClinicalThresholds] Loaded from backend profile:', (profile as any).id);
+    cachedProfileId = (profile as any).id;
+    console.info('[ClinicalThresholds] Loaded from backend profile:', cachedProfileId);
   } catch (error) {
     console.warn('[ClinicalThresholds] Backend refresh failed, using local config:', error);
   }
@@ -358,7 +363,9 @@ export function getThresholdSnapshot(): Record<string, unknown> {
     confidence: t.confidence,
     scoreWeights: t.scoreWeights,
     temporalAnalysis: t.temporalAnalysis,
+    poseObjective: t.poseObjective,
     source: currentSource,
+    thresholdProfileId: cachedProfileId,
   };
 }
 

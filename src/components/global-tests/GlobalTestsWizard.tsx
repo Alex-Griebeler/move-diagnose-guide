@@ -169,18 +169,27 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     try {
       const legacyData = toLegacyFormat(data);
 
-      // Save OHS results
+      // Save OHS results (with evidence metadata if available)
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'ohs',
-        anterior_view: { compensations: legacyData.ohs.anteriorView },
-        lateral_view: { compensations: legacyData.ohs.lateralView },
-        posterior_view: { compensations: legacyData.ohs.posteriorView },
+        anterior_view: { 
+          compensations: legacyData.ohs.anteriorView,
+          ...(data.ohs.evidenceMetadata?.anterior && { evidenceMetadata: data.ohs.evidenceMetadata.anterior }),
+        },
+        lateral_view: { 
+          compensations: legacyData.ohs.lateralView,
+          ...(data.ohs.evidenceMetadata?.lateral && { evidenceMetadata: data.ohs.evidenceMetadata.lateral }),
+        },
+        posterior_view: { 
+          compensations: legacyData.ohs.posteriorView,
+          ...(data.ohs.evidenceMetadata?.posterior && { evidenceMetadata: data.ohs.evidenceMetadata.posterior }),
+        },
         notes: legacyData.ohs.notes || null,
         media_urls: collectMediaUrls(data.ohs),
       });
 
-      // Save SLS results with detailed view data (including new lateral views)
+      // Save SLS results with detailed view data and evidence metadata
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'sls',
@@ -189,23 +198,43 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
           anterior: data.sls.compensations.left_anterior || [],
           lateral: data.sls.compensations.left_lateral || [],
           posterior: data.sls.compensations.left_posterior || [],
+          ...(data.sls.evidenceMetadata && {
+            evidenceMetadata: {
+              left_anterior: data.sls.evidenceMetadata.left_anterior,
+              left_lateral: data.sls.evidenceMetadata.left_lateral,
+              left_posterior: data.sls.evidenceMetadata.left_posterior,
+            },
+          }),
         },
         right_side: { 
           compensations: legacyData.sls.rightSide,
           anterior: data.sls.compensations.right_anterior || [],
           lateral: data.sls.compensations.right_lateral || [],
           posterior: data.sls.compensations.right_posterior || [],
+          ...(data.sls.evidenceMetadata && {
+            evidenceMetadata: {
+              right_anterior: data.sls.evidenceMetadata.right_anterior,
+              right_lateral: data.sls.evidenceMetadata.right_lateral,
+              right_posterior: data.sls.evidenceMetadata.right_posterior,
+            },
+          }),
         },
         notes: legacyData.sls.notes || null,
         media_urls: collectMediaUrls(data.sls),
       });
 
-      // Save Push-up results (lateral + posterior views)
+      // Save Push-up results with evidence metadata
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'pushup',
-        lateral_view: { compensations: data.pushup.compensations.lateral || [] },
-        posterior_view: { compensations: data.pushup.compensations.posterior || [] },
+        lateral_view: { 
+          compensations: data.pushup.compensations.lateral || [],
+          ...(data.pushup.evidenceMetadata?.lateral && { evidenceMetadata: data.pushup.evidenceMetadata.lateral }),
+        },
+        posterior_view: { 
+          compensations: data.pushup.compensations.posterior || [],
+          ...(data.pushup.evidenceMetadata?.posterior && { evidenceMetadata: data.pushup.evidenceMetadata.posterior }),
+        },
         notes: legacyData.pushup.notes || null,
         media_urls: collectMediaUrls(data.pushup),
       });

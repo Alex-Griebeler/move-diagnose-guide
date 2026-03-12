@@ -170,74 +170,70 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     try {
       const legacyData = toLegacyFormat(data);
 
-      // Save OHS results (with evidence metadata if available)
+      // Build view data with optional evidence metadata
+      const buildViewData = (compensations: string[], evidence?: EvidenceMetadata): Json => {
+        const obj: Record<string, unknown> = { compensations };
+        if (evidence) obj.evidenceMetadata = evidence;
+        return obj as Json;
+      };
+
+      // Save OHS results
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'ohs',
-        anterior_view: { 
-          compensations: legacyData.ohs.anteriorView,
-          ...(data.ohs.evidenceMetadata?.anterior && { evidenceMetadata: data.ohs.evidenceMetadata.anterior }),
-        },
-        lateral_view: { 
-          compensations: legacyData.ohs.lateralView,
-          ...(data.ohs.evidenceMetadata?.lateral && { evidenceMetadata: data.ohs.evidenceMetadata.lateral }),
-        },
-        posterior_view: { 
-          compensations: legacyData.ohs.posteriorView,
-          ...(data.ohs.evidenceMetadata?.posterior && { evidenceMetadata: data.ohs.evidenceMetadata.posterior }),
-        },
+        anterior_view: buildViewData(legacyData.ohs.anteriorView, data.ohs.evidenceMetadata?.anterior),
+        lateral_view: buildViewData(legacyData.ohs.lateralView, data.ohs.evidenceMetadata?.lateral),
+        posterior_view: buildViewData(legacyData.ohs.posteriorView, data.ohs.evidenceMetadata?.posterior),
         notes: legacyData.ohs.notes || null,
-        media_urls: collectMediaUrls(data.ohs),
+        media_urls: collectMediaUrls(data.ohs) as unknown as Json,
       });
 
-      // Save SLS results with detailed view data and evidence metadata
+      // Save SLS results
+      const slsLeftSide: Record<string, unknown> = {
+        compensations: legacyData.sls.leftSide,
+        anterior: data.sls.compensations.left_anterior || [],
+        lateral: data.sls.compensations.left_lateral || [],
+        posterior: data.sls.compensations.left_posterior || [],
+      };
+      if (data.sls.evidenceMetadata) {
+        slsLeftSide.evidenceMetadata = {
+          left_anterior: data.sls.evidenceMetadata.left_anterior,
+          left_lateral: data.sls.evidenceMetadata.left_lateral,
+          left_posterior: data.sls.evidenceMetadata.left_posterior,
+        };
+      }
+
+      const slsRightSide: Record<string, unknown> = {
+        compensations: legacyData.sls.rightSide,
+        anterior: data.sls.compensations.right_anterior || [],
+        lateral: data.sls.compensations.right_lateral || [],
+        posterior: data.sls.compensations.right_posterior || [],
+      };
+      if (data.sls.evidenceMetadata) {
+        slsRightSide.evidenceMetadata = {
+          right_anterior: data.sls.evidenceMetadata.right_anterior,
+          right_lateral: data.sls.evidenceMetadata.right_lateral,
+          right_posterior: data.sls.evidenceMetadata.right_posterior,
+        };
+      }
+
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'sls',
-        left_side: { 
-          compensations: legacyData.sls.leftSide,
-          anterior: data.sls.compensations.left_anterior || [],
-          lateral: data.sls.compensations.left_lateral || [],
-          posterior: data.sls.compensations.left_posterior || [],
-          ...(data.sls.evidenceMetadata && {
-            evidenceMetadata: {
-              left_anterior: data.sls.evidenceMetadata.left_anterior,
-              left_lateral: data.sls.evidenceMetadata.left_lateral,
-              left_posterior: data.sls.evidenceMetadata.left_posterior,
-            },
-          }),
-        },
-        right_side: { 
-          compensations: legacyData.sls.rightSide,
-          anterior: data.sls.compensations.right_anterior || [],
-          lateral: data.sls.compensations.right_lateral || [],
-          posterior: data.sls.compensations.right_posterior || [],
-          ...(data.sls.evidenceMetadata && {
-            evidenceMetadata: {
-              right_anterior: data.sls.evidenceMetadata.right_anterior,
-              right_lateral: data.sls.evidenceMetadata.right_lateral,
-              right_posterior: data.sls.evidenceMetadata.right_posterior,
-            },
-          }),
-        },
+        left_side: slsLeftSide as Json,
+        right_side: slsRightSide as Json,
         notes: legacyData.sls.notes || null,
-        media_urls: collectMediaUrls(data.sls),
+        media_urls: collectMediaUrls(data.sls) as unknown as Json,
       });
 
-      // Save Push-up results with evidence metadata
+      // Save Push-up results
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'pushup',
-        lateral_view: { 
-          compensations: data.pushup.compensations.lateral || [],
-          ...(data.pushup.evidenceMetadata?.lateral && { evidenceMetadata: data.pushup.evidenceMetadata.lateral }),
-        },
-        posterior_view: { 
-          compensations: data.pushup.compensations.posterior || [],
-          ...(data.pushup.evidenceMetadata?.posterior && { evidenceMetadata: data.pushup.evidenceMetadata.posterior }),
-        },
+        lateral_view: buildViewData(data.pushup.compensations.lateral || [], data.pushup.evidenceMetadata?.lateral),
+        posterior_view: buildViewData(data.pushup.compensations.posterior || [], data.pushup.evidenceMetadata?.posterior),
         notes: legacyData.pushup.notes || null,
-        media_urls: collectMediaUrls(data.pushup),
+        media_urls: collectMediaUrls(data.pushup) as unknown as Json,
       });
 
       // Update assessment status

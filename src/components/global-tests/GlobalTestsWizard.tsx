@@ -13,6 +13,7 @@ const logger = createLogger('GlobalTestsWizard');
 
 import { AutoGlobalTest } from './AutoGlobalTest';
 import { TestSummary, LegacyTestData } from './TestSummary';
+import type { EvidenceMetadata } from '@/lib/clinical/types';
 
 type ViewType = 
   | 'anterior' 
@@ -29,6 +30,7 @@ interface AutoTestData {
   compensations: Record<ViewType, string[]>;
   mediaUrls: Record<ViewType, { photoUrl?: string; videoUrl?: string }>;
   notes: string;
+  evidenceMetadata?: Record<ViewType, EvidenceMetadata>;
 }
 
 export interface GlobalTestData {

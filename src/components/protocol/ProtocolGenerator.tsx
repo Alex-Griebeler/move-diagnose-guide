@@ -128,12 +128,20 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         views.forEach(view => {
           const viewData = result[view.key as keyof typeof result] as Record<string, unknown> | null;
           if (viewData && typeof viewData === 'object' && 'compensations' in viewData) {
+            // Check evidence metadata status — skip blocked_quality views
+            const evidenceMeta = viewData.evidenceMetadata as { status?: string } | undefined;
+            if (evidenceMeta?.status === 'blocked_quality') {
+              return; // Skip entirely
+            }
+
+            // Weight factor: reduce for indeterminate views
+            const weightFactor = evidenceMeta?.status === 'indeterminate' ? 0.5 : 1;
+
             const compIds = viewData.compensations as string[];
             if (Array.isArray(compIds)) {
               compIds.forEach(id => {
                 const mapping = allCompensationMappings[id];
                 if (mapping) {
-                  // Para o engine de priorização
                   compensacoesDetectadas.push({
                     id,
                     testName: view.testName,
@@ -141,7 +149,6 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
                     side: view.side,
                   });
                   
-                  // Para a IA
                   compensationsForAI.push({
                     id,
                     label: mapping.label,
@@ -151,6 +158,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
                     hyperactiveMuscles: mapping.hyperactiveMuscles,
                     hypoactiveMuscles: mapping.hypoactiveMuscles,
                     associatedInjuries: mapping.associatedInjuries,
+                    weightFactor,
                   });
                 }
               });

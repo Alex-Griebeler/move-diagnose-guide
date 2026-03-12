@@ -1,6 +1,6 @@
 // ============================================
 // Biomechanical Scoring & Evidence Fusion
-// Fusão de evidências (IA + Pose), scoring e status
+// v3 — Temporal guards, captureContext, predictedCompensations
 // ============================================
 
 import { getClinicalThresholds, getThresholdSnapshot } from './clinicalThresholds';
@@ -11,26 +11,32 @@ import type {
   BiomechanicalScoreResult,
   ViewReliabilityStatus,
   ReliabilityLevel,
+  CaptureContext,
+  ModelInfo,
 } from './types';
 import type { AnalysisResult } from '@/hooks/useMovementAnalysis';
 import { compensacaoCausas } from '@/data/weightEngine';
 
 /**
  * Fuse AI analysis and objective pose findings into a single evidence package.
- * Determines reliability status and whether compensations should be auto-applied.
+ * v3: accepts optional captureContext and modelInfo, enforces temporal guards.
  */
 export function fuseEvidence(
   aiResult: AnalysisResult | null,
   poseResult: PoseResult | null,
-  qualityResult: QualityResult
+  qualityResult: QualityResult,
+  captureContext?: CaptureContext,
+  modelInfo?: ModelInfo
 ): BiomechanicalScoreResult {
-  const thresholds = getClinicalThresholds().confidence;
+  const thresholds = getClinicalThresholds();
+  const confidenceThresholds = thresholds.confidence;
+  const temporalConfig = thresholds.temporalAnalysis;
   const indeterminateReasons: string[] = [];
   const snapshot = getThresholdSnapshot();
 
-  // 1. Quality gate — bloqueante
+  // 1. Quality gate — blocking
   if (!qualityResult.passed) {
-    return buildBlockedResult(qualityResult, snapshot);
+    return buildBlockedResult(qualityResult, snapshot, captureContext, modelInfo);
   }
 
   // 2. Extract findings from both sources
@@ -45,17 +51,36 @@ export function fuseEvidence(
   // 4. Determine status
   let status: ViewReliabilityStatus = 'ready';
 
-  if (aiConfidence < thresholds.minAiConfidence) {
+  // Temporal timeout fallback → forced indeterminate (never ready)
+  if (poseResult?.temporalTimeoutFallback) {
+    status = 'indeterminate';
+    indeterminateReasons.push('Fallback temporal por timeout — análise com frame único');
+  }
+
+  // Temporal frame quality below threshold → forced indeterminate
+  if (
+    poseResult?.frameQualityPassRate !== undefined &&
+    poseResult.frameQualityPassRate < temporalConfig.minFrameQualityPassRate &&
+    poseResult.frameCountRequested !== undefined &&
+    poseResult.frameCountRequested > 1
+  ) {
+    status = 'indeterminate';
+    indeterminateReasons.push(
+      `Taxa de frames válidos baixa (${Math.round(poseResult.frameQualityPassRate * 100)}%)`
+    );
+  }
+
+  if (aiConfidence < confidenceThresholds.minAiConfidence) {
     status = 'indeterminate';
     indeterminateReasons.push(`Confiança IA baixa (${Math.round(aiConfidence * 100)}%)`);
   }
 
-  if (poseResult && poseConfidence < thresholds.minPoseConfidence) {
+  if (poseResult && poseConfidence < confidenceThresholds.minPoseConfidence) {
     status = 'indeterminate';
     indeterminateReasons.push(`Confiança Pose baixa (${Math.round(poseConfidence * 100)}%)`);
   }
 
-  if (poseResult && objectiveAgreementScore < thresholds.minAgreementScore) {
+  if (poseResult && objectiveAgreementScore < confidenceThresholds.minAgreementScore) {
     status = 'indeterminate';
     indeterminateReasons.push(
       `Baixa concordância entre IA e análise objetiva (${Math.round(objectiveAgreementScore * 100)}%)`
@@ -66,11 +91,11 @@ export function fuseEvidence(
   let autoApplyCompensations: string[] = [];
 
   if (status === 'ready') {
-    if (poseResult && objectiveAgreementScore >= thresholds.autoApplyThreshold) {
+    if (poseResult && objectiveAgreementScore >= confidenceThresholds.autoApplyThreshold) {
       autoApplyCompensations = [...new Set([...aiFindings, ...poseFindings])];
     } else if (!poseResult) {
-      autoApplyCompensations = aiConfidence >= thresholds.autoApplyThreshold ? aiFindings : [];
-      if (aiConfidence < thresholds.autoApplyThreshold && aiFindings.length > 0) {
+      autoApplyCompensations = aiConfidence >= confidenceThresholds.autoApplyThreshold ? aiFindings : [];
+      if (aiConfidence < confidenceThresholds.autoApplyThreshold && aiFindings.length > 0) {
         status = 'indeterminate';
         indeterminateReasons.push('Confiança insuficiente para auto-aplicação');
       }
@@ -97,13 +122,22 @@ export function fuseEvidence(
     aiConfidence,
     poseConfidence,
     biomechanicalScore,
-    detectedCompensations: allDetected,
+    detectedCompensations: allDetected, // deprecated alias
+    predictedCompensations: allDetected,
     autoAppliedCompensations: autoApplyCompensations,
     objectiveAgreementScore,
     objectiveFindings: poseFindings,
     objectiveMetrics: poseResult?.objectiveMetrics || {},
     indeterminateReasons,
     computedAt: new Date().toISOString(),
+    // v3 optional fields
+    captureContext,
+    modelInfo: modelInfo || {
+      aiModel: 'analyze-movement',
+      aiVersion: 'unknown',
+      poseModel: 'mediapipe-pose-landmarker-lite',
+      poseVersion: 'unknown',
+    },
   };
 
   return {
@@ -148,7 +182,9 @@ export function getViewStatus(viewData: unknown): ViewReliabilityStatus | null {
 
 function buildBlockedResult(
   qualityResult: QualityResult,
-  snapshot: Record<string, unknown>
+  snapshot: Record<string, unknown>,
+  captureContext?: CaptureContext,
+  modelInfo?: ModelInfo
 ): BiomechanicalScoreResult {
   const evidenceMetadata: EvidenceMetadata = {
     status: 'blocked_quality',
@@ -161,12 +197,15 @@ function buildBlockedResult(
     poseConfidence: 0,
     biomechanicalScore: 0,
     detectedCompensations: [],
+    predictedCompensations: [],
     autoAppliedCompensations: [],
     objectiveAgreementScore: 0,
     objectiveFindings: [],
     objectiveMetrics: {},
     indeterminateReasons: qualityResult.issues.map(i => i.label),
     computedAt: new Date().toISOString(),
+    captureContext,
+    modelInfo,
   };
 
   return {

@@ -261,6 +261,7 @@ export function getClinicalThresholds(): ClinicalThresholdsConfig {
   }
 
   currentSource = 'localStorage';
+  cachedProfileId = null;
   cachedConfig = {
     evidenceVersion: defaults.evidenceVersion,
     mediaQuality: { ...defaults.mediaQuality, ...overrides.mediaQuality },

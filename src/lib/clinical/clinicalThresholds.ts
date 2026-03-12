@@ -322,7 +322,8 @@ export async function refreshClinicalThresholdsFromBackend(): Promise<void> {
         : defaults.poseObjective,
     };
     currentSource = 'backend';
-    console.info('[ClinicalThresholds] Loaded from backend profile:', (profile as any).id);
+    cachedProfileId = (profile as any).id;
+    console.info('[ClinicalThresholds] Loaded from backend profile:', cachedProfileId);
   } catch (error) {
     console.warn('[ClinicalThresholds] Backend refresh failed, using local config:', error);
   }

@@ -1,6 +1,7 @@
 // ============================================
 // Clinical Analysis Types
 // Tipos compartilhados para quality gate, pose e scoring
+// v3 — Temporal, CaptureContext, ModelInfo, predicted/adjudicated
 // ============================================
 
 export type ViewReliabilityStatus = 'ready' | 'blocked_quality' | 'indeterminate';
@@ -34,6 +35,33 @@ export interface PoseResult {
   objectiveMetrics: Record<string, number>;
   objectiveFindings: string[];
   landmarkCount: number;
+  // Temporal analysis fields (optional — populated by analyzeVideoTemporal)
+  frameCountRequested?: number;
+  frameCountUsed?: number;
+  processingMs?: number;
+  frameQualityPassRate?: number;
+  temporalStabilityScore?: number;
+  temporalTimeoutFallback?: boolean;
+}
+
+export interface CaptureContext {
+  sourceType: 'photo' | 'video' | 'frame_extraction';
+  sourceWidth?: number;
+  sourceHeight?: number;
+  sourceDurationMs?: number;
+  frameSampling?: {
+    frameCountRequested: number;
+    frameCountUsed: number;
+    stabilityScore: number;
+    timeoutOccurred: boolean;
+  };
+}
+
+export interface ModelInfo {
+  aiModel: string;
+  aiVersion: string;
+  poseModel: string;
+  poseVersion: string;
 }
 
 export interface EvidenceMetadata {
@@ -46,6 +74,7 @@ export interface EvidenceMetadata {
   aiConfidence: number;
   poseConfidence: number;
   biomechanicalScore: number;
+  /** @deprecated Use predictedCompensations instead */
   detectedCompensations: string[];
   autoAppliedCompensations: string[];
   objectiveAgreementScore: number;
@@ -53,6 +82,12 @@ export interface EvidenceMetadata {
   objectiveMetrics: Record<string, number>;
   indeterminateReasons: string[];
   computedAt: string;
+  // v3 fields (all optional for backward compat)
+  predictedCompensations?: string[];
+  adjudicatedCompensations?: string[];
+  thresholdProfileId?: string;
+  modelInfo?: ModelInfo;
+  captureContext?: CaptureContext;
 }
 
 export interface BiomechanicalScoreResult {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Info, Sparkles, X, Plus, Loader2, ChevronLeft, ChevronRight, AlertCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Eye, Sun, Focus, ImageOff } from 'lucide-react';
+import { Info, Sparkles, X, Plus, Loader2, ChevronLeft, ChevronRight, AlertCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Eye, Sun, Focus, ImageOff, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -9,14 +9,9 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import {
-  ohsAnteriorCompensations,
-  ohsLateralCompensations,
-  ohsPosteriorCompensations,
-  slsAnteriorCompensations,
-  slsLateralCompensations,
-  slsPosteriorCompensations,
-  pushupLateralCompensations,
-  pushupPosteriorCompensations,
+  ohsAnteriorCompensations, ohsLateralCompensations, ohsPosteriorCompensations,
+  slsAnteriorCompensations, slsLateralCompensations, slsPosteriorCompensations,
+  pushupLateralCompensations, pushupPosteriorCompensations,
   CompensationMapping,
 } from '@/data/compensationMappings';
 import { cn } from '@/lib/utils';
@@ -24,9 +19,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 // Clinical analysis modules
 import { assessMediaQuality } from '@/lib/clinical/mediaQuality';
-import { analyzePose } from '@/lib/clinical/poseBiomechanics';
+import { analyzePose, analyzeVideoTemporal } from '@/lib/clinical/poseBiomechanics';
 import { fuseEvidence } from '@/lib/clinical/biomechanicalScoring';
-import type { QualityResult, PoseResult, EvidenceMetadata, ViewReliabilityStatus } from '@/lib/clinical/types';
+import type { QualityResult, PoseResult, EvidenceMetadata, ViewReliabilityStatus, CaptureContext } from '@/lib/clinical/types';
 
 // ============================================
 // Extract filePath from signed URL for refresh
@@ -41,15 +36,9 @@ const extractFilePathFromSignedUrl = (signedUrl: string): string | null => {
 // ============================================
 type TestType = 'ohs' | 'sls' | 'pushup';
 type ViewType =
-  | 'anterior'
-  | 'lateral'
-  | 'posterior'
-  | 'left_anterior'
-  | 'left_lateral'
-  | 'left_posterior'
-  | 'right_anterior'
-  | 'right_lateral'
-  | 'right_posterior';
+  | 'anterior' | 'lateral' | 'posterior'
+  | 'left_anterior' | 'left_lateral' | 'left_posterior'
+  | 'right_anterior' | 'right_lateral' | 'right_posterior';
 
 interface TestConfig {
   id: TestType;
@@ -72,10 +61,7 @@ interface ViewConfig {
 // ============================================
 const TEST_CONFIGS: Record<TestType, TestConfig> = {
   ohs: {
-    id: 'ohs',
-    title: 'Overhead Squat (OHS)',
-    icon: '🏋️',
-    aiTestType: 'overhead_squat',
+    id: 'ohs', title: 'Overhead Squat (OHS)', icon: '🏋️', aiTestType: 'overhead_squat',
     instructions: [
       'Pés na largura do quadril, pontas levemente para fora',
       'Braços elevados acima da cabeça, cotovelos estendidos',
@@ -89,10 +75,7 @@ const TEST_CONFIGS: Record<TestType, TestConfig> = {
     ],
   },
   sls: {
-    id: 'sls',
-    title: 'Single-Leg Squat (SLS)',
-    icon: '🦵',
-    aiTestType: 'single_leg_squat',
+    id: 'sls', title: 'Single-Leg Squat (SLS)', icon: '🦵', aiTestType: 'single_leg_squat',
     instructions: [
       'Em pé sobre uma perna, outra perna levemente elevada à frente',
       'Braços à frente para equilíbrio',
@@ -110,10 +93,7 @@ const TEST_CONFIGS: Record<TestType, TestConfig> = {
     ],
   },
   pushup: {
-    id: 'pushup',
-    title: 'Push-up Test',
-    icon: '💪',
-    aiTestType: 'pushup',
+    id: 'pushup', title: 'Push-up Test', icon: '💪', aiTestType: 'pushup',
     instructions: [
       'Posição de prancha com mãos na largura dos ombros',
       'Corpo alinhado da cabeça aos calcanhares',
@@ -138,11 +118,7 @@ const STATUS_CONFIG: Record<ViewReliabilityStatus, { icon: typeof ShieldCheck; l
 };
 
 const QUALITY_ISSUE_ICONS: Record<string, typeof Sun> = {
-  low_brightness: Sun,
-  high_brightness: Sun,
-  low_contrast: Eye,
-  low_sharpness: Focus,
-  low_resolution: ImageOff,
+  low_brightness: Sun, high_brightness: Sun, low_contrast: Eye, low_sharpness: Focus, low_resolution: ImageOff,
 };
 
 // ============================================
@@ -169,33 +145,21 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const [analysisResults, setAnalysisResults] = useState<Record<ViewType, AnalysisResult | null>>({} as any);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Reset view index when test type changes
-  useEffect(() => {
-    setCurrentViewIndex(0);
-  }, [testType]);
+  useEffect(() => { setCurrentViewIndex(0); }, [testType]);
 
   const currentView = config?.views?.[currentViewIndex];
   const currentViewId = currentView?.id;
 
   const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string }) => {
-    onUpdate({
-      ...data,
-      mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], ...urls } },
-    });
+    onUpdate({ ...data, mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], ...urls } } });
   }, [data, onUpdate]);
 
   const handleUpdateCompensations = useCallback((viewId: ViewType, compensations: string[]) => {
-    onUpdate({
-      ...data,
-      compensations: { ...data.compensations, [viewId]: compensations },
-    });
+    onUpdate({ ...data, compensations: { ...data.compensations, [viewId]: compensations } });
   }, [data, onUpdate]);
 
   const handleUpdateEvidence = useCallback((viewId: ViewType, metadata: EvidenceMetadata) => {
-    onUpdate({
-      ...data,
-      evidenceMetadata: { ...data.evidenceMetadata, [viewId]: metadata },
-    });
+    onUpdate({ ...data, evidenceMetadata: { ...data.evidenceMetadata, [viewId]: metadata } });
   }, [data, onUpdate]);
 
   const { analyzeMovement, isAnalyzing } = useMovementAnalysis({
@@ -207,13 +171,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
 
   const isLoadingAnalysis = isProcessing || isAnalyzing;
 
-  // Early returns AFTER all hooks
-  if (!config) {
-    return <div className="p-4 text-center text-muted-foreground">Tipo de teste não encontrado: {testType}</div>;
-  }
-  if (!currentView) {
-    return <div className="p-4 text-center text-muted-foreground">Vista não encontrada</div>;
-  }
+  if (!config) return <div className="p-4 text-center text-muted-foreground">Tipo de teste não encontrado: {testType}</div>;
+  if (!currentView) return <div className="p-4 text-center text-muted-foreground">Vista não encontrada</div>;
 
   const currentCompensations = data.compensations[currentView.id] || [];
   const currentMedia = data.mediaUrls[currentView.id] || {};
@@ -227,7 +186,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     if (!url.includes('token=')) return url;
     const filePath = extractFilePathFromSignedUrl(url);
     if (!filePath) return url;
-
     try {
       const { data: signedData, error } = await supabase.functions.invoke('get-signed-url', { body: { filePath } });
       if (error || signedData?.error) {
@@ -254,14 +212,12 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
     if (!response.ok) throw new Error('Failed to fetch video');
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
-
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.src = blobUrl;
       video.muted = true;
       video.playsInline = true;
       const cleanup = () => URL.revokeObjectURL(blobUrl);
-
       video.onloadedmetadata = () => { video.currentTime = video.duration / 2; };
       video.onseeked = () => {
         try {
@@ -281,6 +237,23 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   };
 
   // ============================================
+  // Load video element for temporal analysis
+  // ============================================
+  const loadVideoElement = (url: string): Promise<HTMLVideoElement> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.src = url;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.onloadedmetadata = () => resolve(video);
+      video.onerror = () => reject(new Error('Video load failed'));
+      video.load();
+    });
+  };
+
+  // ============================================
   // Load image from URL for quality/pose analysis
   // ============================================
   const loadImageElement = (url: string): Promise<HTMLImageElement> => {
@@ -294,7 +267,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   };
 
   // ============================================
-  // Full Analysis Pipeline
+  // Full Analysis Pipeline (with temporal support)
   // ============================================
   const handleAnalyze = async () => {
     if (!currentViewId || !currentView) return;
@@ -309,9 +282,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         videoUrl = await refreshSignedUrl(videoUrl, currentViewId, 'video') || undefined;
       }
       if (!imageUrl && videoUrl) {
-        try {
-          imageUrl = await extractFrameFromVideo(videoUrl);
-        } catch {
+        try { imageUrl = await extractFrameFromVideo(videoUrl); } catch {
           toast.error('Erro ao extrair frame do vídeo');
           setIsProcessing(false);
           return;
@@ -320,10 +291,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       if (imageUrl && imageUrl.includes('token=')) {
         imageUrl = await refreshSignedUrl(imageUrl, currentViewId, 'photo') || undefined;
       }
-      if (!imageUrl) {
-        setIsProcessing(false);
-        return;
-      }
+      if (!imageUrl) { setIsProcessing(false); return; }
 
       // Step 1: Quality Gate
       let qualityResult: QualityResult;
@@ -334,9 +302,15 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         qualityResult = { passed: true, score: 0.5, issues: [], metrics: { brightness: 128, contrast: 50, sharpness: 30, width: 640, height: 480 } };
       }
 
+      // Build capture context
+      const captureContext: CaptureContext = {
+        sourceType: videoUrl ? 'video' : 'photo',
+        sourceWidth: qualityResult.metrics.width,
+        sourceHeight: qualityResult.metrics.height,
+      };
+
       if (!qualityResult.passed) {
-        // Blocked by quality gate
-        const fusionResult = fuseEvidence(null, null, qualityResult);
+        const fusionResult = fuseEvidence(null, null, qualityResult, captureContext);
         handleUpdateEvidence(currentViewId, fusionResult.evidenceMetadata);
         toast.error('Qualidade da mídia insuficiente para análise automática', {
           description: qualityResult.issues.map(i => i.label).join(', '),
@@ -345,11 +319,26 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         return;
       }
 
-      // Step 2: Pose Analysis (non-blocking — if fails, continue with AI only)
+      // Step 2: Pose Analysis — use temporal if video available
       let poseResult: PoseResult | null = null;
       try {
-        const imgElement = await loadImageElement(imageUrl);
-        poseResult = await analyzePose(imgElement, config.aiTestType, currentViewId);
+        if (videoUrl) {
+          // Temporal video analysis
+          const videoElement = await loadVideoElement(videoUrl);
+          poseResult = await analyzeVideoTemporal(videoElement, config.aiTestType, currentViewId);
+          captureContext.sourceDurationMs = Math.round((videoElement.duration || 0) * 1000);
+          if (poseResult.frameCountRequested !== undefined) {
+            captureContext.frameSampling = {
+              frameCountRequested: poseResult.frameCountRequested,
+              frameCountUsed: poseResult.frameCountUsed || 0,
+              stabilityScore: poseResult.temporalStabilityScore || 0,
+              timeoutOccurred: poseResult.temporalTimeoutFallback || false,
+            };
+          }
+        } else {
+          const imgElement = await loadImageElement(imageUrl);
+          poseResult = await analyzePose(imgElement, config.aiTestType, currentViewId);
+        }
       } catch {
         console.warn('Pose analysis skipped — model unavailable');
       }
@@ -362,8 +351,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         viewType: currentViewId,
       });
 
-      // Step 4: Evidence Fusion
-      const fusionResult = fuseEvidence(aiResult, poseResult, qualityResult);
+      // Step 4: Evidence Fusion (with captureContext)
+      const fusionResult = fuseEvidence(aiResult, poseResult, qualityResult, captureContext);
       handleUpdateEvidence(currentViewId, fusionResult.evidenceMetadata);
 
       // Step 5: Apply compensations based on status
@@ -373,7 +362,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         );
         handleUpdateCompensations(currentViewId, validCompensations);
       } else if (fusionResult.status === 'indeterminate') {
-        // Do NOT auto-apply; show warning
         toast.warning('Evidência insuficiente para auto-aplicação — revise manualmente', {
           description: fusionResult.indeterminateReasons.join('; '),
         });
@@ -439,7 +427,6 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                       : 'bg-muted/60 text-muted-foreground hover:bg-muted'
                 )}
               >
-                {/* Status indicator dot */}
                 {viewStatus && (
                   <span className={cn(
                     'w-1.5 h-1.5 rounded-full',
@@ -490,11 +477,8 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                 {currentEvidence.qualityIssues.map(issue => {
                   const IconComp = QUALITY_ISSUE_ICONS[issue] || AlertCircle;
                   const labels: Record<string, string> = {
-                    low_brightness: 'Iluminação insuficiente',
-                    high_brightness: 'Superexposta',
-                    low_contrast: 'Baixo contraste',
-                    low_sharpness: 'Borrada',
-                    low_resolution: 'Resolução baixa',
+                    low_brightness: 'Iluminação insuficiente', high_brightness: 'Superexposta',
+                    low_contrast: 'Baixo contraste', low_sharpness: 'Borrada', low_resolution: 'Resolução baixa',
                   };
                   return (
                     <span key={issue} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-destructive/10 text-destructive">
@@ -525,7 +509,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
 
           {/* Scores (subtle, for ready/indeterminate) */}
           {currentEvidence && currentEvidence.status !== 'blocked_quality' && !isLoadingAnalysis && (
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
               <span>Qualidade: {Math.round(currentEvidence.qualityScore * 100)}%</span>
               {currentEvidence.biomechanicalScore > 0 && (
                 <span>Score: {currentEvidence.biomechanicalScore}</span>
@@ -538,6 +522,18 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               )}
               {currentEvidence.objectiveAgreementScore > 0 && currentEvidence.poseConfidence > 0 && (
                 <span>Concordância: {Math.round(currentEvidence.objectiveAgreementScore * 100)}%</span>
+              )}
+              {/* Temporal metrics */}
+              {currentEvidence.captureContext?.frameSampling && (
+                <>
+                  <span className="flex items-center gap-0.5">
+                    <Film className="h-3 w-3" />
+                    {currentEvidence.captureContext.frameSampling.frameCountUsed}/{currentEvidence.captureContext.frameSampling.frameCountRequested} frames
+                  </span>
+                  {currentEvidence.captureContext.frameSampling.stabilityScore > 0 && (
+                    <span>Estabilidade: {Math.round(currentEvidence.captureContext.frameSampling.stabilityScore * 100)}%</span>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -554,6 +550,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
               {currentView.compensations.map((comp) => {
                 const isSelected = currentCompensations.includes(comp.id);
                 const wasDetectedByAI = currentAiResult?.detected_compensations?.includes(comp.id);
+                const wasPredicted = currentEvidence?.predictedCompensations?.includes(comp.id);
                 const wasObjective = currentEvidence?.objectiveFindings?.includes(comp.id);
 
                 return (
@@ -564,14 +561,14 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                       'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs transition-all',
                       isSelected
                         ? 'bg-destructive text-destructive-foreground'
-                        : wasDetectedByAI || wasObjective
+                        : wasDetectedByAI || wasObjective || wasPredicted
                           ? 'bg-accent/15 text-accent border border-accent/30'
                           : 'bg-muted/60 text-muted-foreground hover:bg-muted'
                     )}
                   >
                     {isSelected ? (
                       <X className="h-3 w-3" />
-                    ) : wasDetectedByAI || wasObjective ? (
+                    ) : wasDetectedByAI || wasObjective || wasPredicted ? (
                       <Sparkles className="h-3 w-3" />
                     ) : (
                       <Plus className="h-3 w-3" />
@@ -588,8 +585,7 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
         {config.views.length > 1 && (
           <div className="flex justify-between pt-2">
             <Button
-              variant="ghost"
-              size="sm"
+              variant="ghost" size="sm"
               onClick={() => setCurrentViewIndex(Math.max(0, currentViewIndex - 1))}
               disabled={currentViewIndex === 0}
               className="gap-1"

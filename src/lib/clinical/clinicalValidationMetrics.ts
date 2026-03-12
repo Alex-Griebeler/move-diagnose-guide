@@ -1,6 +1,7 @@
 // ============================================
 // Clinical Validation Metrics
 // Confusion matrix, kappa, sensitivity, specificity, F1, ICC
+// v3 — Added validateMetricsPreconditions with total = tp+tn+fp+fn
 // ============================================
 
 // ============================================
@@ -16,13 +17,42 @@ export interface ConfusionMatrix {
 
 export interface ValidationMetrics {
   accuracy: number;
-  sensitivity: number;   // recall / true positive rate
-  specificity: number;   // true negative rate
-  precision: number;     // positive predictive value
-  npv: number;           // negative predictive value
+  sensitivity: number;
+  specificity: number;
+  precision: number;
+  npv: number;
   f1: number;
   balancedAccuracy: number;
   kappa: number;
+}
+
+export interface MetricsPreconditionResult {
+  valid: boolean;
+  reasons: string[];
+}
+
+/**
+ * Validate whether the confusion matrix has sufficient data for meaningful metrics.
+ * total = tp + tn + fp + fn (includes TN — ressalva #4).
+ */
+export function validateMetricsPreconditions(
+  cm: ConfusionMatrix,
+  universeSize: number
+): MetricsPreconditionResult {
+  const total = cm.tp + cm.tn + cm.fp + cm.fn;
+  const reasons: string[] = [];
+
+  if (cm.tp + cm.fn < 3) {
+    reasons.push('ground-truth positivos < 3');
+  }
+  if (universeSize < 5) {
+    reasons.push('universo < 5');
+  }
+  if (total === 0) {
+    reasons.push('suporte total = 0');
+  }
+
+  return { valid: reasons.length === 0, reasons };
 }
 
 /**
@@ -52,6 +82,7 @@ export function deriveBinaryObservations(
 
 /**
  * Compute all validation metrics from a confusion matrix.
+ * Returns zeroed metrics if preconditions fail.
  */
 export function computeValidationMetrics(cm: ConfusionMatrix): ValidationMetrics {
   const { tp, fp, fn, tn } = cm;
@@ -66,8 +97,6 @@ export function computeValidationMetrics(cm: ConfusionMatrix): ValidationMetrics
     ? 2 * (precision * sensitivity) / (precision + sensitivity)
     : 0;
   const balancedAccuracy = (sensitivity + specificity) / 2;
-
-  // Cohen's Kappa
   const kappa = computeCohenKappa(cm);
 
   return {
@@ -90,10 +119,10 @@ export function computeCohenKappa(cm: ConfusionMatrix): number {
   const total = tp + fp + fn + tn;
   if (total === 0) return 0;
 
-  const po = (tp + tn) / total; // observed agreement
+  const po = (tp + tn) / total;
   const pYes = ((tp + fp) / total) * ((tp + fn) / total);
   const pNo = ((tn + fn) / total) * ((tn + fp) / total);
-  const pe = pYes + pNo; // expected agreement
+  const pe = pYes + pNo;
 
   if (pe >= 1) return 1;
   return (po - pe) / (1 - pe);
@@ -101,13 +130,12 @@ export function computeCohenKappa(cm: ConfusionMatrix): number {
 
 /**
  * Intraclass Correlation Coefficient (ICC) — Two-way random, single measures, absolute agreement (ICC(2,1)).
- * Simplified for two raters with paired measurements.
  */
 export function computeIntraclassCorrelation(raterA: number[], raterB: number[]): number {
   const n = Math.min(raterA.length, raterB.length);
   if (n < 2) return 0;
 
-  const k = 2; // two raters
+  const k = 2;
   const means: number[] = [];
   let grandSum = 0;
 
@@ -119,26 +147,22 @@ export function computeIntraclassCorrelation(raterA: number[], raterB: number[])
 
   const grandMean = grandSum / (n * k);
 
-  // Between-subjects sum of squares
   let bms = 0;
   for (let i = 0; i < n; i++) {
     bms += (means[i] - grandMean) ** 2;
   }
   bms = (k * bms) / (n - 1);
 
-  // Within-subjects sum of squares
   let wms = 0;
   for (let i = 0; i < n; i++) {
     wms += (raterA[i] - means[i]) ** 2 + (raterB[i] - means[i]) ** 2;
   }
   wms = wms / (n * (k - 1));
 
-  // Between-raters sum of squares
   const raterMeanA = raterA.slice(0, n).reduce((a, b) => a + b, 0) / n;
   const raterMeanB = raterB.slice(0, n).reduce((a, b) => a + b, 0) / n;
-  let jms = n * ((raterMeanA - grandMean) ** 2 + (raterMeanB - grandMean) ** 2) / (k - 1);
+  const jms = n * ((raterMeanA - grandMean) ** 2 + (raterMeanB - grandMean) ** 2) / (k - 1);
 
-  // ICC(2,1) = (BMS - WMS) / (BMS + (k-1)*WMS + k*(JMS - WMS)/n)
   const denominator = bms + (k - 1) * wms + (k * (jms - wms)) / n;
   if (denominator <= 0) return 0;
 

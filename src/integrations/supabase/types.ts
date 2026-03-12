@@ -177,6 +177,91 @@ export type Database = {
         }
         Relationships: []
       }
+      clinical_threshold_audit_log: {
+        Row: {
+          action: string
+          after_config: Json | null
+          before_config: Json | null
+          changed_by: string
+          created_at: string
+          id: string
+          profile_id: string | null
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          after_config?: Json | null
+          before_config?: Json | null
+          changed_by?: string
+          created_at?: string
+          id?: string
+          profile_id?: string | null
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          after_config?: Json | null
+          before_config?: Json | null
+          changed_by?: string
+          created_at?: string
+          id?: string
+          profile_id?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_threshold_audit_log_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_threshold_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_threshold_profiles: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string
+          evidence_version: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          profile_name: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string
+          evidence_version?: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          profile_name?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string
+          evidence_version?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          profile_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_threshold_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercises: {
         Row: {
           body_region: string
@@ -336,6 +421,59 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role_in_org: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role_in_org?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role_in_org?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       professional_students: {
         Row: {
@@ -651,11 +789,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_threshold_profile: {
+        Args: { p_profile_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
     }

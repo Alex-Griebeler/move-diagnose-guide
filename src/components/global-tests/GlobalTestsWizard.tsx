@@ -187,6 +187,23 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     return urls;
   };
 
+  const resilientUpsert = async (payload: Record<string, unknown>) => {
+    const { error } = await supabase
+      .from('global_test_results')
+      .upsert(payload as any, { onConflict: 'assessment_id,test_name' });
+    if (error?.code === '42P10') {
+      // Constraint not yet applied — fallback to delete + insert
+      await supabase.from('global_test_results')
+        .delete()
+        .eq('assessment_id', payload.assessment_id as string)
+        .eq('test_name', payload.test_name as string);
+      const { error: insertErr } = await supabase
+        .from('global_test_results')
+        .insert(payload as any);
+      if (insertErr) throw insertErr;
+    } else if (error) throw error;
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -197,7 +214,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         return obj as Json;
       };
 
-      await supabase.from('global_test_results').insert({
+      await resilientUpsert({
         assessment_id: assessmentId,
         test_name: 'ohs',
         anterior_view: buildViewData(legacyData.ohs.anteriorView, data.ohs.evidenceMetadata?.anterior),
@@ -235,7 +252,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         };
       }
 
-      await supabase.from('global_test_results').insert({
+      await resilientUpsert({
         assessment_id: assessmentId,
         test_name: 'sls',
         left_side: slsLeftSide as Json,
@@ -244,7 +261,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         media_urls: collectMediaUrls(data.sls) as unknown as Json,
       });
 
-      await supabase.from('global_test_results').insert({
+      await resilientUpsert({
         assessment_id: assessmentId,
         test_name: 'pushup',
         lateral_view: buildViewData(data.pushup.compensations.lateral || [], data.pushup.evidenceMetadata?.lateral),

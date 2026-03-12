@@ -363,7 +363,9 @@ export function getThresholdSnapshot(): Record<string, unknown> {
     confidence: t.confidence,
     scoreWeights: t.scoreWeights,
     temporalAnalysis: t.temporalAnalysis,
+    poseObjective: t.poseObjective,
     source: currentSource,
+    thresholdProfileId: cachedProfileId,
   };
 }
 

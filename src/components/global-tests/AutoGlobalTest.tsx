@@ -377,6 +377,33 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       ? currentCompensations.filter(c => c !== compId)
       : [...currentCompensations, compId];
     handleUpdateCompensations(currentView.id, updated);
+
+    // Track adjudicated compensations in evidence metadata
+    const currentViewId = currentView.id;
+    const existing = data.evidenceMetadata?.[currentViewId];
+    const updatedEvidence: EvidenceMetadata = existing
+      ? { ...existing, adjudicatedCompensations: updated }
+      : {
+          status: 'indeterminate' as ViewReliabilityStatus,
+          evidenceVersion: getClinicalThresholds().evidenceVersion,
+          thresholdSnapshot: getThresholdSnapshot(),
+          qualityScore: 0,
+          qualityPassed: false,
+          qualityIssues: [],
+          aiConfidence: 0,
+          poseConfidence: 0,
+          biomechanicalScore: 0,
+          detectedCompensations: [],
+          autoAppliedCompensations: [],
+          objectiveAgreementScore: 0,
+          objectiveFindings: [],
+          objectiveMetrics: {},
+          indeterminateReasons: ['manual_selection_only'],
+          computedAt: new Date().toISOString(),
+          predictedCompensations: [],
+          adjudicatedCompensations: updated,
+        };
+    handleUpdateEvidence(currentViewId, updatedEvidence);
   };
 
   // ============================================

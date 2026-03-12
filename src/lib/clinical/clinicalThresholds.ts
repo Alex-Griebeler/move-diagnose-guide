@@ -240,6 +240,7 @@ export function resetClinicalThresholdOverrides(): void {
   localStorage.removeItem(OVERRIDES_KEY);
   cachedConfig = null;
   currentSource = 'defaults';
+  cachedProfileId = null;
 }
 
 /**

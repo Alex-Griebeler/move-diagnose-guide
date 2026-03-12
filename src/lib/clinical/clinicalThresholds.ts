@@ -176,6 +176,7 @@ type ThresholdSource = 'defaults' | 'localStorage' | 'backend';
 
 let cachedConfig: ClinicalThresholdsConfig | null = null;
 let currentSource: ThresholdSource = 'defaults';
+let cachedProfileId: string | null = null;
 
 // ============================================
 // localStorage Override Management

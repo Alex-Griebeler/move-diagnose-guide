@@ -4,7 +4,8 @@
 // Avalia brilho, contraste, nitidez e resolução
 // ============================================
 
-import { CLINICAL_THRESHOLDS, QUALITY_ISSUE_LABELS } from './clinicalThresholds';
+import { getClinicalThresholds } from './clinicalThresholds';
+import { QUALITY_ISSUE_LABELS } from './clinicalThresholds';
 import type { QualityResult, QualityIssue, QualityMetrics } from './types';
 
 /**
@@ -15,7 +16,7 @@ import type { QualityResult, QualityIssue, QualityMetrics } from './types';
 export function assessMediaQuality(
   source: HTMLImageElement | HTMLVideoElement | ImageBitmap
 ): QualityResult {
-  const thresholds = CLINICAL_THRESHOLDS.mediaQuality;
+  const thresholds = getClinicalThresholds().mediaQuality;
 
   // Get source dimensions
   const sourceWidth = source instanceof HTMLVideoElement ? source.videoWidth : source.width;
@@ -200,7 +201,6 @@ function computeLaplacianVariance(
   width: number,
   height: number
 ): number {
-  // 3x3 Laplacian kernel: [0,-1,0; -1,4,-1; 0,-1,0]
   let sumLap = 0;
   let sumLapSq = 0;
   let count = 0;

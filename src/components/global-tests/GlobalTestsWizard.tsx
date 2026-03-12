@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, AlertCircle, ShieldCheck, ShieldQuestion, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +14,7 @@ const logger = createLogger('GlobalTestsWizard');
 
 import { AutoGlobalTest } from './AutoGlobalTest';
 import { TestSummary, LegacyTestData } from './TestSummary';
-import type { EvidenceMetadata } from '@/lib/clinical/types';
+import type { EvidenceMetadata, ViewReliabilityStatus } from '@/lib/clinical/types';
 
 type ViewType = 
   | 'anterior' 
@@ -65,11 +65,7 @@ interface GlobalTestsWizardProps {
 }
 
 // Convert new format to legacy format for TestSummary
-// Aggregates SLS compensations from all 6 views (3 per side) into left/right arrays
 function toLegacyFormat(data: GlobalTestData): LegacyTestData {
-  // Aggregate SLS compensations by side
-  // Left = left_anterior + left_lateral + left_posterior
-  // Right = right_anterior + right_lateral + right_posterior
   const leftSideComps = [
     ...(data.sls.compensations.left_anterior || []),
     ...(data.sls.compensations.left_lateral || []),
@@ -80,8 +76,6 @@ function toLegacyFormat(data: GlobalTestData): LegacyTestData {
     ...(data.sls.compensations.right_lateral || []),
     ...(data.sls.compensations.right_posterior || []),
   ];
-
-  // Aggregate Push-up compensations from both views (lateral + posterior)
   const pushupComps = [
     ...(data.pushup.compensations.lateral || []),
     ...(data.pushup.compensations.posterior || []),
@@ -106,6 +100,49 @@ function toLegacyFormat(data: GlobalTestData): LegacyTestData {
   };
 }
 
+// ============================================
+// Evidence Summary Aggregation
+// ============================================
+interface EvidenceSummary {
+  ready: number;
+  indeterminate: number;
+  blocked: number;
+  total: number;
+  avgAgreement: number;
+}
+
+function aggregateEvidenceSummary(data: GlobalTestData): EvidenceSummary {
+  let ready = 0, indeterminate = 0, blocked = 0, total = 0;
+  let agreementSum = 0, agreementCount = 0;
+
+  const processTest = (testData: AutoTestData) => {
+    if (!testData.evidenceMetadata) return;
+    for (const meta of Object.values(testData.evidenceMetadata)) {
+      if (!meta) continue;
+      total++;
+      if (meta.status === 'ready') ready++;
+      else if (meta.status === 'indeterminate') indeterminate++;
+      else if (meta.status === 'blocked_quality') blocked++;
+      if (meta.objectiveAgreementScore > 0) {
+        agreementSum += meta.objectiveAgreementScore;
+        agreementCount++;
+      }
+    }
+  };
+
+  processTest(data.ohs);
+  processTest(data.sls);
+  processTest(data.pushup);
+
+  return {
+    ready,
+    indeterminate,
+    blocked,
+    total,
+    avgAgreement: agreementCount > 0 ? agreementSum / agreementCount : 0,
+  };
+}
+
 export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizardProps) {
   const prevAssessmentIdRef = useRef<string | null>(null);
   
@@ -126,35 +163,21 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Track assessment ID changes to reset when switching assessments
   useEffect(() => {
     if (isLoadingPersistence) return;
-    
     const savedAssessmentId = localStorage.getItem('globalTests_assessmentId');
-    
     if (savedAssessmentId && savedAssessmentId !== assessmentId && prevAssessmentIdRef.current === savedAssessmentId) {
       logger.debug(`Switching from ${savedAssessmentId} to ${assessmentId}, clearing old data`);
       clearPersistedData();
       setCurrentStep(1);
     }
-    
     localStorage.setItem('globalTests_assessmentId', assessmentId);
     prevAssessmentIdRef.current = assessmentId;
   }, [assessmentId, isLoadingPersistence, clearPersistedData, setCurrentStep]);
 
-  const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
+  const handleNext = () => { if (currentStep < 4) setCurrentStep(currentStep + 1); };
+  const handlePrevious = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
 
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  // Collect all media URLs for a test
   const collectMediaUrls = (testData: AutoTestData): string[] => {
     const urls: string[] = [];
     Object.values(testData.mediaUrls).forEach(media => {
@@ -166,18 +189,14 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-
     try {
       const legacyData = toLegacyFormat(data);
-
-      // Build view data with optional evidence metadata
       const buildViewData = (compensations: string[], evidence?: EvidenceMetadata): Json => {
         const obj: Record<string, unknown> = { compensations };
         if (evidence) obj.evidenceMetadata = evidence;
         return obj as Json;
       };
 
-      // Save OHS results
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'ohs',
@@ -188,7 +207,6 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         media_urls: collectMediaUrls(data.ohs) as unknown as Json,
       });
 
-      // Save SLS results
       const slsLeftSide: Record<string, unknown> = {
         compensations: legacyData.sls.leftSide,
         anterior: data.sls.compensations.left_anterior || [],
@@ -226,7 +244,6 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         media_urls: collectMediaUrls(data.sls) as unknown as Json,
       });
 
-      // Save Push-up results
       await supabase.from('global_test_results').insert({
         assessment_id: assessmentId,
         test_name: 'pushup',
@@ -236,13 +253,8 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         media_urls: collectMediaUrls(data.pushup) as unknown as Json,
       });
 
-      // Update assessment status
-      await supabase
-        .from('assessments')
-        .update({ status: 'in_progress' })
-        .eq('id', assessmentId);
+      await supabase.from('assessments').update({ status: 'in_progress' }).eq('id', assessmentId);
 
-      // Clear persisted data after successful save
       clearPersistedData();
       localStorage.removeItem('globalTests_assessmentId');
 
@@ -265,6 +277,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
   };
 
   const progress = (currentStep / 4) * 100;
+  const evidenceSummary = aggregateEvidenceSummary(data);
 
   const getTotalCompensations = () => {
     const legacyData = toLegacyFormat(data);
@@ -280,37 +293,11 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
 
   const renderStep = () => {
     switch (currentStep) {
-      case 1:
-        return (
-          <AutoGlobalTest
-            testType="ohs"
-            assessmentId={assessmentId}
-            data={data.ohs}
-            onUpdate={(ohs) => updateData({ ohs })}
-          />
-        );
-      case 2:
-        return (
-          <AutoGlobalTest
-            testType="sls"
-            assessmentId={assessmentId}
-            data={data.sls}
-            onUpdate={(sls) => updateData({ sls })}
-          />
-        );
-      case 3:
-        return (
-          <AutoGlobalTest
-            testType="pushup"
-            assessmentId={assessmentId}
-            data={data.pushup}
-            onUpdate={(pushup) => updateData({ pushup })}
-          />
-        );
-      case 4:
-        return <TestSummary data={toLegacyFormat(data)} />;
-      default:
-        return null;
+      case 1: return <AutoGlobalTest testType="ohs" assessmentId={assessmentId} data={data.ohs} onUpdate={(ohs) => updateData({ ohs })} />;
+      case 2: return <AutoGlobalTest testType="sls" assessmentId={assessmentId} data={data.sls} onUpdate={(sls) => updateData({ sls })} />;
+      case 3: return <AutoGlobalTest testType="pushup" assessmentId={assessmentId} data={data.pushup} onUpdate={(pushup) => updateData({ pushup })} />;
+      case 4: return <TestSummary data={toLegacyFormat(data)} />;
+      default: return null;
     }
   };
 
@@ -347,23 +334,15 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
               onClick={() => setCurrentStep(step.id)}
               className={cn(
                 "flex flex-col items-center min-w-[70px] transition-colors",
-                step.id === currentStep
-                  ? "text-accent"
-                  : step.id < currentStep
-                  ? "text-success"
-                  : "text-muted-foreground"
+                step.id === currentStep ? "text-accent" : step.id < currentStep ? "text-success" : "text-muted-foreground"
               )}
             >
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
-                  step.id === currentStep
-                    ? "border-accent bg-accent text-accent-foreground"
-                    : step.id < currentStep
-                    ? "border-success bg-success text-success-foreground"
-                    : "border-muted-foreground/30"
-                )}
-              >
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all",
+                step.id === currentStep ? "border-accent bg-accent text-accent-foreground"
+                  : step.id < currentStep ? "border-success bg-success text-success-foreground"
+                  : "border-muted-foreground/30"
+              )}>
                 {step.id < currentStep ? <Check className="w-5 h-5" /> : step.icon}
               </div>
               <span className="text-xs mt-1 hidden sm:block">{step.shortTitle}</span>
@@ -382,6 +361,36 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
         </div>
       )}
 
+      {/* Evidence Summary (when there are analyzed views) */}
+      {evidenceSummary.total > 0 && currentStep < 4 && (
+        <div className="mb-6 p-3 bg-muted/50 border border-border/50 rounded-lg">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground text-sm">Evidência</span>
+            {evidenceSummary.ready > 0 && (
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                {evidenceSummary.ready} prontas
+              </span>
+            )}
+            {evidenceSummary.indeterminate > 0 && (
+              <span className="flex items-center gap-1">
+                <ShieldQuestion className="h-3.5 w-3.5 text-warning" />
+                {evidenceSummary.indeterminate} revisão
+              </span>
+            )}
+            {evidenceSummary.blocked > 0 && (
+              <span className="flex items-center gap-1">
+                <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
+                {evidenceSummary.blocked} bloqueadas
+              </span>
+            )}
+            {evidenceSummary.avgAgreement > 0 && (
+              <span>Concordância média: {Math.round(evidenceSummary.avgAgreement * 100)}%</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Step Content */}
       <div className="bg-card rounded-xl border p-6 mb-6 animate-fade-in">
         {renderStep()}
@@ -390,11 +399,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
       {/* Navigation */}
       <div className="flex justify-end gap-3">
         {currentStep > 1 && (
-          <Button
-            variant="ghost"
-            onClick={handlePrevious}
-            className="text-muted-foreground"
-          >
+          <Button variant="ghost" onClick={handlePrevious} className="text-muted-foreground">
             <ChevronLeft className="w-4 h-4 mr-1" />
             Anterior
           </Button>
@@ -406,11 +411,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="bg-success hover:bg-success/90"
-          >
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-success hover:bg-success/90">
             {isSubmitting ? (
               <span className="animate-pulse-soft">Salvando...</span>
             ) : (

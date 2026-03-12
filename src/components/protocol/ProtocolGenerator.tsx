@@ -8,7 +8,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { toast } from 'sonner';
 import { 
   Loader2, Sparkles, CheckCircle2, AlertCircle, 
-  Dumbbell, Target, Zap, Shield, Flame, RotateCcw, TrendingUp
+  Dumbbell, Target, Zap, Shield, Flame, RotateCcw, TrendingUp,
+  ShieldCheck, ShieldQuestion, ShieldAlert
 } from 'lucide-react';
 import { 
   ohsAnteriorCompensations, ohsLateralCompensations, ohsPosteriorCompensations,
@@ -83,12 +84,25 @@ const getAllCompensations = (): Record<string, CompensationMapping> => {
   return all;
 };
 
+// ============================================
+// Evidence Statistics for Protocol
+// ============================================
+interface EvidenceStats {
+  totalViews: number;
+  readyViews: number;
+  indeterminateViews: number;
+  blockedViews: number;
+  skippedCompensations: number;
+  reducedWeightCompensations: number;
+}
+
 export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGeneratorProps) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [protocol, setProtocol] = useState<GeneratedProtocol | null>(null);
   const [priorityResult, setPriorityResult] = useState<PriorityEngineResult | null>(null);
+  const [evidenceStats, setEvidenceStats] = useState<EvidenceStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,7 +115,6 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
     setError(null);
 
     try {
-      // Fetch all assessment data
       const [globalResults, segmentalResults, anamnesisData] = await Promise.all([
         supabase.from('global_test_results').select('*').eq('assessment_id', assessmentId),
         supabase.from('segmental_test_results').select('*').eq('assessment_id', assessmentId),
@@ -111,10 +124,19 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
       if (globalResults.error) throw globalResults.error;
       if (segmentalResults.error) throw segmentalResults.error;
 
-      // Extract compensations from global tests
       const allCompensationMappings = getAllCompensations();
       const compensacoesDetectadas: CompensacaoDetectada[] = [];
       const compensationsForAI: any[] = [];
+
+      // Evidence statistics tracking
+      const stats: EvidenceStats = {
+        totalViews: 0,
+        readyViews: 0,
+        indeterminateViews: 0,
+        blockedViews: 0,
+        skippedCompensations: 0,
+        reducedWeightCompensations: 0,
+      };
 
       globalResults.data?.forEach(result => {
         const views = [
@@ -127,47 +149,66 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
         views.forEach(view => {
           const viewData = result[view.key as keyof typeof result] as Record<string, unknown> | null;
-          if (viewData && typeof viewData === 'object' && 'compensations' in viewData) {
-            // Check evidence metadata status — skip blocked_quality views
-            const evidenceMeta = viewData.evidenceMetadata as { status?: string } | undefined;
-            if (evidenceMeta?.status === 'blocked_quality') {
-              return; // Skip entirely
-            }
+          if (!viewData || typeof viewData !== 'object' || !('compensations' in viewData)) return;
 
-            // Weight factor: reduce for indeterminate views
-            const weightFactor = evidenceMeta?.status === 'indeterminate' ? 0.5 : 1;
+          // Check evidence metadata status
+          const evidenceMeta = viewData.evidenceMetadata as { status?: string } | undefined;
+          const status = evidenceMeta?.status;
 
+          stats.totalViews++;
+
+          if (status === 'blocked_quality') {
+            stats.blockedViews++;
             const compIds = viewData.compensations as string[];
-            if (Array.isArray(compIds)) {
-              compIds.forEach(id => {
-                const mapping = allCompensationMappings[id];
-                if (mapping) {
-                  compensacoesDetectadas.push({
-                    id,
-                    testName: view.testName,
-                    view: view.name,
-                    side: view.side,
-                  });
-                  
-                  compensationsForAI.push({
-                    id,
-                    label: mapping.label,
-                    testName: view.testName,
-                    view: view.name,
-                    side: view.side,
-                    hyperactiveMuscles: mapping.hyperactiveMuscles,
-                    hypoactiveMuscles: mapping.hypoactiveMuscles,
-                    associatedInjuries: mapping.associatedInjuries,
-                    weightFactor,
-                  });
-                }
-              });
-            }
+            if (Array.isArray(compIds)) stats.skippedCompensations += compIds.length;
+            return; // Skip entirely — weight 0
+          }
+
+          if (status === 'indeterminate') {
+            stats.indeterminateViews++;
+          } else if (status === 'ready') {
+            stats.readyViews++;
+          } else {
+            // Legacy data (no status) — treat as ready
+            stats.readyViews++;
+          }
+
+          // Weight factor: reduce for indeterminate views
+          const weightFactor = status === 'indeterminate' ? 0.5 : 1;
+
+          const compIds = viewData.compensations as string[];
+          if (Array.isArray(compIds)) {
+            if (status === 'indeterminate') stats.reducedWeightCompensations += compIds.length;
+
+            compIds.forEach(id => {
+              const mapping = allCompensationMappings[id];
+              if (mapping) {
+                compensacoesDetectadas.push({
+                  id,
+                  testName: view.testName,
+                  view: view.name,
+                  side: view.side,
+                });
+                
+                compensationsForAI.push({
+                  id,
+                  label: mapping.label,
+                  testName: view.testName,
+                  view: view.name,
+                  side: view.side,
+                  hyperactiveMuscles: mapping.hyperactiveMuscles,
+                  hypoactiveMuscles: mapping.hypoactiveMuscles,
+                  associatedInjuries: mapping.associatedInjuries,
+                  weightFactor,
+                });
+              }
+            });
           }
         });
       });
 
-      // Format anamnesis
+      setEvidenceStats(stats);
+
       const anamnesis = anamnesisData.data ? {
         objectives: anamnesisData.data.objectives,
         timeHorizon: anamnesisData.data.time_horizon,
@@ -180,16 +221,10 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         sedentaryHoursPerDay: anamnesisData.data.sedentary_hours_per_day,
       } : {};
 
-      // ============================================
-      // EXECUTAR ENGINE DE PRIORIZAÇÃO (Tabelas E e F)
-      // ============================================
       const prioridadesCalculadas = calcularPrioridades(compensacoesDetectadas, anamnesis);
       setPriorityResult(prioridadesCalculadas);
-      
-      // Formatar análise de prioridades para a IA
       const analiseIA = formatarParaIA(prioridadesCalculadas);
 
-      // Format segmental results
       const segmentalFormatted = segmentalResults.data?.map(s => ({
         testName: s.test_name,
         bodyRegion: s.body_region,
@@ -201,7 +236,6 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         cutoffValue: s.cutoff_value,
       })) || [];
 
-      // Call AI to generate protocol WITH priority analysis
       const { data, error: fnError } = await supabase.functions.invoke('generate-protocol', {
         body: {
           compensations: compensationsForAI,
@@ -229,26 +263,19 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
   const saveProtocol = async () => {
     if (!protocol) return;
-
     setSaving(true);
-
     try {
-      // Save to protocols table
-      const { error: protocolError } = await supabase
-        .from('protocols')
-        .insert([{
-          assessment_id: assessmentId,
-          name: protocol.protocolName,
-          priority_level: protocol.priorityLevel as "critical" | "high" | "medium" | "low" | "maintenance",
-          frequency_per_week: protocol.frequencyPerWeek,
-          duration_weeks: protocol.durationWeeks,
-          phase: 1,
-          exercises: protocol.exercises as unknown as any,
-        }]);
-
+      const { error: protocolError } = await supabase.from('protocols').insert([{
+        assessment_id: assessmentId,
+        name: protocol.protocolName,
+        priority_level: protocol.priorityLevel as "critical" | "high" | "medium" | "low" | "maintenance",
+        frequency_per_week: protocol.frequencyPerWeek,
+        duration_weeks: protocol.durationWeeks,
+        phase: 1,
+        exercises: protocol.exercises as unknown as any,
+      }]);
       if (protocolError) throw protocolError;
 
-      // Save functional findings from priority engine
       if (priorityResult) {
         const findingsToInsert = priorityResult.primaryIssues.map(issue => ({
           assessment_id: assessmentId,
@@ -261,21 +288,14 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
           context_weight: issue.contextAdjustment,
           biomechanical_importance: issue.baseWeight,
         }));
-
         if (findingsToInsert.length > 0) {
           await supabase.from('functional_findings').insert(findingsToInsert);
         }
       }
 
-      // Update assessment status to completed
-      const { error: assessmentError } = await supabase
-        .from('assessments')
-        .update({ 
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', assessmentId);
-
+      const { error: assessmentError } = await supabase.from('assessments').update({ 
+        status: 'completed', completed_at: new Date().toISOString(),
+      }).eq('id', assessmentId);
       if (assessmentError) throw assessmentError;
 
       toast.success('Protocolo salvo com sucesso!');
@@ -288,7 +308,6 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
     }
   };
 
-  // Helper functions
   const getBodyRegionFromCausa = (causaId: string): string => {
     if (causaId.includes('glute') || causaId.includes('hip') || causaId.includes('tfl') || causaId.includes('piriformis')) return 'Quadril';
     if (causaId.includes('ankle') || causaId.includes('dorsi') || causaId.includes('tib') || causaId.includes('calf') || causaId.includes('foot')) return 'Tornozelo/Pé';
@@ -305,7 +324,6 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
     return 'mild';
   };
 
-  // Group exercises by phase
   const groupedExercises = protocol?.exercises.reduce((acc, ex) => {
     if (!acc[ex.phase]) acc[ex.phase] = [];
     acc[ex.phase].push(ex);
@@ -337,9 +355,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
           <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Erro ao gerar protocolo</h3>
           <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={generateProtocol}>
-            Tentar Novamente
-          </Button>
+          <Button onClick={generateProtocol}>Tentar Novamente</Button>
         </CardContent>
       </Card>
     );
@@ -351,9 +367,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         <CardContent className="py-12 text-center">
           <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Nenhum protocolo gerado</h3>
-          <Button onClick={generateProtocol}>
-            Gerar Protocolo
-          </Button>
+          <Button onClick={generateProtocol}>Gerar Protocolo</Button>
         </CardContent>
       </Card>
     );
@@ -361,6 +375,39 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
   return (
     <div className="space-y-6">
+      {/* Evidence Statistics */}
+      {evidenceStats && evidenceStats.totalViews > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
+              Estatísticas de Evidência
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              {evidenceStats.readyViews > 0 && (
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                  {evidenceStats.readyViews} vistas prontas
+                </span>
+              )}
+              {evidenceStats.indeterminateViews > 0 && (
+                <span className="flex items-center gap-1">
+                  <ShieldQuestion className="h-3.5 w-3.5 text-warning" />
+                  {evidenceStats.indeterminateViews} revisão ({evidenceStats.reducedWeightCompensations} comp. peso ×0.5)
+                </span>
+              )}
+              {evidenceStats.blockedViews > 0 && (
+                <span className="flex items-center gap-1">
+                  <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
+                  {evidenceStats.blockedViews} bloqueadas ({evidenceStats.skippedCompensations} comp. ignoradas)
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Priority Analysis Section */}
       {priorityResult && priorityResult.primaryIssues.length > 0 && (
         <Card className="border-warning/30 bg-warning/5">
@@ -471,7 +518,6 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
       {Object.entries(phaseConfig).map(([phase, config]) => {
         const exercises = groupedExercises[phase];
         if (!exercises || exercises.length === 0) return null;
-
         const Icon = config.icon;
 
         return (
@@ -485,10 +531,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
             </CardHeader>
             <CardContent className="space-y-3">
               {exercises.map((exercise, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 rounded-lg bg-muted/50 space-y-3"
-                >
+                <div key={idx} className="p-4 rounded-lg bg-muted/50 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium">{exercise.name}</p>
@@ -497,14 +540,10 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
                         {exercise.targetMuscles.length > 3 && ` +${exercise.targetMuscles.length - 3}`}
                       </p>
                     </div>
-                    <Badge variant="outline">
-                      {exercise.sets}x{exercise.reps}
-                    </Badge>
+                    <Badge variant="outline">{exercise.sets}x{exercise.reps}</Badge>
                   </div>
                   <p className="text-sm">{exercise.instructions}</p>
-                  <p className="text-xs text-muted-foreground italic">
-                    💡 {exercise.rationale}
-                  </p>
+                  <p className="text-xs text-muted-foreground italic">💡 {exercise.rationale}</p>
                 </div>
               ))}
             </CardContent>

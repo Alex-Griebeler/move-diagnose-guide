@@ -3,7 +3,7 @@
 // Fusão de evidências (IA + Pose), scoring e status
 // ============================================
 
-import { CLINICAL_THRESHOLDS } from './clinicalThresholds';
+import { getClinicalThresholds, getThresholdSnapshot } from './clinicalThresholds';
 import type {
   QualityResult,
   PoseResult,
@@ -24,12 +24,13 @@ export function fuseEvidence(
   poseResult: PoseResult | null,
   qualityResult: QualityResult
 ): BiomechanicalScoreResult {
-  const thresholds = CLINICAL_THRESHOLDS.fusion;
+  const thresholds = getClinicalThresholds().confidence;
   const indeterminateReasons: string[] = [];
+  const snapshot = getThresholdSnapshot();
 
   // 1. Quality gate — bloqueante
   if (!qualityResult.passed) {
-    return buildBlockedResult(qualityResult, indeterminateReasons);
+    return buildBlockedResult(qualityResult, snapshot);
   }
 
   // 2. Extract findings from both sources
@@ -49,7 +50,7 @@ export function fuseEvidence(
     indeterminateReasons.push(`Confiança IA baixa (${Math.round(aiConfidence * 100)}%)`);
   }
 
-  if (poseResult && poseConfidence < CLINICAL_THRESHOLDS.pose.minPoseConfidence) {
+  if (poseResult && poseConfidence < thresholds.minPoseConfidence) {
     status = 'indeterminate';
     indeterminateReasons.push(`Confiança Pose baixa (${Math.round(poseConfidence * 100)}%)`);
   }
@@ -66,28 +67,21 @@ export function fuseEvidence(
 
   if (status === 'ready') {
     if (poseResult && objectiveAgreementScore >= thresholds.autoApplyThreshold) {
-      // High agreement: use union of both
       autoApplyCompensations = [...new Set([...aiFindings, ...poseFindings])];
     } else if (!poseResult) {
-      // No pose data: use AI findings only if confidence is good
       autoApplyCompensations = aiConfidence >= thresholds.autoApplyThreshold ? aiFindings : [];
       if (aiConfidence < thresholds.autoApplyThreshold && aiFindings.length > 0) {
         status = 'indeterminate';
         indeterminateReasons.push('Confiança insuficiente para auto-aplicação');
       }
     } else {
-      // Low agreement but not below minimum: use intersection only
       autoApplyCompensations = aiFindings.filter(f => poseFindings.includes(f));
     }
   }
 
   // 6. Compute biomechanical score
   const allDetected = [...new Set([...aiFindings, ...poseFindings])];
-  const biomechanicalScore = computeBiomechanicalScore(
-    allDetected,
-    aiConfidence,
-    qualityResult.score
-  );
+  const biomechanicalScore = computeBiomechanicalScore(allDetected, aiConfidence, qualityResult.score);
 
   // 7. Determine reliability level
   const reliability = computeReliability(status, aiConfidence, poseConfidence, objectiveAgreementScore);
@@ -95,7 +89,8 @@ export function fuseEvidence(
   // 8. Build evidence metadata
   const evidenceMetadata: EvidenceMetadata = {
     status,
-    evidenceVersion: CLINICAL_THRESHOLDS.version,
+    evidenceVersion: getClinicalThresholds().evidenceVersion,
+    thresholdSnapshot: snapshot,
     qualityScore: qualityResult.score,
     qualityPassed: qualityResult.passed,
     qualityIssues: qualityResult.issues.map(i => i.code),
@@ -125,7 +120,6 @@ export function fuseEvidence(
 
 /**
  * Check if evidence metadata exists on a view data object.
- * Used for backward compatibility with legacy drafts.
  */
 export function hasEvidenceMetadata(viewData: unknown): viewData is { evidenceMetadata: EvidenceMetadata } {
   return (
@@ -154,11 +148,12 @@ export function getViewStatus(viewData: unknown): ViewReliabilityStatus | null {
 
 function buildBlockedResult(
   qualityResult: QualityResult,
-  _reasons: string[]
+  snapshot: Record<string, unknown>
 ): BiomechanicalScoreResult {
   const evidenceMetadata: EvidenceMetadata = {
     status: 'blocked_quality',
-    evidenceVersion: CLINICAL_THRESHOLDS.version,
+    evidenceVersion: getClinicalThresholds().evidenceVersion,
+    thresholdSnapshot: snapshot,
     qualityScore: qualityResult.score,
     qualityPassed: false,
     qualityIssues: qualityResult.issues.map(i => i.code),
@@ -187,36 +182,26 @@ function buildBlockedResult(
 }
 
 function computeJaccardIndex(setA: string[], setB: string[]): number {
-  if (setA.length === 0 && setB.length === 0) return 1; // both empty = perfect agreement
+  if (setA.length === 0 && setB.length === 0) return 1;
   const union = new Set([...setA, ...setB]);
   const intersection = setA.filter(item => setB.includes(item));
   return union.size === 0 ? 0 : intersection.length / union.size;
 }
 
-function computeBiomechanicalScore(
-  compensationIds: string[],
-  aiConfidence: number,
-  qualityScore: number
-): number {
+function computeBiomechanicalScore(compensationIds: string[], aiConfidence: number, qualityScore: number): number {
   if (compensationIds.length === 0) return 0;
-
   let totalWeight = 0;
-
   compensationIds.forEach(compId => {
     const causes = compensacaoCausas[compId];
     if (causes) {
-      // Use max base weight among causes as the compensation's biomechanical importance
       const maxWeight = Math.max(...causes.map(c => c.baseWeight));
       totalWeight += maxWeight;
     } else {
-      totalWeight += 1; // default weight for unknown compensations
+      totalWeight += 1;
     }
   });
-
-  // Modulate by confidence and quality
   const confidenceFactor = Math.max(0.3, aiConfidence);
   const qualityFactor = Math.max(0.3, qualityScore);
-
   return Math.round(totalWeight * confidenceFactor * qualityFactor * 100) / 100;
 }
 
@@ -228,11 +213,7 @@ function computeReliability(
 ): ReliabilityLevel {
   if (status === 'blocked_quality') return 'low';
   if (status === 'indeterminate') return 'low';
-
-  const avgConfidence = poseConfidence > 0
-    ? (aiConfidence + poseConfidence) / 2
-    : aiConfidence;
-
+  const avgConfidence = poseConfidence > 0 ? (aiConfidence + poseConfidence) / 2 : aiConfidence;
   if (avgConfidence >= 0.8 && agreementScore >= 0.7) return 'high';
   if (avgConfidence >= 0.6) return 'moderate';
   return 'low';

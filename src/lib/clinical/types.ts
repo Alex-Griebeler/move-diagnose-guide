@@ -39,6 +39,7 @@ export interface PoseResult {
 export interface EvidenceMetadata {
   status: ViewReliabilityStatus;
   evidenceVersion: string;
+  thresholdSnapshot: Record<string, unknown>;
   qualityScore: number;
   qualityPassed: boolean;
   qualityIssues: string[];

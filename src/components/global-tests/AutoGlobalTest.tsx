@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { assessMediaQuality } from '@/lib/clinical/mediaQuality';
 import { analyzePose, analyzeVideoTemporal } from '@/lib/clinical/poseBiomechanics';
 import { fuseEvidence } from '@/lib/clinical/biomechanicalScoring';
+import { getClinicalThresholds, getThresholdSnapshot } from '@/lib/clinical/clinicalThresholds';
 import type { QualityResult, PoseResult, EvidenceMetadata, ViewReliabilityStatus, CaptureContext } from '@/lib/clinical/types';
 
 // ============================================

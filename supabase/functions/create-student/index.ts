@@ -209,7 +209,7 @@ async function createNewStudent(
   }
 
   // In-person mode: create user with confirmed email
-  const tempPassword = crypto.randomUUID().slice(0, 12) + "Aa1!";
+  const tempPassword = generateSecureTempPassword();
 
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,

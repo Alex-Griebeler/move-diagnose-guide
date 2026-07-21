@@ -1,0 +1,8 @@
+# FABRIK
+
+> Movement & Performance Screen — sistema de avaliação funcional de movimento e prescrição de exercícios corretivos para profissionais de saúde e performance, baseado na metodologia FABRIK.
+
+## Pages
+
+- [Home](/): Visão geral do FABRIK, funcionalidades e metodologia de avaliação funcional.
+- [Entrar](/auth): Acesso de profissionais à plataforma FABRIK.

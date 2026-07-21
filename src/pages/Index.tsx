@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ArrowRight, CheckCircle2, Zap, Shield, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,14 @@ export default function Index() {
 
   return (
     <PageLayout>
+      <Helmet>
+        <title>FABRIK — Avaliação Funcional de Movimento</title>
+        <meta name="description" content="Sistema de avaliação funcional de movimento e prescrição de exercícios corretivos para profissionais de saúde e performance." />
+        <link rel="canonical" href="https://move-diagnose-guide.lovable.app/" />
+        <meta property="og:title" content="FABRIK — Avaliação Funcional de Movimento" />
+        <meta property="og:description" content="Sistema de avaliação funcional de movimento e prescrição de exercícios corretivos com metodologia FABRIK." />
+        <meta property="og:url" content="https://move-diagnose-guide.lovable.app/" />
+      </Helmet>
       <PageHeader
         variant="auth"
         rightContent={
@@ -75,8 +84,12 @@ export default function Index() {
               <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                 <feature.icon className="w-5 h-5 text-primary" />
               </div>
-              <h3 className="text-base font-semibold text-foreground mb-2">{feature.title}</h3>
+              <h2 className="text-base font-semibold text-foreground mb-2">{feature.title}</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+              </div>
+          ))}
+        </div>
+        <div style={{display:'none'}}>
             </div>
           ))}
         </div>

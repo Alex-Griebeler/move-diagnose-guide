@@ -2,6 +2,34 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // ============================================================================
+// SECURE PASSWORD GENERATION
+// ============================================================================
+// Generates a cryptographically random 24-char password with guaranteed
+// character-class coverage (upper, lower, digit, symbol) — no predictable suffix.
+function generateSecureTempPassword(length = 24): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%^&*()-_=+[]{}";
+  const all = upper + lower + digits + symbols;
+  const pick = (set: string) => {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return set[buf[0] % set.length];
+  };
+  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+  for (let i = chars.length; i < length; i++) chars.push(pick(all));
+  // Fisher-Yates shuffle with CSPRNG
+  for (let i = chars.length - 1; i > 0; i--) {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    const j = buf[0] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -209,7 +237,7 @@ async function createNewStudent(
   }
 
   // In-person mode: create user with confirmed email
-  const tempPassword = crypto.randomUUID().slice(0, 12) + "Aa1!";
+  const tempPassword = generateSecureTempPassword();
 
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,

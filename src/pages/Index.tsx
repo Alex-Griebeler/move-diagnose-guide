@@ -86,10 +86,6 @@ export default function Index() {
               </div>
               <h2 className="text-base font-semibold text-foreground mb-2">{feature.title}</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
-              </div>
-          ))}
-        </div>
-        <div style={{display:'none'}}>
             </div>
           ))}
         </div>

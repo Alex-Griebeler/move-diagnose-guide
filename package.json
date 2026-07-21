@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:gesture": "node scripts/verify-gesture-math.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

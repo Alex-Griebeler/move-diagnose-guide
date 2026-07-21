@@ -11,7 +11,7 @@ let poseLandmarkerInstance: any = null;
 let loadingPromise: Promise<any> | null = null;
 
 // MediaPipe landmark indices (BlazePose 33-point model)
-const LANDMARKS = {
+export const LANDMARKS = {
   NOSE: 0,
   LEFT_SHOULDER: 11, RIGHT_SHOULDER: 12,
   LEFT_ELBOW: 13, RIGHT_ELBOW: 14,
@@ -220,6 +220,35 @@ export async function analyzeVideoTemporal(
     temporalStabilityScore: stabilityScore,
     temporalTimeoutFallback: timedOut,
   };
+}
+
+/** A single BlazePose landmark in normalized image coordinates (x,y ∈ [0,1], y downward). */
+export interface RawLandmark {
+  x: number;
+  y: number;
+  z: number;
+  visibility?: number;
+}
+
+/**
+ * Low-level access to the raw 33-point BlazePose landmarks for one frame/image.
+ * Loads the SAME pose model used by analyzePose (pose_landmarker_lite). Returns
+ * null if no pose is detected. Used by the time-series gesture analyzer
+ * (gestureMetrics.ts), which needs per-frame landmarks rather than aggregated
+ * metrics.
+ */
+export async function detectPoseLandmarks(
+  source: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement
+): Promise<RawLandmark[] | null> {
+  try {
+    const landmarker = await loadPoseModel();
+    const result = landmarker.detect(source);
+    if (!result.landmarks || result.landmarks.length === 0) return null;
+    return result.landmarks[0] as RawLandmark[];
+  } catch (error) {
+    console.warn('detectPoseLandmarks failed:', error);
+    return null;
+  }
 }
 
 export function isPoseAvailable(): boolean {

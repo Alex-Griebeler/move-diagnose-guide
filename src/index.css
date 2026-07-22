@@ -306,7 +306,7 @@
   .input-fabrik {
     @apply bg-background border border-border rounded-md px-4 py-3 text-sm;
     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
-    @apply placeholder:text-muted-foreground/60;
+    @apply placeholder:text-muted-foreground;
   }
 
   /* Divider with centered text - Fabrik Performance pattern */

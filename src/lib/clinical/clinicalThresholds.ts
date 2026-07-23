@@ -30,6 +30,11 @@ export interface PoseObjectiveThresholds {
   ohs: Record<string, MetricThreshold[]>;
   sls: Record<string, MetricThreshold[]>;
   pushup: Record<string, MetricThreshold[]>;
+  // Time-series gesture tests (consumed by gestureMetrics.ts). Reference values
+  // derived from the Biocinética/Vicon normative table (avaliacao-biomecanica-3d).
+  running: Record<string, MetricThreshold[]>;
+  heelRaise: Record<string, MetricThreshold[]>;
+  singleLegHop: Record<string, MetricThreshold[]>;
 }
 
 export interface ScoreWeights {
@@ -163,6 +168,40 @@ const DEFAULT_THRESHOLDS: ClinicalThresholdsConfig = {
       ],
       posterior: [
         { metric: 'elbowFlareAngle', label: 'Abertura do Cotovelo', threshold: 45, direction: 'above', compensationId: 'elbow_flare' },
+      ],
+    },
+
+    // ── Time-series gestures ─────────────────────────────────────────────
+    // Views: 'sagittal' | 'frontal' (single camera plane, image-plane 2D).
+    running: {
+      sagittal: [
+        { metric: 'cadenceSpm', label: 'Cadência', threshold: 170, direction: 'below', compensationId: 'cadence_low' },
+        { metric: 'stepLengthPctHeight', label: 'Comprimento de Passo (%estatura)', threshold: 120, direction: 'above', compensationId: 'overstride' },
+        { metric: 'trunkFlexionPeakDeg', label: 'Flexão de Tronco (pico)', threshold: 15, direction: 'above', compensationId: 'trunk_forward_lean' },
+        { metric: 'kneeFlexionPeakDeg', label: 'Flexão de Joelho (pico)', threshold: 45, direction: 'below', compensationId: 'knee_flexion_insufficient' },
+      ],
+      frontal: [
+        { metric: 'pelvicDropPeakDeg', label: 'Queda Pélvica (pico)', threshold: 5, direction: 'above', compensationId: 'hip_drop' },
+        { metric: 'hipAdductionPeakDeg', label: 'Adução de Quadril (pico)', threshold: 10, direction: 'above', compensationId: 'hip_adduction' },
+      ],
+    },
+    heelRaise: {
+      // `reps` is spatiotemporal (plane-independent); listed once. The flag
+      // lookup in gestureMetrics searches all buckets, so it applies in any view.
+      spatiotemporal: [
+        { metric: 'reps', label: 'Repetições', threshold: 25, direction: 'below', compensationId: 'calf_endurance_low' },
+      ],
+    },
+    singleLegHop: {
+      sagittal: [
+        { metric: 'distancePctHeight', label: 'Distância (%estatura)', threshold: 80, direction: 'below', compensationId: 'hop_distance_low' },
+        { metric: 'trunkFlexionPeakDeg', label: 'Flexão de Tronco (pico)', threshold: 45, direction: 'above', compensationId: 'trunk_forward_lean' },
+        { metric: 'hipFlexionPeakDeg', label: 'Flexão de Quadril (pico)', threshold: 60, direction: 'below', compensationId: 'hip_flexion_insufficient' },
+        { metric: 'kneeFlexionPeakDeg', label: 'Flexão de Joelho (pico)', threshold: 60, direction: 'below', compensationId: 'knee_flexion_insufficient' },
+      ],
+      frontal: [
+        { metric: 'pelvicDropContraPeakDeg', label: 'Queda Pélvica Contralateral (pico)', threshold: 10, direction: 'above', compensationId: 'hip_drop' },
+        { metric: 'hipAdductionPeakDeg', label: 'Adução de Quadril (pico)', threshold: 10, direction: 'above', compensationId: 'hip_adduction' },
       ],
     },
   },
@@ -342,7 +381,7 @@ function deepMergePoseObjective(
   overrides: Partial<PoseObjectiveThresholds>
 ): PoseObjectiveThresholds {
   const result = structuredClone(base);
-  for (const testKey of ['ohs', 'sls', 'pushup'] as const) {
+  for (const testKey of ['ohs', 'sls', 'pushup', 'running', 'heelRaise', 'singleLegHop'] as const) {
     if (overrides[testKey]) {
       for (const viewKey of Object.keys(overrides[testKey]!)) {
         result[testKey][viewKey] = overrides[testKey]![viewKey];

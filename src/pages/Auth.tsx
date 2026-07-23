@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, ArrowRight, UserCog, GraduationCap } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -103,6 +104,14 @@ export default function Auth() {
 
   return (
     <AuthLayout>
+      <Helmet>
+        <title>Entrar — FABRIK</title>
+        <meta name="description" content="Acesse a plataforma FABRIK para avaliação funcional de movimento e prescrição de exercícios corretivos." />
+        <link rel="canonical" href="https://move-diagnose-guide.lovable.app/auth" />
+        <meta property="og:title" content="Entrar — FABRIK" />
+        <meta property="og:description" content="Acesso de profissionais e alunos à plataforma FABRIK." />
+        <meta property="og:url" content="https://move-diagnose-guide.lovable.app/auth" />
+      </Helmet>
       <Card className="border-border shadow-elevated">
         <Tabs defaultValue="login" className="w-full">
           <CardHeader className="pb-4">

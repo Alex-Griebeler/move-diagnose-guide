@@ -61,7 +61,7 @@ export default function Index() {
       <PageContent className="py-16 sm:py-24">
         <div className="text-center max-w-3xl mx-auto animate-fade-in">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-6 text-balance font-display">
-            Movement & Performance Screen
+            FABRIK — Sistema de Avaliação de Movimento e Performance
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground mb-8 text-balance leading-relaxed">
             Sistema de avaliação de movimento para profissionais da saúde e performance.

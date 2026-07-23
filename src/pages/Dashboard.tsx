@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Users, ClipboardList, LogOut, Plus, Clock, CheckCircle2, Trash2, ChevronDown, Zap } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import fabrikLogo from '@/assets/fabrik-logo.png';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -67,6 +68,15 @@ export default function Dashboard() {
 
   return (
     <PageLayout>
+      <Helmet>
+        <title>Dashboard — FABRIK</title>
+        <meta name="description" content="Painel FABRIK: gerencie alunos, avaliações funcionais e protocolos corretivos em um só lugar." />
+        <link rel="canonical" href="https://move-diagnose-guide.lovable.app/dashboard" />
+        <meta name="robots" content="noindex" />
+        <meta property="og:title" content="Dashboard — FABRIK" />
+        <meta property="og:description" content="Painel do profissional e do aluno na plataforma FABRIK." />
+        <meta property="og:url" content="https://move-diagnose-guide.lovable.app/dashboard" />
+      </Helmet>
       <PageHeader
         showLogo
         title="Movement Screen"

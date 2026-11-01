@@ -40,7 +40,7 @@ for v in lock nolock; do
   t1=$(python3 -c 'import time;print(time.time())')
   wait
   n=$($Q -d race_$v -Atc "SELECT count(*) FROM assessments a JOIN quick_protocol_sessions q USING (id)")
-  echo "== $v: sessão 2 exit=$e, esperou $(python3 -c "print(round($t1-$t0,1))") s, colisões=$n ${out:+| $(echo "$out" | head -1)}"
+  echo "== $v: sessão 2 exit=$e, esperou $(python3 -c "print(round($t1-$t0,1))") s, colisões=$n${out:+ | $(echo "$out" | head -1)}"
   c=$($Q -d race_$v -Atc "SET ROLE authenticated" -c "INSERT INTO assessments(id,note) VALUES('$X','cliente') RETURNING id = '$X'" 2>&1 | tail -1)
   echo "   cliente manda id X: id mantido? $c (f = trocado pelo servidor)"
 done

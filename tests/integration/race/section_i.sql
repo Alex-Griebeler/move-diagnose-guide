@@ -49,4 +49,3 @@ CREATE TRIGGER assign_server_row_id
 BEFORE INSERT OR UPDATE OF id ON public.quick_protocol_sessions
 FOR EACH ROW
 EXECUTE FUNCTION public.assign_server_row_id();
-

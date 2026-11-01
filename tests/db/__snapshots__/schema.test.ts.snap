@@ -189,11 +189,11 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     NEW.email
   );
-  
+
   -- Default role is 'student', professionals are assigned manually
   INSERT INTO public.user_roles (user_id, role)
   VALUES (NEW.id, 'student');
-  
+
   RETURN NEW;
 END;
 $function$

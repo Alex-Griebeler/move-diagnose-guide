@@ -19,7 +19,8 @@ it('schema: policies, funções, triggers e RLS', async () => {
     where c.relkind in ('r', 'p') and (n.nspname = 'public' or (n.nspname = 'storage' and c.relname = 'objects')) order by 1`);
   expect({
     policies: pol.rows.map(r => `${r.schemaname}.${r.tablename} "${r.policyname}" ${r.cmd} ${r.roles} ${r.permissive} USING ${ws(r.qual)} CHECK ${ws(r.with_check)}`),
-    functions: Object.fromEntries(fns.rows.map(r => [r.sig, String(r.def)])),
+    // Sem espaço no fim das linhas (o pg_get_functiondef preserva o do SQL original).
+    functions: Object.fromEntries(fns.rows.map(r => [r.sig, String(r.def).replace(/[ \t]+$/gm, '')])),
     triggers: trg.rows.map(r => ws(r.def)),
     rls: rls.rows.map(r => `${r.tbl} rls=${r.relrowsecurity} force=${r.relforcerowsecurity}`),
   }).toMatchSnapshot();

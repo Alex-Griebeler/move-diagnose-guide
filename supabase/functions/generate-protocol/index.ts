@@ -13,7 +13,7 @@ const corsHeaders = {
 // ============================================
 // Authentication
 // ============================================
-async function validateAuth(req: Request): Promise<{ userId: string } | null> {
+async function validateAuth(req: Request): Promise<{ userId: string; isProfessional: boolean } | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -39,7 +39,15 @@ async function validateAuth(req: Request): Promise<{ userId: string } | null> {
     return null;
   }
 
-  return { userId: user.id };
+  // RLS lets a user read only their own roles; any failure counts as not professional.
+  const { data: roleRow, error: roleError } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'professional')
+    .maybeSingle();
+
+  return { userId: user.id, isProfessional: !roleError && !!roleRow };
 }
 
 // ============================================
@@ -271,6 +279,14 @@ serve(async (req) => {
       );
     }
 
+    if (!auth.isProfessional) {
+      console.error(`Forbidden: ${auth.userId} is not a professional`);
+      return new Response(
+        JSON.stringify({ error: 'Only professionals can generate protocols.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log(`Authenticated request from user: ${auth.userId}`);
 
     const { compensations, segmentalResults, anamnesis, priorityAnalysis, primaryIssues, secondaryIssues }: ProtocolRequest = await req.json();
@@ -285,7 +301,8 @@ serve(async (req) => {
     const { data: exerciseLibrary, error: dbError } = await supabase
       .from('exercises')
       .select('*')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .is('created_by', null);
 
     if (dbError) {
       console.error('Error fetching exercises:', dbError);

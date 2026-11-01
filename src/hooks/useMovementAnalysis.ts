@@ -21,6 +21,24 @@ interface UseMovementAnalysisOptions {
   onError?: (error: string) => void;
 }
 
+// Signed URLs from get-signed-url expire in 10 minutes and captures may be
+// older than that, so the image is re-signed right before the AI fetches it.
+// Any failure keeps the original URL, as before.
+const refreshSignedUrl = async (url: string): Promise<string> => {
+  if (!url.includes('token=')) return url;
+  const match = url.match(/assessment-media\/([^?]+)/);
+  if (!match) return url;
+  try {
+    const { data, error } = await supabase.functions.invoke('get-signed-url', {
+      body: { filePath: decodeURIComponent(match[1]) },
+    });
+    if (error || !data?.signedUrl) return url;
+    return data.signedUrl;
+  } catch {
+    return url;
+  }
+};
+
 export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastResult, setLastResult] = useState<AnalysisResult | null>(null);
@@ -41,8 +59,9 @@ export function useMovementAnalysis(options: UseMovementAnalysisOptions = {}) {
     setIsAnalyzing(true);
     
     try {
+      const imageUrl = await refreshSignedUrl(params.imageUrl);
       const { data, error } = await supabase.functions.invoke('analyze-movement', {
-        body: params,
+        body: { ...params, imageUrl },
       });
 
       if (error) {

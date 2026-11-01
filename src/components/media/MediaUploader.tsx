@@ -160,7 +160,12 @@ export function MediaUploader({
   };
 
   const uploadFile = async (file: File, type: 'photo' | 'video'): Promise<string> => {
-    const extension = file.name.split('.').pop() || (type === 'photo' ? 'jpg' : 'mp4');
+    // get-signed-url only accepts [A-Za-z0-9_.-] file names, so a name without
+    // a plain extension (no dot, spaces, accents) falls back to the default.
+    const nameExtension = file.name.includes('.') ? file.name.split('.').pop() ?? '' : '';
+    const extension = /^[A-Za-z0-9]{1,10}$/.test(nameExtension)
+      ? nameExtension
+      : (type === 'photo' ? 'jpg' : 'mp4');
     const filePath = generateFilePath(type, extension);
 
     logger.debug('Starting upload:', {

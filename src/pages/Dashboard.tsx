@@ -465,19 +465,24 @@ function ProfessionalDashboard() {
                     <span className={`text-xs font-medium ${getStatusColor(assessment.status)}`}>
                       {getStatusLabel(assessment.status)}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setAssessmentToDelete(assessment);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {/* Completed and archived assessments cannot be deleted (database policy) */}
+                    {assessment.status === 'draft' || assessment.status === 'in_progress' ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setAssessmentToDelete(assessment);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <div className="h-8 w-8" aria-hidden="true" />
+                    )}
                   </div>
                 </div>
               ))}

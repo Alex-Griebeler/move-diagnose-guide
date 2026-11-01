@@ -14,7 +14,7 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-async function validateAuth(req: Request): Promise<{ userId: string } | null> {
+async function validateAuth(req: Request): Promise<{ userId: string; isProfessional: boolean } | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return null;
 
@@ -29,7 +29,16 @@ async function validateAuth(req: Request): Promise<{ userId: string } | null> {
 
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
-  return { userId: user.id };
+
+  // RLS lets a user read only their own roles; any failure counts as not professional.
+  const { data: roleRow, error: roleError } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'professional')
+    .maybeSingle();
+
+  return { userId: user.id, isProfessional: !roleError && !!roleRow };
 }
 
 // ============================================
@@ -587,6 +596,11 @@ serve(async (req) => {
     if (!auth) {
       console.error('Unauthorized request to analyze-movement');
       return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+
+    if (!auth.isProfessional) {
+      console.error(`Forbidden: ${auth.userId} is not a professional`);
+      return jsonResponse({ error: 'Forbidden' }, 403);
     }
 
     console.log(`Authenticated: ${auth.userId}`);

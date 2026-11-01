@@ -6,26 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-Deno.serve(async (req) => {
-  console.log("get-signed-url called, method:", req.method, "url:", req.url);
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" };
 
+// {assessment or quick session uuid}/{file name}. One folder level, no traversal.
+const FILE_PATH_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+
+const SIGNED_URL_TTL_SECONDS = 600;
+
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    console.log("Handling OPTIONS preflight");
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
-    console.log("Processing POST request...");
-    
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      console.error("Missing authorization header");
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
+    // User-scoped client: storage RLS (SELECT on storage.objects) decides access.
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -34,102 +37,55 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error("Auth error:", authError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
-
-    console.log("User authenticated:", user.id);
 
     const body = await req.json();
     const { filePath } = body;
-    
-    console.log("Requested filePath:", filePath);
 
-    if (!filePath || typeof filePath !== "string") {
-      console.error("Missing or invalid filePath");
+    if (
+      !filePath ||
+      typeof filePath !== "string" ||
+      filePath.includes("..") ||
+      !FILE_PATH_PATTERN.test(filePath)
+    ) {
+      console.error("Invalid filePath rejected for user", user.id);
       return new Response(JSON.stringify({ error: "Missing or invalid filePath" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
-    const pathParts = filePath.split('/');
-    if (pathParts.length < 2) {
-      console.error("Invalid path format:", filePath);
-      return new Response(JSON.stringify({ error: "Invalid file path format" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const folderId = pathParts[0];
-    console.log("Checking ownership for folder:", folderId);
-
-    // Check if folder matches an assessment the user owns
-    const { data: assessment } = await supabase
-      .from('assessments')
-      .select('id')
-      .eq('id', folderId)
-      .or(`professional_id.eq.${user.id},student_id.eq.${user.id}`)
-      .maybeSingle();
-
-    // Check if folder matches a quick_protocol_session the user owns
-    const { data: quickSession } = await supabase
-      .from('quick_protocol_sessions')
-      .select('id')
-      .eq('id', folderId)
-      .or(`professional_id.eq.${user.id},student_id.eq.${user.id}`)
-      .maybeSingle();
-
-    const hasAccess = !!assessment || !!quickSession;
-    console.log("Access check result:", { assessment: !!assessment, quickSession: !!quickSession, hasAccess });
-
-    if (!hasAccess) {
-      console.error("Access denied: user", user.id, "attempted to access", filePath);
-      return new Response(JSON.stringify({ error: "Access denied" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    console.log("Access granted, generating signed URL...");
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const { data, error } = await supabaseAdmin.storage
+    const { data, error } = await supabase.storage
       .from("assessment-media")
-      .createSignedUrl(filePath, 3600); // 1 hora de validade
+      .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
 
     if (error) {
-      console.error("Error creating signed URL:", error);
-      // Return 404 if file not found, 500 for other errors
-      const isNotFound = error.message?.toLowerCase().includes('not found') || 
-                         (error as any).statusCode === '404';
+      // Storage answers "not found" both for missing objects and for objects
+      // the user may not read, so both map to 404 without revealing which.
+      const isNotFound = error.message?.toLowerCase().includes("not found") ||
+                         (error as any).statusCode === "404";
       const status = isNotFound ? 404 : 500;
+      console.error("Signed URL not created for user", user.id, "status", status);
       const errorMessage = isNotFound ? "File not found" : "Failed to create signed URL";
       return new Response(JSON.stringify({ error: errorMessage, code: status }), {
         status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
-    console.log("Signed URL created successfully");
-
     return new Response(JSON.stringify({ signedUrl: data.signedUrl }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error in get-signed-url:", error instanceof Error ? error.name : "unknown");
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   }
 });

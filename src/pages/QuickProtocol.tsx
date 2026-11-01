@@ -26,7 +26,7 @@ const logger = createLogger('QuickProtocol');
 export default function QuickProtocol() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [selectingStudentId, setSelectingStudentId] = useState<string | null>(null);
   const [linkedStudents, setLinkedStudents] = useState<StudentItem[]>([]);
@@ -41,6 +41,12 @@ export default function QuickProtocol() {
   const protocolTypeParam = searchParams.get('type') as ProtocolType | null;
   const protocolType: ProtocolType = protocolTypeParam || 'knee_pain';
   const protocolMeta = PROTOCOL_METAS[protocolType];
+
+  useEffect(() => {
+    if (!loading && (!user || role !== 'professional')) {
+      navigate('/dashboard');
+    }
+  }, [user, role, loading, navigate]);
 
   useEffect(() => {
     if (studentId === 'select') {
@@ -112,7 +118,7 @@ export default function QuickProtocol() {
     navigate('/dashboard');
   };
 
-  if (isLoading) {
+  if (isLoading || loading || role !== 'professional') {
     return <PageLoading variant="minimal" />;
   }
 

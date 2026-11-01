@@ -1,0 +1,11 @@
+[error] migration recusa base com id repetido
+[deny ] nada da migration ficou aplicado
+[allow] migration aplica em base sem repetição
+[error] service_role cria sessão com o id de uma avaliação
+[error] service_role cria avaliação com o id de uma sessão
+[allow] service_role abre sessão para tentar trocar o id
+[error] service_role troca o id da sessão pelo de uma avaliação
+[allow] service_role abre avaliação para tentar trocar o id
+[error] service_role troca o id da avaliação pelo de uma sessão
+[allow] service_role ainda edita a sessão sem mexer no id
+[allow] service_role ainda cria avaliação com id próprio novo

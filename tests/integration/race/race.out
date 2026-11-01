@@ -1,0 +1,4 @@
+== lock: sessão 2 exit=1, esperou 2.0 s, colisões=0 | ERROR:  id already used by an assessment or quick protocol session
+   cliente manda id X: id mantido? f (f = trocado pelo servidor)
+== nolock: sessão 2 exit=0, esperou 0.0 s, colisões=1 
+   cliente manda id X: id mantido? f (f = trocado pelo servidor)

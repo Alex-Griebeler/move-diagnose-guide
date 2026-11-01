@@ -1,0 +1,17 @@
+[allow] P1 cria rascunho com datas retroativas
+[manual] datas do INSERT definidas pelo servidor
+[error] rascunho -> completed sem protocolo
+[error] rascunho -> archived
+[error] muda created_at da aberta
+[allow] rascunho -> in_progress (anamnese)
+[error] in_progress -> archived
+[error] in_progress -> completed sem protocolo
+[allow] fluxo: salva protocolo
+[allow] fluxo: conclui com completed_at do cliente
+[manual] completed_at definido pelo servidor completed
+[allow] concluída -> archived continua permitido
+[allow] migração/superusuário segue livre
+[manual] migration com sessão ligada a draft
+[manual] migration com sessão ligada a in_progress
+[manual] migration com sessão ligada a completed
+[manual] migration com sessão ligada a archived

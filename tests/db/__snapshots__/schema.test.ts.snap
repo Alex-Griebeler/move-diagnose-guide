@@ -1,0 +1,347 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`schema: policies, funções, triggers e RLS 1`] = `
+{
+  "functions": {
+    "activate_threshold_profile(p_profile_id uuid)": "CREATE OR REPLACE FUNCTION public.activate_threshold_profile(p_profile_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_org_id uuid;
+  v_old_config jsonb;
+  v_new_config jsonb;
+  v_caller uuid;
+BEGIN
+  v_caller := auth.uid();
+
+  -- Validate caller is a professional
+  IF NOT public.has_role(v_caller, 'professional') THEN
+    RAISE EXCEPTION 'Only professionals can activate threshold profiles';
+  END IF;
+
+  -- Lock the target profile row and get org_id
+  SELECT organization_id, config INTO v_org_id, v_new_config
+  FROM public.clinical_threshold_profiles
+  WHERE id = p_profile_id
+  FOR UPDATE;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Profile not found: %', p_profile_id;
+  END IF;
+
+  -- Validate caller is member of the organization
+  IF NOT public.is_org_member(v_org_id, v_caller) THEN
+    RAISE EXCEPTION 'Not a member of this organization';
+  END IF;
+
+  -- Get current active profile config for audit
+  SELECT config INTO v_old_config
+  FROM public.clinical_threshold_profiles
+  WHERE organization_id = v_org_id AND is_active = true;
+
+  -- Deactivate all profiles in this org
+  UPDATE public.clinical_threshold_profiles
+  SET is_active = false, updated_at = now()
+  WHERE organization_id = v_org_id AND is_active = true;
+
+  -- Activate the requested profile
+  UPDATE public.clinical_threshold_profiles
+  SET is_active = true, updated_at = now()
+  WHERE id = p_profile_id;
+
+  -- Audit log
+  INSERT INTO public.clinical_threshold_audit_log (profile_id, action, changed_by, before_config, after_config, reason)
+  VALUES (p_profile_id, 'activate', v_caller, v_old_config, v_new_config, 'Profile activated via RPC');
+END;
+$function$
+",
+    "assign_server_row_id()": "CREATE OR REPLACE FUNCTION public.assign_server_row_id()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' AND current_user IN ('authenticated', 'anon') THEN
+    NEW.id := gen_random_uuid();
+  ELSIF TG_OP = 'UPDATE' AND NEW.id IS NOT DISTINCT FROM OLD.id THEN
+    RETURN NEW;
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.id::text, 0));
+
+  IF (TG_TABLE_NAME = 'assessments'
+      AND EXISTS (SELECT 1 FROM public.quick_protocol_sessions q WHERE q.id = NEW.id))
+     OR (TG_TABLE_NAME = 'quick_protocol_sessions'
+      AND EXISTS (SELECT 1 FROM public.assessments a WHERE a.id = NEW.id)) THEN
+    RAISE EXCEPTION 'id already used by an assessment or quick protocol session'
+      USING ERRCODE = '23505';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+",
+    "can_author_assessment(_assessment_id uuid)": "CREATE OR REPLACE FUNCTION public.can_author_assessment(_assessment_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.assessments a
+    WHERE a.id = _assessment_id
+      AND a.professional_id = auth.uid()
+      AND a.status IN ('draft', 'in_progress')
+  )
+  AND public.has_role(auth.uid(), 'professional'::app_role)
+$function$
+",
+    "guard_assessment_update()": "CREATE OR REPLACE FUNCTION public.guard_assessment_update()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    NEW.created_at := now();
+    NEW.completed_at := NULL;
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status IN ('draft', 'in_progress') THEN
+    IF NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+      RAISE EXCEPTION 'assessment creation date cannot be changed'
+        USING ERRCODE = '42501';
+    END IF;
+    IF NEW.status NOT IN ('draft', 'in_progress', 'completed') THEN
+      RAISE EXCEPTION 'an open assessment can only be completed'
+        USING ERRCODE = '42501';
+    END IF;
+    IF NEW.status = 'completed' THEN
+      IF NOT EXISTS (SELECT 1 FROM public.protocols p WHERE p.assessment_id = NEW.id) THEN
+        RAISE EXCEPTION 'an assessment is completed only after its protocol is saved'
+          USING ERRCODE = '42501';
+      END IF;
+      NEW.completed_at := now();
+    ELSE
+      NEW.completed_at := OLD.completed_at;
+    END IF;
+  END IF;
+
+  IF NEW.id IS DISTINCT FROM OLD.id
+     OR NEW.professional_id IS DISTINCT FROM OLD.professional_id
+     OR NEW.student_id IS DISTINCT FROM OLD.student_id THEN
+    RAISE EXCEPTION 'assessment id, professional and student cannot be changed'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF OLD.status IN ('completed', 'archived') THEN
+    IF (to_jsonb(NEW) - 'updated_at' - 'status') IS DISTINCT FROM (to_jsonb(OLD) - 'updated_at' - 'status')
+       OR NOT (NEW.status = OLD.status OR (OLD.status = 'completed' AND NEW.status = 'archived')) THEN
+      RAISE EXCEPTION 'completed assessments are immutable'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+",
+    "guard_quick_session_update()": "CREATE OR REPLACE FUNCTION public.guard_quick_session_update()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.id IS DISTINCT FROM OLD.id
+     OR NEW.professional_id IS DISTINCT FROM OLD.professional_id
+     OR NEW.student_id IS DISTINCT FROM OLD.student_id
+     OR NEW.assessment_id IS DISTINCT FROM OLD.assessment_id THEN
+    RAISE EXCEPTION 'quick protocol session id, professional, student and assessment cannot be changed'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+",
+    "handle_new_user()": "CREATE OR REPLACE FUNCTION public.handle_new_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    NEW.email
+  );
+  
+  -- Default role is 'student', professionals are assigned manually
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (NEW.id, 'student');
+  
+  RETURN NEW;
+END;
+$function$
+",
+    "has_role(_user_id uuid, _role app_role)": "CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = _user_id AND role = _role
+  )
+$function$
+",
+    "is_org_member(_org_id uuid, _user_id uuid)": "CREATE OR REPLACE FUNCTION public.is_org_member(_org_id uuid, _user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE organization_id = _org_id AND user_id = _user_id
+  )
+$function$
+",
+    "update_updated_at_column()": "CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$function$
+",
+  },
+  "policies": [
+    "public.anamnesis_responses "Assessment participants can view anamnesis" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = anamnesis_responses.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
+    "public.anamnesis_responses "Author can delete anamnesis while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
+    "public.anamnesis_responses "Author can insert anamnesis while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
+    "public.anamnesis_responses "Author can update anamnesis while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
+    "public.assessment_drafts "Author can delete drafts while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
+    "public.assessment_drafts "Author can insert drafts while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
+    "public.assessment_drafts "Author can update drafts while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
+    "public.assessment_drafts "Professional can view drafts" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = assessment_drafts.assessment_id) AND (a.professional_id = auth.uid())))) CHECK ",
+    "public.assessments "Professionals can create assessments for linked students" INSERT {authenticated} PERMISSIVE USING  CHECK ((auth.uid() = professional_id) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'draft'::assessment_status) AND (EXISTS ( SELECT 1 FROM professional_students WHERE ((professional_students.professional_id = auth.uid()) AND (professional_students.student_id = assessments.student_id)))))",
+    "public.assessments "Professionals can delete their assessments" DELETE {authenticated} PERMISSIVE USING ((auth.uid() = professional_id) AND has_role(auth.uid(), 'professional'::app_role) AND (status = ANY (ARRAY['draft'::assessment_status, 'in_progress'::assessment_status]))) CHECK ",
+    "public.assessments "Professionals can update their assessments" UPDATE {authenticated} PERMISSIVE USING ((auth.uid() = professional_id) AND has_role(auth.uid(), 'professional'::app_role)) CHECK ((auth.uid() = professional_id) AND has_role(auth.uid(), 'professional'::app_role))",
+    "public.assessments "Professionals can view their assessments" SELECT {authenticated} PERMISSIVE USING (auth.uid() = professional_id) CHECK ",
+    "public.assessments "Students can view their assessments" SELECT {public} PERMISSIVE USING (auth.uid() = student_id) CHECK ",
+    "public.clinical_threshold_audit_log "Org members can view audit logs" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM clinical_threshold_profiles tp WHERE ((tp.id = clinical_threshold_audit_log.profile_id) AND is_org_member(tp.organization_id, auth.uid())))) CHECK ",
+    "public.clinical_threshold_audit_log "System can insert audit logs" INSERT {authenticated} PERMISSIVE USING  CHECK (changed_by = auth.uid())",
+    "public.clinical_threshold_profiles "Org members can view threshold profiles" SELECT {authenticated} PERMISSIVE USING is_org_member(organization_id, auth.uid()) CHECK ",
+    "public.clinical_threshold_profiles "Professionals can create threshold profiles" INSERT {authenticated} PERMISSIVE USING  CHECK (is_org_member(organization_id, auth.uid()) AND has_role(auth.uid(), 'professional'::app_role))",
+    "public.clinical_threshold_profiles "Professionals can delete threshold profiles" DELETE {authenticated} PERMISSIVE USING (is_org_member(organization_id, auth.uid()) AND has_role(auth.uid(), 'professional'::app_role)) CHECK ",
+    "public.clinical_threshold_profiles "Professionals can update threshold profiles" UPDATE {authenticated} PERMISSIVE USING (is_org_member(organization_id, auth.uid()) AND has_role(auth.uid(), 'professional'::app_role)) CHECK ",
+    "public.exercises "Authenticated users can read exercises" SELECT {authenticated} PERMISSIVE USING (is_active = true) CHECK ",
+    "public.exercises "Professionals can create exercises" INSERT {authenticated} PERMISSIVE USING  CHECK (has_role(auth.uid(), 'professional'::app_role) AND (created_by = auth.uid()))",
+    "public.exercises "Professionals can delete own exercises" DELETE {authenticated} PERMISSIVE USING (has_role(auth.uid(), 'professional'::app_role) AND (created_by = auth.uid())) CHECK ",
+    "public.exercises "Professionals can update own exercises" UPDATE {authenticated} PERMISSIVE USING (has_role(auth.uid(), 'professional'::app_role) AND (created_by = auth.uid())) CHECK (has_role(auth.uid(), 'professional'::app_role) AND (created_by = auth.uid()))",
+    "public.exercises "Professionals can view exercises" SELECT {authenticated} PERMISSIVE USING has_role(auth.uid(), 'professional'::app_role) CHECK ",
+    "public.functional_findings "Assessment participants can view findings" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = functional_findings.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
+    "public.functional_findings "Author can delete findings while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
+    "public.functional_findings "Author can insert findings while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
+    "public.functional_findings "Author can update findings while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
+    "public.global_test_results "Assessment participants can view global results" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = global_test_results.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
+    "public.global_test_results "Author can delete global results while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
+    "public.global_test_results "Author can insert global results while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
+    "public.global_test_results "Author can update global results while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
+    "public.organization_members "Members can view org members" SELECT {authenticated} PERMISSIVE USING is_org_member(organization_id, auth.uid()) CHECK ",
+    "public.organization_members "Professionals can add org members" INSERT {authenticated} PERMISSIVE USING  CHECK (is_org_member(organization_id, auth.uid()) AND has_role(auth.uid(), 'professional'::app_role))",
+    "public.organizations "Deny organization deletes" DELETE {anon,authenticated} PERMISSIVE USING false CHECK ",
+    "public.organizations "Deny organization inserts" INSERT {anon,authenticated} PERMISSIVE USING  CHECK false",
+    "public.organizations "Deny organization updates" UPDATE {anon,authenticated} PERMISSIVE USING false CHECK false",
+    "public.organizations "Members can view their organizations" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM organization_members om WHERE ((om.organization_id = organizations.id) AND (om.user_id = auth.uid())))) CHECK ",
+    "public.professional_students "Professionals can remove students" DELETE {public} PERMISSIVE USING ((auth.uid() = professional_id) AND has_role(auth.uid(), 'professional'::app_role)) CHECK ",
+    "public.professional_students "Professionals can view their students" SELECT {public} PERMISSIVE USING ((auth.uid() = professional_id) OR (auth.uid() = student_id)) CHECK ",
+    "public.profiles "Professionals can view linked student profiles" SELECT {authenticated} PERMISSIVE USING ((auth.uid() = id) OR (EXISTS ( SELECT 1 FROM professional_students ps WHERE ((ps.professional_id = auth.uid()) AND (ps.student_id = profiles.id))))) CHECK ",
+    "public.profiles "Users can insert own profile" INSERT {public} PERMISSIVE USING  CHECK (auth.uid() = id)",
+    "public.profiles "Users can update own profile" UPDATE {public} PERMISSIVE USING (auth.uid() = id) CHECK ",
+    "public.profiles "Users can view own profile" SELECT {public} PERMISSIVE USING (auth.uid() = id) CHECK ",
+    "public.progress_logs "Professionals can view student progress" SELECT {public} PERMISSIVE USING (EXISTS ( SELECT 1 FROM (protocols p JOIN assessments a ON ((a.id = p.assessment_id))) WHERE ((p.id = progress_logs.protocol_id) AND (a.professional_id = auth.uid())))) CHECK ",
+    "public.progress_logs "Students can log their progress" ALL {authenticated} PERMISSIVE USING (student_id = auth.uid()) CHECK ((student_id = auth.uid()) AND (EXISTS ( SELECT 1 FROM (protocols p JOIN assessments a ON ((a.id = p.assessment_id))) WHERE ((p.id = progress_logs.protocol_id) AND (a.student_id = auth.uid())))))",
+    "public.protocols "Assessment participants can view protocols" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = protocols.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
+    "public.protocols "Author can delete protocols while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
+    "public.protocols "Author can insert protocols while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
+    "public.protocols "Author can update protocols while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
+    "public.quick_protocol_sessions "Professionals can create quick protocol sessions" INSERT {authenticated} PERMISSIVE USING  CHECK ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'in_progress'::text) AND (EXISTS ( SELECT 1 FROM professional_students ps WHERE ((ps.professional_id = auth.uid()) AND (ps.student_id = quick_protocol_sessions.student_id)))) AND ((assessment_id IS NULL) OR (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = quick_protocol_sessions.assessment_id) AND (a.professional_id = auth.uid()) AND (a.student_id = quick_protocol_sessions.student_id) AND (a.status = ANY (ARRAY['completed'::assessment_status, 'archived'::assessment_status])))))))",
+    "public.quick_protocol_sessions "Professionals can delete their quick protocol sessions" DELETE {authenticated} PERMISSIVE USING ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'in_progress'::text)) CHECK ",
+    "public.quick_protocol_sessions "Professionals can update their quick protocol sessions" UPDATE {authenticated} PERMISSIVE USING ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'in_progress'::text)) CHECK ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = ANY (ARRAY['in_progress'::text, 'completed'::text])))",
+    "public.quick_protocol_sessions "Professionals can view their quick protocol sessions" SELECT {authenticated} PERMISSIVE USING (professional_id = auth.uid()) CHECK ",
+    "public.quick_protocol_sessions "Students can view their quick protocol sessions" SELECT {public} PERMISSIVE USING (auth.uid() = student_id) CHECK ",
+    "public.segmental_test_results "Assessment participants can view segmental results" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = segmental_test_results.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
+    "public.segmental_test_results "Author can delete segmental results while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
+    "public.segmental_test_results "Author can insert segmental results while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
+    "public.segmental_test_results "Author can update segmental results while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
+    "public.user_roles "Only system can delete user roles" DELETE {anon,authenticated} PERMISSIVE USING false CHECK ",
+    "public.user_roles "Only system can insert user roles" INSERT {anon,authenticated} PERMISSIVE USING  CHECK false",
+    "public.user_roles "Only system can update user roles" UPDATE {anon,authenticated} PERMISSIVE USING false CHECK false",
+    "public.user_roles "Users can view own roles" SELECT {public} PERMISSIVE USING (auth.uid() = user_id) CHECK ",
+    "storage.objects "Author can delete media while open" DELETE {authenticated} PERMISSIVE USING ((bucket_id = 'assessment-media'::text) AND ((EXISTS ( SELECT 1 FROM assessments a WHERE (((a.id)::text = (storage.foldername(objects.name))[1]) AND can_author_assessment(a.id)))) OR (EXISTS ( SELECT 1 FROM quick_protocol_sessions qps WHERE (((qps.id)::text = (storage.foldername(objects.name))[1]) AND (qps.professional_id = auth.uid()) AND (qps.status = 'in_progress'::text) AND has_role(auth.uid(), 'professional'::app_role)))))) CHECK ",
+    "storage.objects "Author can update media while open" UPDATE {authenticated} PERMISSIVE USING ((bucket_id = 'assessment-media'::text) AND ((EXISTS ( SELECT 1 FROM assessments a WHERE (((a.id)::text = (storage.foldername(objects.name))[1]) AND can_author_assessment(a.id)))) OR (EXISTS ( SELECT 1 FROM quick_protocol_sessions qps WHERE (((qps.id)::text = (storage.foldername(objects.name))[1]) AND (qps.professional_id = auth.uid()) AND (qps.status = 'in_progress'::text) AND has_role(auth.uid(), 'professional'::app_role)))))) CHECK ((bucket_id = 'assessment-media'::text) AND ((EXISTS ( SELECT 1 FROM assessments a WHERE (((a.id)::text = (storage.foldername(objects.name))[1]) AND can_author_assessment(a.id)))) OR (EXISTS ( SELECT 1 FROM quick_protocol_sessions qps WHERE (((qps.id)::text = (storage.foldername(objects.name))[1]) AND (qps.professional_id = auth.uid()) AND (qps.status = 'in_progress'::text) AND has_role(auth.uid(), 'professional'::app_role))))))",
+    "storage.objects "Author can upload media while open" INSERT {authenticated} PERMISSIVE USING  CHECK ((bucket_id = 'assessment-media'::text) AND ((EXISTS ( SELECT 1 FROM assessments a WHERE (((a.id)::text = (storage.foldername(objects.name))[1]) AND can_author_assessment(a.id)))) OR (EXISTS ( SELECT 1 FROM quick_protocol_sessions qps WHERE (((qps.id)::text = (storage.foldername(objects.name))[1]) AND (qps.professional_id = auth.uid()) AND (qps.status = 'in_progress'::text) AND has_role(auth.uid(), 'professional'::app_role))))))",
+    "storage.objects "Professionals can view assessment media" SELECT {public} PERMISSIVE USING ((bucket_id = 'assessment-media'::text) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.professional_id = auth.uid()) AND ((a.id)::text = (storage.foldername(objects.name))[1]))))) CHECK ",
+    "storage.objects "Students can view own assessment media" SELECT {authenticated} PERMISSIVE USING ((bucket_id = 'assessment-media'::text) AND (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.student_id = auth.uid()) AND ((a.id)::text = (storage.foldername(objects.name))[1]))))) CHECK ",
+    "storage.objects "Users can view assessment media" SELECT {public} PERMISSIVE USING ((bucket_id = 'assessment-media'::text) AND ((EXISTS ( SELECT 1 FROM assessments a WHERE (((a.id)::text = (storage.foldername(objects.name))[1]) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) OR (EXISTS ( SELECT 1 FROM quick_protocol_sessions qps WHERE (((qps.id)::text = (storage.foldername(objects.name))[1]) AND ((qps.professional_id = auth.uid()) OR (qps.student_id = auth.uid()))))))) CHECK ",
+  ],
+  "rls": [
+    "public.anamnesis_responses rls=true force=false",
+    "public.assessment_drafts rls=true force=false",
+    "public.assessments rls=true force=false",
+    "public.clinical_threshold_audit_log rls=true force=false",
+    "public.clinical_threshold_profiles rls=true force=false",
+    "public.exercises rls=true force=false",
+    "public.functional_findings rls=true force=false",
+    "public.global_test_results rls=true force=false",
+    "public.organization_members rls=true force=false",
+    "public.organizations rls=true force=false",
+    "public.professional_students rls=true force=false",
+    "public.profiles rls=true force=false",
+    "public.progress_logs rls=true force=false",
+    "public.protocols rls=true force=false",
+    "public.quick_protocol_sessions rls=true force=false",
+    "public.segmental_test_results rls=true force=false",
+    "public.user_roles rls=true force=false",
+    "storage.objects rls=true force=false",
+  ],
+  "triggers": [
+    "CREATE TRIGGER update_anamnesis_responses_updated_at BEFORE UPDATE ON public.anamnesis_responses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_assessment_drafts_updated_at BEFORE UPDATE ON public.assessment_drafts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER assign_server_row_id BEFORE INSERT OR UPDATE OF id ON public.assessments FOR EACH ROW EXECUTE FUNCTION assign_server_row_id()",
+    "CREATE TRIGGER guard_assessment_update BEFORE INSERT OR UPDATE ON public.assessments FOR EACH ROW EXECUTE FUNCTION guard_assessment_update()",
+    "CREATE TRIGGER update_assessments_updated_at BEFORE UPDATE ON public.assessments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()",
+    "CREATE TRIGGER update_clinical_threshold_profiles_updated_at BEFORE UPDATE ON public.clinical_threshold_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_exercises_updated_at BEFORE UPDATE ON public.exercises FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_global_test_results_updated_at BEFORE UPDATE ON public.global_test_results FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_protocols_updated_at BEFORE UPDATE ON public.protocols FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER assign_server_row_id BEFORE INSERT OR UPDATE OF id ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION assign_server_row_id()",
+    "CREATE TRIGGER guard_quick_session_update BEFORE UPDATE ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION guard_quick_session_update()",
+    "CREATE TRIGGER update_quick_protocol_sessions_updated_at BEFORE UPDATE ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_segmental_test_results_updated_at BEFORE UPDATE ON public.segmental_test_results FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+  ],
+}
+`;

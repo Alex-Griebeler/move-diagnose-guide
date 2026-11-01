@@ -90,9 +90,9 @@ export function AddStudentModal({ open, onOpenChange, onStudentAdded }: AddStude
       setTimeout(() => {
         handleClose();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error sending invite:', err);
-      setError(err.message || 'Erro ao enviar convite');
+      setError((err instanceof Error && err.message) || 'Erro ao enviar convite');
     } finally {
       setInviteLoading(false);
     }
@@ -141,10 +141,10 @@ export function AddStudentModal({ open, onOpenChange, onStudentAdded }: AddStude
       onOpenChange(false);
       
       // Redirect to anamnesis with the new student and assessment
-      navigate(`/new-assessment?studentId=${data.studentId}&assessmentId=${data.assessmentId}&studentName=${encodeURIComponent(data.studentName)}`);
-    } catch (err: any) {
+      navigate(`/assessment/new?studentId=${data.studentId}&assessmentId=${data.assessmentId}&studentName=${encodeURIComponent(data.studentName)}`);
+    } catch (err: unknown) {
       console.error('Error creating student:', err);
-      setError(err.message || 'Erro ao cadastrar aluno');
+      setError((err instanceof Error && err.message) || 'Erro ao cadastrar aluno');
     } finally {
       setInpersonLoading(false);
     }

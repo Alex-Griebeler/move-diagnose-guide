@@ -5,8 +5,21 @@ A CI (`.github/workflows/ci.yml`) roda os testes em toda PR e em todo push no `m
 
 ## `tests/domain/`: regras de cálculo, sem banco
 
-- `draftSanitizer.test.ts`: a limpeza do rascunho (`src/lib/draftSanitizer.ts`) comparada com uma cópia literal da implementação antiga do hook. O teste marcado como temporário documenta o defeito F-01 (`Date` vira `{}`) e será substituído pela Etapa 3.
+- `draftSanitizer.test.ts`: a limpeza do rascunho (`src/lib/draftSanitizer.ts`) comparada com uma cópia literal da implementação antiga do hook. Fora de `Date`, o resultado tem de ser idêntico. A única diferença intencional é o F-01 (Etapa 3a): `Date` vira ISO, e `restoreDraftDate` só aceita essa ISO de volta.
+- `dateGuards.test.ts`: `validDate` e `toDateOnlyOrNull` (`src/lib/dateGuards.ts`), que impedem um `Invalid Date` de chegar a `format` ou `toISOString`.
 - `weightEngine.test.ts` e `priorityEngine.test.ts`: pesos (tabela A), ajustes de contexto (tabela E) e prioridade (tabela F). Os valores esperados estão escritos no próprio teste, com a conta em comentário.
+
+## `tests/ui/`: componentes e telas, em jsdom
+
+Cada arquivo declara `// @vitest-environment jsdom` (o padrão continua Node) e chama `cleanup` depois de cada teste. Supabase, autenticação e etapas vizinhas são falsos, com dados sintéticos. Os testes não acessam a rede e não usam o banco real.
+
+- `useWizardPersistence.test.tsx`: o hook real retoma a data do rascunho e a grava como ISO (F-01).
+- `personalDataStep*.test.tsx` e `anamnesisWizard.submit.test.tsx`: uma data inválida não derruba a tela nem o envio (F-01).
+- `segmentalTestsWizard.test.tsx`: cada teste segmentar ganha uma instância nova, então a foto não passa para o seguinte (F-03). Prova a fronteira de montagem, não o upload.
+- `addStudentModal.route.test.tsx`: a URL do cadastro presencial abre a nova avaliação no `App` real, que tem a tabela de rotas real e páginas stub (F-08).
+- `assessmentPages.test.tsx`: um nome com `%` na URL não derruba as páginas de avaliação.
+- `errorBoundary.test.tsx`: aviso por etapa (zerado ao trocar de etapa) e aviso no `App`, que fica dentro do tema.
+- `helpers.tsx` e `supabaseFake.ts` são apoio, não testes.
 
 ## `tests/db/`: banco em PGlite
 

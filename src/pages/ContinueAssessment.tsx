@@ -9,7 +9,8 @@ import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTest
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
 import { AssessmentNavBar } from '@/components/assessment/AssessmentNavBar';
 import { useToast } from '@/hooks/use-toast';
-import { 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import {
   PageLayout, 
   PageContent,
   PageLoading 
@@ -24,9 +25,8 @@ const stepOrder: Step[] = ['anamnesis', 'global-tests', 'segmental-tests', 'prot
 export default function ContinueAssessment() {
   const [searchParams] = useSearchParams();
   const assessmentId = searchParams.get('assessmentId');
-  const studentName = searchParams.get('studentName') 
-    ? decodeURIComponent(searchParams.get('studentName')!) 
-    : 'Aluno';
+  // searchParams.get already decodes; decoding again throws on names with "%"
+  const studentName = searchParams.get('studentName') || 'Aluno';
 
   const [step, setStep] = useState<Step | null>(null);
   const [loading, setLoading] = useState(true);
@@ -197,33 +197,36 @@ export default function ContinueAssessment() {
       />
 
       <PageContent size="lg" className="py-8">
-        {step === 'anamnesis' && (
-          <AnamnesisWizard
-            assessmentId={assessmentId}
-            onComplete={handleAnamnesisComplete}
-          />
-        )}
+        {/* One boundary per step: key resets it when the step changes; the nav bar stays usable */}
+        <ErrorBoundary key={step} scope={`assessment:${step}`} variant="step">
+          {step === 'anamnesis' && (
+            <AnamnesisWizard
+              assessmentId={assessmentId}
+              onComplete={handleAnamnesisComplete}
+            />
+          )}
 
-        {step === 'global-tests' && (
-          <GlobalTestsWizard
-            assessmentId={assessmentId}
-            onComplete={handleGlobalTestsComplete}
-          />
-        )}
+          {step === 'global-tests' && (
+            <GlobalTestsWizard
+              assessmentId={assessmentId}
+              onComplete={handleGlobalTestsComplete}
+            />
+          )}
 
-        {step === 'segmental-tests' && (
-          <SegmentalTestsWizard
-            assessmentId={assessmentId}
-            onComplete={handleSegmentalTestsComplete}
-          />
-        )}
+          {step === 'segmental-tests' && (
+            <SegmentalTestsWizard
+              assessmentId={assessmentId}
+              onComplete={handleSegmentalTestsComplete}
+            />
+          )}
 
-        {step === 'protocol' && (
-          <ProtocolGenerator
-            assessmentId={assessmentId}
-            onComplete={handleProtocolComplete}
-          />
-        )}
+          {step === 'protocol' && (
+            <ProtocolGenerator
+              assessmentId={assessmentId}
+              onComplete={handleProtocolComplete}
+            />
+          )}
+        </ErrorBoundary>
       </PageContent>
     </PageLayout>
   );

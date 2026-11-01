@@ -1,0 +1,193 @@
+[error] S1 INSERT anamnesis_responses
+[deny ] S1 UPDATE anamnesis_responses
+[deny ] S1 DELETE anamnesis_responses
+[error] S1 INSERT global_test_results
+[deny ] S1 UPDATE global_test_results
+[deny ] S1 DELETE global_test_results
+[error] S1 INSERT segmental_test_results
+[deny ] S1 UPDATE segmental_test_results
+[deny ] S1 DELETE segmental_test_results
+[error] S1 INSERT functional_findings
+[deny ] S1 UPDATE functional_findings
+[deny ] S1 DELETE functional_findings
+[error] S1 INSERT protocols
+[deny ] S1 UPDATE protocols
+[deny ] S1 DELETE protocols
+[error] S1 INSERT assessment_drafts
+[deny ] S1 UPDATE assessment_drafts
+[deny ] S1 DELETE assessment_drafts
+[error] S1 upload Storage
+[deny ] S1 UPDATE Storage
+[deny ] S1 DELETE Storage
+[deny ] S1 lê rascunhos
+[deny ] X SELECT anamnesis_responses
+[deny ] X SELECT global_test_results
+[deny ] X SELECT segmental_test_results
+[deny ] X SELECT functional_findings
+[deny ] X SELECT protocols
+[deny ] X SELECT assessment_drafts
+[error] X INSERT protocols
+[deny ] X lê mídia
+[error] P2 INSERT finding em avaliação de P1
+[deny ] P2 lê protocolo de P1
+[error] P2 se vincula a X
+[error] P2 se vincula a S1
+[error] P1 troca student_id de A_DONE
+[error] P1 troca professional_id de A_DONE
+[error] P1 reabre A_DONE (completed→in_progress)
+[error] P1 reabre A_DONE (completed→draft)
+[error] P1 edita notes de A_DONE
+[error] P1 edita completed_at de A_DONE
+[error] P1 INSERT anamnesis_responses em concluída
+[deny ] P1 UPDATE anamnesis_responses em concluída
+[deny ] P1 DELETE anamnesis_responses em concluída
+[error] P1 INSERT global_test_results em concluída
+[deny ] P1 UPDATE global_test_results em concluída
+[deny ] P1 DELETE global_test_results em concluída
+[error] P1 INSERT segmental_test_results em concluída
+[deny ] P1 UPDATE segmental_test_results em concluída
+[deny ] P1 DELETE segmental_test_results em concluída
+[error] P1 INSERT functional_findings em concluída
+[deny ] P1 UPDATE functional_findings em concluída
+[deny ] P1 DELETE functional_findings em concluída
+[error] P1 INSERT protocols em concluída
+[deny ] P1 UPDATE protocols em concluída
+[deny ] P1 DELETE protocols em concluída
+[error] P1 INSERT assessment_drafts em concluída
+[deny ] P1 UPDATE assessment_drafts em concluída
+[deny ] P1 DELETE assessment_drafts em concluída
+[error] P1 upload em concluída
+[deny ] P1 DELETE mídia de concluída
+[deny ] P2 UPDATE curado
+[deny ] P2 DELETE curado
+[deny ] P2 toma posse de curado
+[error] P2 cria exercício com created_by nulo
+[error] P2 cria exercício em nome de P1
+[allow] P2 cria exercício próprio
+[allow] P2 edita exercício próprio
+[error] P2 transforma exercício próprio em curado
+[deny ] S1 UPDATE exercício
+[deny ] R (papel revogado) edita exercício próprio
+[deny ] R (papel revogado) apaga exercício próprio
+[deny ] R (papel revogado) edita notes da própria avaliação aberta
+[deny ] R (papel revogado) muda status da própria avaliação aberta
+[deny ] R (papel revogado) apaga a própria avaliação aberta
+[error] R (papel revogado) grava protocolo na própria avaliação aberta
+[deny ] R (papel revogado) edita a própria sessão rápida
+[deny ] R (papel revogado) apaga a própria sessão rápida
+[error] R (papel revogado) faz upload na própria avaliação aberta
+[error] X registra progresso no protocolo de S1
+[allow] S1 registra progresso no próprio protocolo
+[error] S1 troca protocol_id para protocolo alheio
+[error] S1 registra em nome de X
+[allow] P1 lê progresso de S1
+[error] S1 (aluno) cria sessão rápida
+[error] P1 cria sessão com aluno não vinculado
+[error] P1 cria sessão com avaliação de P2
+[error] P1 cria sessão em nome de P2
+[error] anon executa can_author_assessment
+[allow] 1. cria avaliação draft
+[allow] 1. rascunho da anamnese (insert)
+[allow] 2. rascunho (update)
+[allow] 1. anamnese grava em draft
+[allow] 1. status → in_progress
+[allow] 2. rascunho (delete)
+[allow] 3. upsert globais (1ª vez)
+[allow] 3. upsert globais (2ª vez, conflito)
+[allow] 3. fallback delete
+[allow] 3. fallback insert
+[allow] 3. GlobalTestsWizard repete status in_progress
+[allow] 5. mídia: upload
+[allow] 5. mídia: upsert (troca)
+[allow] 5. mídia: upload 2
+[allow] 5. mídia: remoção
+[allow] 4. segmentares
+[allow] 4. protocolo
+[allow] 4. achados
+[allow] 4. status → completed
+[error] 4b. depois de concluída, protocolo novo
+[allow] 4c. concluída → archived (sem mudar mais nada)
+[error] 4d. archived → completed
+[allow] 8. aluno lê avaliação concluída
+[allow] 8. aluno lê anamnesis_responses
+[allow] 8. aluno lê global_test_results
+[allow] 8. aluno lê segmental_test_results
+[allow] 8. aluno lê functional_findings
+[allow] 8. aluno lê protocols
+[allow] 8. aluno lê mídia
+[allow] 6. P1 cria sessão para S1 vinculado
+[allow] 6. upload na sessão in_progress
+[allow] 6. upsert na sessão in_progress
+[error] troca student_id da sessão
+[error] troca assessment_id da sessão
+[error] troca professional_id da sessão
+[allow] 6. sessão → completed (campos reais do wizard)
+[error] upload em sessão completed
+[deny ] trava: edita sessão concluída
+[deny ] trava: reabre sessão concluída
+[quiet] trava: concluir de novo (clique duplo) não dá erro e não muda nada
+[deny ] trava: apaga sessão concluída
+[allow] trava: sessão concluída continua igual
+[allow] P1 abre sessão para apagar
+[allow] P1 apaga sessão em andamento
+[allow] P1 abre sessão (status inventado)
+[error] trava: sessão só sai de in_progress para completed
+[allow] aluno lê a própria sessão
+[allow] aluno lê mídia da sessão
+[error] aluno faz upload na sessão
+[deny ] P1 cria sessão com o id da própria avaliação concluída (id mantido?)
+[error] P1 grava mídia na concluída pela sessão-clone
+[deny ] P1 apaga mídia da concluída pela sessão-clone
+[deny ] P1 cria sessão com o id da avaliação de P2 (id mantido?)
+[deny ] P1 lê mídia da avaliação de P2
+[error] P1 grava mídia na pasta da avaliação de P2
+[deny ] P1 apaga mídia da avaliação de P2
+[deny ] P1 cria avaliação com o id da sessão de P2 (id mantido?)
+[deny ] P1 lê mídia da sessão de P2
+[deny ] P1 apaga mídia da sessão de P2
+[deny ] P1 upsert ON CONFLICT no id da concluída (id mantido?)
+[allow] a concluída continua concluída depois do upsert
+[allow] P1 abre sessão (para tentar trocar o id)
+[error] P1 troca o id da própria sessão pelo de outra avaliação de P2
+[allow] P1 abre avaliação draft (para tentar trocar o id)
+[error] P1 troca o id da própria avaliação pelo de outra sessão de P2
+[error] P1 cria sessão do aluno S1 ligada à avaliação de S2
+[deny ] S1 (aluno das linhas-clone) lê mídia de P2
+[allow] service_role mantém o id que escolhe
+[allow] cria A_CASC
+[allow] protocolo em A_CASC
+[error] fria4: P1 liga sessão a A_CASC ainda aberta
+[allow] A_CASC → completed
+[allow] sessão ligada a A_CASC concluída (contexto, como no V1)
+[deny ] 7. P1 apaga A_CASC concluída
+[deny ] 7. P1 apaga A_DONE concluída (com protocolo e progresso do aluno)
+[deny ] 7. P1 apaga A_OPEN arquivada
+[allow] 7. A_CASC continua lá
+[allow] 7. protocolo de A_CASC continua lá
+[allow] 7. progresso de S1 continua lá
+[allow] 7. sessão continua ligada a A_CASC
+[allow] P1 abre avaliação draft para apagar
+[allow] rascunho em aDraft
+[error] fria4: P1 liga sessão a rascunho (apagá-lo mudaria a sessão concluída)
+[error] fria4: P1 cria sessão já concluída
+[error] fria4: P1 cria sessão com status inventado
+[error] fria4: P1 cria avaliação já concluída
+[error] fria4: P1 cria avaliação já em andamento
+[allow] 7. P1 apaga avaliação draft (lixeira continua)
+[allow] P1 abre avaliação para apagar
+[allow] aProg → in_progress
+[allow] 7. P1 apaga avaliação in_progress (lixeira continua)
+[deny ] 7. rascunho de aDraft sumiu (cascata)
+[allow] 7. service_role (administração) ainda apaga concluída
+[deny ] 7. filhos de A_CASC sumiram com ela
+[allow] 7. sessão de A_CASC ficou com assessment_id nulo
+[allow] P1 abre sessão para S2
+[allow] P1 remove vínculo (DELETE continua)
+[allow] P1 conclui a sessão de S2 depois de desvincular (como antes do bloco)
+[error] anon (policy aberta) troca student_id
+[error] anon (policy aberta) reabre concluída
+[error] anon (policy aberta) troca aluno da sessão
+[allow] service_role troca student_id
+[allow] service_role edita concluída
+[allow] service_role troca aluno da sessão
+[allow] service_role cria vínculo + avaliação (create-student)

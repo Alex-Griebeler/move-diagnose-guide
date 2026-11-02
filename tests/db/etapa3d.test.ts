@@ -123,6 +123,22 @@ ${directProtocol(A_DONE)}; UPDATE assessments SET status='completed' WHERE id='$
     expect(await value(db, `select count(*) from protocols where assessment_id='${A_DONE}'`)).toBe(1);
   });
 
+  // Achados gravados direto numa avaliação aberta, que as policies do bloco 1 deixavam, ficariam junto dos que a
+  // função grava ao concluir
+  it('com avaliação aberta que só tem achados, aborta sem mudar nada', async () => {
+    const { db } = await makeDb({ skip: [MIGRATION] });
+    await seed(db);
+    await as(db, P1);
+    await db.query(directFinding(A));
+    await sys(db);
+    let error = '';
+    try { await db.exec(`BEGIN;\n${MIGRATION_SQL}\nCOMMIT;`); } catch (e) { error = (e as Error).message; await db.exec('ROLLBACK'); }
+    expect(error).toMatch(/aberta que já tem protocolo ou achados/);
+    expect(await value(db, `select count(*) from functional_findings`)).toBe(1);
+    expect(await value(db, `select count(*) from pg_proc where proname='save_assessment_protocol'`)).toBe(0);
+    expect(await value(db, `select count(*) from pg_policies where tablename in ('protocols','functional_findings') and cmd <> 'SELECT'`)).toBe(6);
+  });
+
   // Um nome diferente em produção, ou uma policy de escrita fora das 6, deixaria a escrita direta aberta
   it('com outra policy de escrita nas filhas, aborta sem mudar nada', async () => {
     const { db } = await makeDb({ skip: [MIGRATION] });

@@ -14,17 +14,19 @@ BEGIN
   END IF;
 END $$;
 
--- Precondition: no open assessment has a protocol yet. The old screen saved the protocol before completing
--- the assessment; a failure in between left it open with its protocol, and save_assessment_protocol would
--- hit uq_protocols_assessment on every attempt. Completing or discarding it is the owner's call.
+-- Precondition: no open assessment has a protocol or findings yet. The old screen saved the protocol before
+-- completing the assessment; a failure in between left it open with its protocol, and save_assessment_protocol
+-- would hit uq_protocols_assessment on every attempt. Findings written directly to an open assessment would end
+-- up next to the ones the function saves. Completing or discarding them is the owner's call.
 DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM public.protocols p
-    JOIN public.assessments a ON a.id = p.assessment_id
+    SELECT 1 FROM public.assessments a
     WHERE a.status IN ('draft', 'in_progress')
+      AND (EXISTS (SELECT 1 FROM public.protocols p WHERE p.assessment_id = a.id)
+        OR EXISTS (SELECT 1 FROM public.functional_findings f WHERE f.assessment_id = a.id))
   ) THEN
-    RAISE EXCEPTION 'etapa 3d: avaliação aberta que já tem protocolo; resolver antes de aplicar';
+    RAISE EXCEPTION 'etapa 3d: avaliação aberta que já tem protocolo ou achados; resolver antes de aplicar';
   END IF;
 END $$;
 

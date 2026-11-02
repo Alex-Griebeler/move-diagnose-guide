@@ -244,12 +244,16 @@ it('F-06: sugestões que chegam depois do rascunho não o sobrescrevem', async (
     teste_a: result('teste_a', 'Teste A sintético', { leftValue: 5 }),
     teste_b: result('teste_b', 'Teste B sintético'),
   });
+  let globalsRequested = false;
   let releaseGlobals: () => void = () => {};
   h.tables.global_test_results = () => new Promise((resolve) => {
+    globalsRequested = true;
     releaseGlobals = () => resolve([{ anterior_view: { compensations: ['compensacao_sintetica'] } }]);
   });
   render(<SegmentalTestsWizard assessmentId={ASSESSMENT} onComplete={() => {}} />);
-  await new Promise((r) => setTimeout(r, 20)); // o rascunho já carregou; as sugestões ainda não
+  // O rascunho já carregou (a tela sai de "Carregando dados salvos") e as sugestões foram pedidas, mas não chegaram
+  await screen.findByText('Analisando compensações...');
+  await waitFor(() => expect(globalsRequested).toBe(true));
   await act(async () => { releaseGlobals(); });
 
   await screen.findByText('descrição de Teste A sintético');

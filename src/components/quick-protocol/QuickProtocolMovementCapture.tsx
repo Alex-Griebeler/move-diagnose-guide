@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { MediaUploader } from '@/components/media/MediaUploader';
 import { useMovementAnalysis, AnalysisResult } from '@/hooks/useMovementAnalysis';
+import { useToast } from '@/hooks/use-toast';
 import type { KneeRelevantCompensation } from '@/lib/kneeCompensationMappings';
 
 interface VideoView {
@@ -58,6 +59,7 @@ export function QuickProtocolMovementCapture({
   const [analysisProgress, setAnalysisProgress] = useState(0);
 
   const { analyzeMovement } = useMovementAnalysis();
+  const { toast } = useToast();
 
   const currentView = VIDEO_VIEWS[currentViewIndex];
   const capturedCount = capturedMedia.filter(m => m.photoUrl || m.videoUrl).length;
@@ -79,9 +81,13 @@ export function QuickProtocolMovementCapture({
     setIsAnalyzing(true);
     setAnalysisProgress(0);
 
+    // A captured view without an answer from the AI (the hook returns null on error) ends the analysis: the
+    // manual tests decide, never an empty result that reads as "nothing found"
+    let output: MovementAnalysisOutput | null = null;
     try {
       const viewResults: Record<string, AnalysisResult> = {};
       const allCompensations: string[] = [];
+      let failed = false;
 
       for (let i = 0; i < VIDEO_VIEWS.length; i++) {
         const view = VIDEO_VIEWS[i];
@@ -96,14 +102,17 @@ export function QuickProtocolMovementCapture({
             viewType: view.id,
           });
 
-          if (result) {
-            viewResults[view.id] = result;
-            if (result.detected_compensations) {
-              allCompensations.push(...result.detected_compensations);
-            }
+          if (!result) {
+            failed = true;
+            break;
+          }
+          viewResults[view.id] = result;
+          if (result.detected_compensations) {
+            allCompensations.push(...result.detected_compensations);
           }
         }
       }
+      if (failed) return;
 
       const kneeRelevantIds: KneeRelevantCompensation[] = [
         'knee_valgus', 'knee_varus', 'feet_eversion', 'foot_collapse',
@@ -114,18 +123,24 @@ export function QuickProtocolMovementCapture({
         .filter(c => kneeRelevantIds.includes(c as KneeRelevantCompensation)) as KneeRelevantCompensation[];
 
       const confidences = Object.values(viewResults).map(r => r.confidence).filter(c => c > 0);
-      const avgConfidence = confidences.length > 0 ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0.7;
+      const avgConfidence = confidences.length > 0 ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
 
-      onAnalysisComplete({
+      output = {
         compensations: filteredCompensations,
         confidence: avgConfidence,
         notes: `Análise de ${exerciseName} - ${capturedCount} vistas`,
         viewResults,
-      });
+      };
     } catch (error) {
       console.error('Erro na análise:', error);
     } finally {
       setIsAnalyzing(false);
+      if (output) {
+        onAnalysisComplete(output);
+      } else {
+        toast({ variant: 'destructive', title: 'A análise automática falhou. Siga pelos testes.' });
+        onSkip();
+      }
     }
   };
 

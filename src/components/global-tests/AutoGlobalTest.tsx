@@ -122,6 +122,13 @@ const QUALITY_ISSUE_ICONS: Record<string, typeof Sun> = {
   low_brightness: Sun, high_brightness: Sun, low_contrast: Eye, low_sharpness: Focus, low_resolution: ImageOff,
 };
 
+// A new analysis replaces the evidence of a view but keeps the record of what the professional confirmed there
+function keepAdjudication(previous: EvidenceMetadata | undefined, next: EvidenceMetadata): EvidenceMetadata {
+  return previous?.adjudicatedCompensations
+    ? { ...next, adjudicatedCompensations: previous.adjudicatedCompensations }
+    : next;
+}
+
 // ============================================
 // Props
 // ============================================
@@ -159,7 +166,10 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   }, [onUpdate]);
 
   const handleUpdateEvidence = useCallback((viewId: ViewType, metadata: EvidenceMetadata) => {
-    onUpdate(prev => ({ ...prev, evidenceMetadata: { ...prev.evidenceMetadata, [viewId]: metadata } }));
+    onUpdate(prev => ({
+      ...prev,
+      evidenceMetadata: { ...prev.evidenceMetadata, [viewId]: keepAdjudication(prev.evidenceMetadata?.[viewId], metadata) },
+    }));
   }, [onUpdate]);
 
   const { analyzeMovement, isAnalyzing } = useMovementAnalysis({
@@ -178,6 +188,12 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const currentMedia = data.mediaUrls[currentView.id] || {};
   const currentEvidence = data.evidenceMetadata?.[currentView.id];
   const currentAiResult = analysisResults[currentView.id];
+  // Suggested by the analysis: highlighted, and enters the view only when the professional taps it
+  const isSuggested = (compId: string) =>
+    !!(currentAiResult?.detected_compensations?.includes(compId) ||
+      currentEvidence?.objectiveFindings?.includes(compId) ||
+      currentEvidence?.predictedCompensations?.includes(compId));
+  const hasPendingSuggestion = currentView.compensations.some(c => isSuggested(c.id) && !currentCompensations.includes(c.id));
 
   // ============================================
   // Signed URL refresh helper
@@ -354,20 +370,10 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
       // Step 4: Evidence Fusion (with captureContext)
       const fusionResult = fuseEvidence(aiResult, poseResult, qualityResult, captureContext);
 
-      // Step 5: Apply compensations based on status, in the same update as the evidence
-      const applyCompensations = fusionResult.status === 'ready' && fusionResult.autoApplyCompensations.length > 0;
-      const validCompensations = fusionResult.autoApplyCompensations.filter(id =>
-        currentView.compensations.some(c => c.id === id)
-      );
-      onUpdate(prev => ({
-        ...prev,
-        evidenceMetadata: { ...prev.evidenceMetadata, [currentViewId]: fusionResult.evidenceMetadata },
-        compensations: applyCompensations
-          ? { ...prev.compensations, [currentViewId]: validCompensations }
-          : prev.compensations,
-      }));
+      // Step 5: Record the evidence only; suggestions enter the view when the professional taps them
+      handleUpdateEvidence(currentViewId, fusionResult.evidenceMetadata);
       if (fusionResult.status === 'indeterminate') {
-        toast.warning('Evidência insuficiente para auto-aplicação — revise manualmente', {
+        toast.warning('Evidência insuficiente — revise manualmente', {
           description: fusionResult.indeterminateReasons.join('; '),
         });
       }
@@ -590,12 +596,16 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                 <span className="text-[10px] text-muted-foreground">{currentCompensations.length} selecionadas</span>
               )}
             </div>
+            {hasPendingSuggestion && (
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Sparkles className="h-3 w-3 text-accent" />
+                sugerida pela análise — toque para confirmar
+              </p>
+            )}
             <div className="flex flex-wrap gap-1.5">
               {currentView.compensations.map((comp) => {
                 const isSelected = currentCompensations.includes(comp.id);
-                const wasDetectedByAI = currentAiResult?.detected_compensations?.includes(comp.id);
-                const wasPredicted = currentEvidence?.predictedCompensations?.includes(comp.id);
-                const wasObjective = currentEvidence?.objectiveFindings?.includes(comp.id);
+                const suggested = isSuggested(comp.id);
 
                 return (
                   <button
@@ -605,14 +615,14 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
                       'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs transition-all',
                       isSelected
                         ? 'bg-destructive text-destructive-foreground'
-                        : wasDetectedByAI || wasObjective || wasPredicted
+                        : suggested
                           ? 'bg-accent/15 text-accent border border-accent/30'
                           : 'bg-muted/60 text-muted-foreground hover:bg-muted'
                     )}
                   >
                     {isSelected ? (
                       <X className="h-3 w-3" />
-                    ) : wasDetectedByAI || wasObjective || wasPredicted ? (
+                    ) : suggested ? (
                       <Sparkles className="h-3 w-3" />
                     ) : (
                       <Plus className="h-3 w-3" />

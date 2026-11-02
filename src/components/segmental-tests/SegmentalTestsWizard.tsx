@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
-import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
+import { groupTestsByRegion, getTestById, passesCutoff, SegmentalTest } from '@/data/segmentalTestMappings';
 import { AutoSegmentalTest } from './AutoSegmentalTest';
 import { SegmentalTestsSummary } from './SegmentalTestsSummary';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
@@ -196,8 +196,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     if (!isLoadingPersistence) loadSuggestions();
   }, [isLoadingPersistence, loadSuggestions]);
 
-  // Merged into the latest results, not into `testResults` from this render: the AI result arrives
-  // after an await, through the callback of the render where the analysis started
+  // Merged into the latest results, not into `testResults` from this render, so no update works from an old copy
   const handleTestResult = (testId: string, result: Partial<TestResult>) => {
     updateData(prev => ({
       ...prev,
@@ -227,6 +226,23 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     return [...urls, ...(result.extraMediaUrls ?? [])];
   };
 
+  // A quantitative side with a value is saved with the pass/fail of its value against the row's cutoff, in the
+  // test's direction, so a draft kept from before the direction fix is saved right. Any other side (test not
+  // found, qualitative, no cutoff, no value) keeps the boolean it has.
+  const passFailToSave = (result: TestResult): Pick<TestResult, 'passFailLeft' | 'passFailRight'> => {
+    const knownTests = [...(prioritizationResult?.prioritizedTests ?? []), ...(prioritizationResult?.additionalTests ?? [])];
+    const test = knownTests.find(p => p.test.id === result.testId)?.test ?? getTestById(result.testId);
+    if (test?.resultType !== 'quantitative') {
+      return { passFailLeft: result.passFailLeft, passFailRight: result.passFailRight };
+    }
+    const side = (value: number | null, saved: boolean | null) =>
+      passesCutoff(value, result.cutoffValue, test.passWhen) ?? saved;
+    return {
+      passFailLeft: side(result.leftValue, result.passFailLeft),
+      passFailRight: side(result.rightValue, result.passFailRight),
+    };
+  };
+
   const handleSubmit = async () => {
     setConfirmingIncomplete(false);
     // The draft could not be read: concluding would delete it
@@ -239,19 +255,22 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     setSaving(true);
 
     try {
-      const resultsToInsert = Object.values(testResults).map(result => ({
-        assessment_id: assessmentId,
-        test_name: result.testName,
-        body_region: result.bodyRegion,
-        left_value: result.leftValue,
-        right_value: result.rightValue,
-        pass_fail_left: result.passFailLeft,
-        pass_fail_right: result.passFailRight,
-        cutoff_value: result.cutoffValue ?? null,
-        unit: result.unit,
-        notes: result.notes || null,
-        media_urls: collectMediaUrls(result),
-      }));
+      const resultsToInsert = Object.values(testResults).map(result => {
+        const { passFailLeft, passFailRight } = passFailToSave(result);
+        return {
+          assessment_id: assessmentId,
+          test_name: result.testName,
+          body_region: result.bodyRegion,
+          left_value: result.leftValue,
+          right_value: result.rightValue,
+          pass_fail_left: passFailLeft,
+          pass_fail_right: passFailRight,
+          cutoff_value: result.cutoffValue ?? null,
+          unit: result.unit,
+          notes: result.notes || null,
+          media_urls: collectMediaUrls(result),
+        };
+      });
 
       // One row per test of the assessment (unique key): resending after "Voltar" updates the rows already saved
       const { error } = await supabase

@@ -76,6 +76,7 @@ export interface EvidenceMetadata {
   biomechanicalScore: number;
   /** @deprecated Use predictedCompensations instead */
   detectedCompensations: string[];
+  /** Always [] since passo 0 (nothing is auto-applied); kept for rows saved before */
   autoAppliedCompensations: string[];
   objectiveAgreementScore: number;
   objectiveFindings: string[];
@@ -96,7 +97,6 @@ export interface BiomechanicalScoreResult {
   qualityScore: number;
   biomechanicalScore: number;
   objectiveAgreementScore: number;
-  autoApplyCompensations: string[];
   indeterminateReasons: string[];
   evidenceMetadata: EvidenceMetadata;
 }

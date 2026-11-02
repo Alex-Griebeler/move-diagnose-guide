@@ -4,7 +4,7 @@
  * e testes confirmatórios sugeridos
  */
 
-import { AlertTriangle, Check, ChevronRight, Video, Sparkles } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Video, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -95,12 +95,9 @@ export function QuickProtocolAIResult({
       ) : (
         <Card>
           <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
-              <Check className="w-8 h-8 text-success" />
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Nenhuma compensação significativa</h3>
+            <h3 className="font-semibold text-lg mb-2">A análise não sugeriu compensações.</h3>
             <p className="text-muted-foreground text-sm">
-              O padrão de movimento está adequado. A dor pode ter outras causas.
+              Faça os testes para concluir.
             </p>
           </CardContent>
         </Card>
@@ -145,10 +142,12 @@ export function QuickProtocolAIResult({
       )}
 
       {/* Estimation */}
-      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2">
-        <Video className="w-4 h-4" />
-        <span>~{suggestedTests.length * 2} minutos para concluir os testes</span>
-      </div>
+      {suggestedTests.length > 0 && (
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2">
+          <Video className="w-4 h-4" />
+          <span>~{suggestedTests.length * 2} minutos para concluir os testes</span>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-3 pt-4">

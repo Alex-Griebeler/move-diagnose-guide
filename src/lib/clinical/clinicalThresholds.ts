@@ -92,11 +92,23 @@ function clampToSafety(key: string, value: number): number {
 }
 
 // ============================================
+// Pose findings switch
+// ============================================
+
+/**
+ * Pose rules do not turn metrics into findings while this is false (passo 0: none of the rules is
+ * validated, and several measure the wrong thing). Kept outside the config on purpose, so neither a
+ * localStorage override nor a backend profile can turn findings back on. Turn on only per compensation
+ * that passed the validation study.
+ */
+export const POSE_OBJECTIVE_FINDINGS_ENABLED = false;
+
+// ============================================
 // Default Thresholds
 // ============================================
 
 const DEFAULT_THRESHOLDS: ClinicalThresholdsConfig = {
-  evidenceVersion: '2026.03.v3',
+  evidenceVersion: '2026.11.v3-p0',
 
   mediaQuality: {
     minResolution: { width: 640, height: 480 },
@@ -205,28 +217,28 @@ export function saveClinicalThresholdOverrides(overrides: Partial<ClinicalThresh
   if (clamped.mediaQuality) {
     for (const [key, val] of Object.entries(clamped.mediaQuality)) {
       if (typeof val === 'number') {
-        (clamped.mediaQuality as any)[key] = clampToSafety(key, val);
+        Object.assign(clamped.mediaQuality, { [key]: clampToSafety(key, val) });
       }
     }
   }
   if (clamped.confidence) {
     for (const [key, val] of Object.entries(clamped.confidence)) {
       if (typeof val === 'number') {
-        (clamped.confidence as any)[key] = clampToSafety(key, val);
+        Object.assign(clamped.confidence, { [key]: clampToSafety(key, val) });
       }
     }
   }
   if (clamped.scoreWeights) {
     for (const [key, val] of Object.entries(clamped.scoreWeights)) {
       if (typeof val === 'number') {
-        (clamped.scoreWeights as any)[key] = clampToSafety(key, val);
+        Object.assign(clamped.scoreWeights, { [key]: clampToSafety(key, val) });
       }
     }
   }
   if (clamped.temporalAnalysis) {
     for (const [key, val] of Object.entries(clamped.temporalAnalysis)) {
       if (typeof val === 'number') {
-        (clamped.temporalAnalysis as any)[key] = clampToSafety(key, val);
+        Object.assign(clamped.temporalAnalysis, { [key]: clampToSafety(key, val) });
       }
     }
   }
@@ -287,7 +299,7 @@ export async function refreshClinicalThresholdsFromBackend(): Promise<void> {
 
     // Find user's org membership
     const { data: membership } = await supabase
-      .from('organization_members' as any)
+      .from('organization_members')
       .select('organization_id')
       .eq('user_id', user.user.id)
       .limit(1)
@@ -295,24 +307,24 @@ export async function refreshClinicalThresholdsFromBackend(): Promise<void> {
 
     if (!membership) return;
 
-    const orgId = (membership as any).organization_id;
+    const orgId = membership.organization_id;
 
     // Fetch active profile for this org
     const { data: profile } = await supabase
-      .from('clinical_threshold_profiles' as any)
+      .from('clinical_threshold_profiles')
       .select('id, config, evidence_version')
       .eq('organization_id', orgId)
       .eq('is_active', true)
       .limit(1)
       .single();
 
-    if (!profile || !(profile as any).config) return;
+    if (!profile || !profile.config) return;
 
-    const backendConfig = (profile as any).config as Partial<ClinicalThresholdsConfig>;
+    const backendConfig = profile.config as Partial<ClinicalThresholdsConfig>;
     const defaults = getDefaultClinicalThresholds();
 
     cachedConfig = {
-      evidenceVersion: (profile as any).evidence_version || defaults.evidenceVersion,
+      evidenceVersion: profile.evidence_version || defaults.evidenceVersion,
       mediaQuality: { ...defaults.mediaQuality, ...backendConfig.mediaQuality },
       confidence: { ...defaults.confidence, ...backendConfig.confidence },
       scoreWeights: { ...defaults.scoreWeights, ...backendConfig.scoreWeights },
@@ -322,7 +334,7 @@ export async function refreshClinicalThresholdsFromBackend(): Promise<void> {
         : defaults.poseObjective,
     };
     currentSource = 'backend';
-    cachedProfileId = (profile as any).id;
+    cachedProfileId = profile.id;
     console.info('[ClinicalThresholds] Loaded from backend profile:', cachedProfileId);
   } catch (error) {
     console.warn('[ClinicalThresholds] Backend refresh failed, using local config:', error);
@@ -364,6 +376,8 @@ export function getThresholdSnapshot(): Record<string, unknown> {
     scoreWeights: t.scoreWeights,
     temporalAnalysis: t.temporalAnalysis,
     poseObjective: t.poseObjective,
+    // Marks evidence computed with pose findings off, whatever the config source says about the version
+    poseObjectiveFindingsEnabled: POSE_OBJECTIVE_FINDINGS_ENABLED,
     source: currentSource,
     thresholdProfileId: cachedProfileId,
   };

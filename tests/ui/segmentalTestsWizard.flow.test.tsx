@@ -259,3 +259,60 @@ it('F-06: sugestões que chegam depois do rascunho não o sobrescrevem', async (
   await screen.findByText('descrição de Teste A sintético');
   expect(screen.getByDisplayValue('5')).toBeTruthy();
 });
+
+// Passo 0: ao concluir, o lado quantitativo com valor grava o passa/falha do valor contra o corte da linha,
+// na direção do teste; sem teste conhecido, fica o booleano que veio
+
+const concludeAll = async () => {
+  goToSummary();
+  fireEvent.click(screen.getByRole('button', { name: /Concluir Testes Segmentados/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Concluir assim' }));
+  await waitFor(() => expect(segmentalWrites()).toHaveLength(1));
+  return segmentalWrites()[0].payload as Array<Record<string, unknown>>;
+};
+
+it('passo 0: linha salva com corte diferente do catálogo usa o corte da linha, na tela e ao concluir', async () => {
+  // Booleanos gravados como se o corte fosse o do catálogo (10)
+  h.tables.segmental_test_results = (f: Record<string, unknown>) => (f.assessment_id === ASSESSMENT ? [{
+    assessment_id: ASSESSMENT, test_name: 'Teste A sintético', body_region: 'regiao', left_value: 9.5, right_value: 9.5,
+    pass_fail_left: false, pass_fail_right: false, cutoff_value: 9, unit: 'cm', notes: null, media_urls: [],
+  }] : []);
+  await renderWizard();
+  await screen.findAllByDisplayValue('9.5');
+  expect(screen.getAllByText('Passa')).toHaveLength(2);
+
+  const rows = await concludeAll();
+  expect(rows.find((r) => r.test_name === 'Teste A sintético')).toMatchObject({
+    cutoff_value: 9, pass_fail_left: true, pass_fail_right: true,
+  });
+});
+
+it('passo 0: resultado de um teste fora da priorização e do catálogo grava o booleano que tinha', async () => {
+  h.tables.assessment_drafts = draftFor(ASSESSMENT, {
+    teste_a: result('teste_a', 'Teste A sintético', { leftValue: 8, rightValue: 12, passFailLeft: false, passFailRight: true }),
+    teste_b: result('teste_b', 'Teste B sintético'),
+    teste_sumido: result('teste_sumido', 'Teste sumido sintético', {
+      leftValue: 5, rightValue: 15, passFailLeft: true, passFailRight: false,
+    }),
+  });
+  await renderWizard();
+  await screen.findByDisplayValue('8');
+
+  const rows = await concludeAll();
+  expect(rows.find((r) => r.test_name === 'Teste sumido sintético')).toMatchObject({
+    left_value: 5, right_value: 15, pass_fail_left: true, pass_fail_right: false,
+  });
+});
+
+it('passo 0: com corte 0, o valor 0 passa e −5 falha, na tela e ao concluir', async () => {
+  h.cutoffs = { teste_a: 0 };
+  await renderWizard();
+  typeValues('0', '-5');
+  screen.getByText('Passa');
+  screen.getByText('Falha');
+
+  const rows = await concludeAll();
+  expect(rows.find((r) => r.test_name === 'Teste A sintético')).toMatchObject({
+    left_value: 0, right_value: -5, cutoff_value: 0, pass_fail_left: true, pass_fail_right: false,
+  });
+});

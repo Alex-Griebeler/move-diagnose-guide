@@ -29,6 +29,7 @@ import { QuickProtocolRetest } from './QuickProtocolRetest';
 
 import { 
   ProtocolType,
+  TestId,
   RETEST_OPTIONS, 
   getTestsForProtocol,
   getProtocolMeta
@@ -38,8 +39,7 @@ import {
   QuickProtocolTestResults,
   TestResult,
   DecisionResult,
-  FindingSide,
-  DeficitType
+  FindingSide
 } from '@/lib/quickProtocolEngine';
 import {
   KneeRelevantCompensation,
@@ -187,26 +187,9 @@ export function QuickProtocolWizardV2({
     if (suggestedTests.length > 0) {
       setStep('confirmatory');
     } else {
-      // No tests needed, generate result based on AI
-      generateAIBasedResult();
+      // Nothing suggested is not a finding: the manual tests decide (passo 0)
+      handleSkipAI();
     }
-  };
-
-  // Generate result based on AI analysis only
-  const generateAIBasedResult = () => {
-    // Map compensations to deficit type
-    const compensationToDeficit: Record<string, DeficitType> = {
-      ankle_mobility: 'ankle_mobility_deficit',
-      hip_mobility: 'hip_mobility_deficit',
-      hip_stability: 'hip_stability_deficit',
-      ankle_stability: 'ankle_stability_deficit',
-      motor_control: 'motor_control_deficit',
-    };
-
-    // Use calculated decision
-    const decision = calculateDecision({}, protocolType, affectedSide || undefined);
-    setDecisionResult(decision);
-    setStep('result');
   };
 
   // Handle confirmatory tests complete
@@ -220,7 +203,7 @@ export function QuickProtocolWizardV2({
     const convertedResults: QuickProtocolTestResults = {};
     for (const r of results) {
       convertedResults[r.testId] = {
-        testId: r.testId as any,
+        testId: r.testId as TestId,
         isPositive: !!r.confirmedHypothesis,
         hasPain: false,
         findingSide: r.findingSide,

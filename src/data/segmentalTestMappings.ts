@@ -17,6 +17,8 @@ export interface SegmentalTest {
   instructions: string;
   // Resultado aceito: 'quantitative' (valor numérico) ou 'qualitative' (pass/partial/fail)
   resultType?: 'quantitative' | 'qualitative';
+  // Direção do corte: 'atLeast' (padrão) passa com valor ≥ corte; 'atMost' passa com valor ≤ corte
+  passWhen?: 'atLeast' | 'atMost';
 }
 
 export const segmentalTests: SegmentalTest[] = [
@@ -68,7 +70,7 @@ export const segmentalTests: SegmentalTest[] = [
     unit: 'graus',
     cutoffValue: 0,
     isBilateral: true,
-    instructions: 'Paciente em decúbito dorsal na borda da maca. Flexione um quadril ao máximo e observe a posição da coxa contralateral. Avalie extensão do quadril e flexão do joelho.',
+    instructions: 'Paciente em decúbito dorsal na borda da maca. Flexione um quadril ao máximo e observe a posição da coxa contralateral. Avalie extensão do quadril e flexão do joelho. Meça o ângulo da coxa em relação à horizontal: positivo = coxa abaixo da horizontal; negativo = acima.',
     resultType: 'quantitative',
   },
   {
@@ -90,7 +92,7 @@ export const segmentalTests: SegmentalTest[] = [
     unit: 'graus',
     cutoffValue: 0,
     isBilateral: true,
-    instructions: 'Decúbito lateral. Estabilize a pelve e realize abdução + extensão do quadril, depois solte. A coxa deve cair abaixo da horizontal.',
+    instructions: 'Decúbito lateral. Estabilize a pelve e realize abdução + extensão do quadril, depois solte. A coxa deve cair abaixo da horizontal. Meça o ângulo da coxa em relação à horizontal: positivo = abaixo da horizontal; negativo = acima.',
     resultType: 'quantitative',
   },
   {
@@ -196,6 +198,8 @@ export const segmentalTests: SegmentalTest[] = [
     description: 'Avalia encurtamento do peitoral menor',
     unit: 'cm',
     cutoffValue: 2.5,
+    // Maior distância do acrômio à maca = mais encurtado
+    passWhen: 'atMost',
     isBilateral: true,
     instructions: 'Em decúbito dorsal relaxado, meça a distância do acrômio até a maca. Compare bilateralmente.',
     resultType: 'quantitative',
@@ -308,6 +312,22 @@ export function groupTestsByRegion(tests: SegmentalTest[]): Record<string, Segme
 
 export function getTestById(testId: string): SegmentalTest | undefined {
   return segmentalTests.find(test => test.id === testId);
+}
+
+// Passa/falha de um valor contra o corte, na direção do teste; null quando falta o valor ou o corte
+export function passesCutoff(
+  value: number | null | undefined,
+  cutoff: number | null | undefined,
+  passWhen: SegmentalTest['passWhen'] = 'atLeast'
+): boolean | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (typeof cutoff !== 'number' || !Number.isFinite(cutoff)) return null;
+  return passWhen === 'atMost' ? value <= cutoff : value >= cutoff;
+}
+
+// Corte com a direção, por exemplo "≥ 10 cm" ou "≤ 2.5 cm"
+export function cutoffLabel(cutoff: number, unit: string, passWhen: SegmentalTest['passWhen'] = 'atLeast'): string {
+  return `${passWhen === 'atMost' ? '≤' : '≥'} ${cutoff} ${unit}`;
 }
 
 // Validação de IDs de teste referenciados em causaToTests

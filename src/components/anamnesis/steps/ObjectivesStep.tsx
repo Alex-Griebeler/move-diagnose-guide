@@ -4,24 +4,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { objectiveOptions } from './objectiveOptions';
 
 interface ObjectivesStepProps {
   data: AnamnesisData;
   updateData: (updates: Partial<AnamnesisData>) => void;
 }
-
-const objectiveOptions = [
-  { value: 'mobility', label: 'Melhorar mobilidade' },
-  { value: 'pain_reduction', label: 'Reduzir dor' },
-  { value: 'injury_prevention', label: 'Prevenir lesões' },
-  { value: 'posture', label: 'Melhorar postura' },
-  { value: 'muscle_gain', label: 'Ganhar massa muscular' },
-  { value: 'health_longevity', label: 'Saúde e longevidade' },
-  { value: 'sport_performance', label: 'Performance esportiva' },
-  { value: 'competition_prep', label: 'Preparação para competição' },
-  { value: 'return_activity', label: 'Retorno pós-lesão' },
-  { value: 'functional_strength', label: 'Força funcional' },
-];
 
 const timeHorizonOptions = [
   { value: '1month', label: '1 mês' },

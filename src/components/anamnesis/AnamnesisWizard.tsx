@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,7 @@ import { SleepRecoveryStep } from './steps/SleepRecoveryStep';
 import { PhysicalActivitySportsStep } from './steps/PhysicalActivitySportsStep';
 import { ObjectivesStep } from './steps/ObjectivesStep';
 import { ConsentStep } from './steps/ConsentStep';
+import { objectiveOptions } from './steps/objectiveOptions';
 import { useState, useEffect } from 'react';
 
 const logger = createLogger('AnamnesisWizard');
@@ -121,6 +123,53 @@ const initialData: AnamnesisData = {
   lgpdConsent: false,
 };
 
+// Numeric columns that keep the frequency and duration choices
+const frequencyMap: Record<string, number> = { '1-2x': 2, '3-4x': 4, '5+': 6 };
+const durationMap: Record<string, number> = { '30-45min': 38, '45-60min': 52, '60-90min': 75 };
+const choiceFor = <C extends string>(map: Record<string, number>, value: number | null) =>
+  (Object.keys(map).find(choice => map[choice] === value) as C | undefined) ?? null;
+
+const listOr = <I,>(value: unknown, fallback: I[]): I[] => (Array.isArray(value) ? value as I[] : fallback);
+const textOf = (value: number | null) => (value === null ? '' : String(value));
+
+// Inverse of handleSubmit, to open a submitted anamnesis with what was saved
+function fromSavedAnamnesis(row: Tables<'anamnesis_responses'>): AnamnesisData {
+  const objectiveValues = objectiveOptions.map(option => option.value);
+  const objectiveParts = row.objectives ? row.objectives.split('; ') : [];
+  const activityModalities = listOr<string>(row.activity_types, []);
+  const sports = listOr<AnamnesisData['sports'][number]>(row.sports, []);
+  const redFlags = row.red_flags && typeof row.red_flags === 'object' && !Array.isArray(row.red_flags)
+    ? { ...initialData.redFlags, ...(row.red_flags as Partial<AnamnesisData['redFlags']>) }
+    : initialData.redFlags;
+  return {
+    // Same reading as the profile prefill below; toDateOnlyOrNull gives back the same day on submit
+    birthDate: row.birth_date ? new Date(row.birth_date) : undefined,
+    weightKg: textOf(row.weight_kg),
+    heightCm: textOf(row.height_cm),
+    laterality: row.laterality ?? '',
+    occupation: row.occupation ?? '',
+    painHistory: listOr(row.pain_history, []),
+    surgeries: listOr(row.surgeries, []),
+    redFlags,
+    hasRedFlags: row.has_red_flags ?? false,
+    sedentaryHoursPerDay: textOf(row.sedentary_hours_per_day),
+    workType: row.work_type ?? '',
+    sleepQuality: row.sleep_quality ?? initialData.sleepQuality,
+    sleepHours: textOf(row.sleep_hours),
+    activityModalities,
+    activityFrequency: choiceFor(frequencyMap, row.activity_frequency),
+    activityDuration: choiceFor(durationMap, row.activity_duration_minutes),
+    // Not saved: derived the way the activity step sets them
+    isSedentary: activityModalities.includes('sedentary'),
+    practicesSports: sports.length > 0,
+    sports,
+    selectedObjectives: objectiveParts.filter(part => objectiveValues.includes(part)),
+    otherObjectives: objectiveParts.filter(part => !objectiveValues.includes(part)).join('; '),
+    timeHorizon: row.time_horizon ?? '',
+    lgpdConsent: row.lgpd_consent ?? false,
+  };
+}
+
 const steps = [
   { id: 1, title: 'Dados Pessoais', shortTitle: 'Pessoal' },
   { id: 2, title: 'Histórico de Dor', shortTitle: 'Dor' },
@@ -146,10 +195,20 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
     setCurrentStep,
     clearPersistedData,
     isLoading: isLoadingPersistence,
+    loadFailed,
   } = useWizardPersistence<AnamnesisData>({
     key: 'anamnesis_wizard',
     initialData,
     assessmentId,
+    loadSubmitted: async () => {
+      const { data: row, error } = await supabase
+        .from('anamnesis_responses')
+        .select('*')
+        .eq('assessment_id', assessmentId)
+        .maybeSingle();
+      if (error) throw error;
+      return row ? fromSavedAnamnesis(row) : null;
+    },
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -196,30 +255,29 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
           return;
         }
 
-        // Pre-populate if profile has data and current data is empty
+        // Pre-populate if profile has data and current data is empty (checked against the latest data)
         if (profile) {
-          const updates: Partial<AnamnesisData> = {};
-          
-          if (profile.birth_date && !data.birthDate) {
-            updates.birthDate = new Date(profile.birth_date);
-          }
-          if (profile.laterality && !data.laterality) {
-            updates.laterality = profile.laterality as AnamnesisData['laterality'];
-          }
-          if (profile.weight_kg && !data.weightKg) {
-            updates.weightKg = String(profile.weight_kg);
-          }
-          if (profile.height_cm && !data.heightCm) {
-            updates.heightCm = String(profile.height_cm);
-          }
-          if (profile.occupation && !data.occupation) {
-            updates.occupation = profile.occupation;
-          }
+          baseUpdateData(prev => {
+            const updates: Partial<AnamnesisData> = {};
 
-          if (Object.keys(updates).length > 0) {
-            logger.debug('Pre-populating from profile', updates);
-            baseUpdateData(prev => ({ ...prev, ...updates }));
-          }
+            if (profile.birth_date && !prev.birthDate) {
+              updates.birthDate = new Date(profile.birth_date);
+            }
+            if (profile.laterality && !prev.laterality) {
+              updates.laterality = profile.laterality as AnamnesisData['laterality'];
+            }
+            if (profile.weight_kg && !prev.weightKg) {
+              updates.weightKg = String(profile.weight_kg);
+            }
+            if (profile.height_cm && !prev.heightCm) {
+              updates.heightCm = String(profile.height_cm);
+            }
+            if (profile.occupation && !prev.occupation) {
+              updates.occupation = profile.occupation;
+            }
+
+            return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
+          });
         }
       } catch (error) {
         logger.error('Error in fetchStudentData', error);
@@ -231,7 +289,7 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
     if (!isLoadingPersistence) {
       fetchStudentData();
     }
-  }, [assessmentId, resolvedStudentId, isLoadingPersistence]);
+  }, [assessmentId, resolvedStudentId, isLoadingPersistence, baseUpdateData]);
 
   const updateData = (updates: Partial<AnamnesisData>) => {
     baseUpdateData((prev) => {
@@ -259,6 +317,14 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
   };
 
   const handleSubmit = async () => {
+    if (loadFailed) {
+      toast({
+        variant: 'destructive',
+        title: 'Dados salvos não carregados',
+        description: 'Não foi possível carregar a anamnese já salva. Recarregue a página antes de concluir.',
+      });
+      return;
+    }
     if (!data.lgpdConsent) {
       toast({
         variant: 'destructive',
@@ -271,12 +337,8 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
     setIsSubmitting(true);
 
     try {
-      // Map new frequency format to numeric for DB compatibility
-      const frequencyMap: Record<string, number> = { '1-2x': 2, '3-4x': 4, '5+': 6 };
-      const durationMap: Record<string, number> = { '30-45min': 38, '45-60min': 52, '60-90min': 75 };
-
-      // Save anamnesis response
-      const { error } = await supabase.from('anamnesis_responses').insert({
+      // One anamnesis per assessment (unique key): resending after "Voltar" updates the saved one
+      const { error } = await supabase.from('anamnesis_responses').upsert({
         assessment_id: assessmentId,
         birth_date: toDateOnlyOrNull(data.birthDate),
         weight_kg: data.weightKg ? parseFloat(data.weightKg) : null,
@@ -299,7 +361,7 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
         time_horizon: data.timeHorizon || null,
         lgpd_consent: data.lgpdConsent,
         lgpd_consent_date: new Date().toISOString(),
-      });
+      }, { onConflict: 'assessment_id' });
 
       if (error) throw error;
 

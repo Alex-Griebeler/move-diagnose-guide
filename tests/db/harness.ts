@@ -13,7 +13,8 @@ export const ROLLBACK = REPO + '/supabase/rollbacks/20261101120000_bloco1_banco_
 const MIG = REPO + '/supabase/migrations';
 const FIXTURES = REPO + '/tests/db/fixtures';
 
-export async function makeDb({ withNew = true } = {}) {
+// skip: migrations left out by name (a later etapa tests the database without its own migration)
+export async function makeDb({ withNew = true, skip = [] as string[] } = {}) {
   const db = new PGlite();
   await db.exec(`CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;
 CREATE SCHEMA auth; CREATE SCHEMA storage; CREATE SCHEMA extensions;
@@ -32,7 +33,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon,authentica
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon,authenticated,service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon,authenticated,service_role;
 GRANT ALL ON storage.objects, storage.buckets TO anon,authenticated,service_role;`);
-  const files = fs.readdirSync(MIG).filter(f => f.endsWith('.sql')).sort().filter(f => withNew || f !== NEW_MIG);
+  const files = fs.readdirSync(MIG).filter(f => f.endsWith('.sql')).sort().filter(f => withNew || f !== NEW_MIG).filter(f => !skip.includes(f));
   for (const f of files) {
     try { await db.exec(fs.readFileSync(MIG + '/' + f, 'utf8')); }
     catch (e) { throw new Error(`MIGRATION_FAIL ${f}: ${(e as Error).message}`); }

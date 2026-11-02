@@ -1,9 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import { groupTestsByRegion, SegmentalTest } from '@/data/segmentalTestMappings';
@@ -16,6 +27,7 @@ import {
 } from '@/lib/testPrioritization';
 import { Anamnese } from '@/lib/priorityEngine';
 import { cn } from '@/lib/utils';
+import { splitSavedMedia } from '@/lib/savedMedia';
 
 interface SegmentalTestsWizardProps {
   assessmentId: string;
@@ -34,6 +46,8 @@ interface TestResult {
   unit: string;
   cutoffValue?: number;
   mediaUrls?: { photoUrl?: string; videoUrl?: string };
+  // Media of a submitted row whose file name is not this test's photo or video: written back as it was
+  extraMediaUrls?: string[];
 }
 
 interface WizardData {
@@ -44,10 +58,42 @@ const initialWizardData: WizardData = {
   testResults: {},
 };
 
+const emptyResult = (test: SegmentalTest): TestResult => ({
+  testId: test.id,
+  testName: test.name,
+  bodyRegion: test.bodyRegion,
+  leftValue: null,
+  rightValue: null,
+  passFailLeft: null,
+  passFailRight: null,
+  notes: '',
+  unit: test.unit,
+  cutoffValue: test.cutoffValue,
+});
+
+// Inverse of handleSubmit for one row (rows are matched to tests by name, the key they are saved under)
+function fromSavedRow(test: SegmentalTest, row: Tables<'segmental_test_results'>): TestResult {
+  // MediaUploader is called with testName = test.id and no viewType
+  const { slots, unmatched } = splitSavedMedia(row.media_urls, [test.id]);
+  return {
+    ...emptyResult(test),
+    bodyRegion: row.body_region,
+    leftValue: row.left_value,
+    rightValue: row.right_value,
+    passFailLeft: row.pass_fail_left,
+    passFailRight: row.pass_fail_right,
+    notes: row.notes ?? '',
+    unit: row.unit ?? test.unit,
+    cutoffValue: row.cutoff_value ?? test.cutoffValue,
+    ...(slots[test.id] ? { mediaUrls: slots[test.id] } : {}),
+    ...(unmatched.length > 0 ? { extraMediaUrls: unmatched } : {}),
+  };
+}
+
 export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTestsWizardProps) {
-  const prevAssessmentIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [confirmingIncomplete, setConfirmingIncomplete] = useState(false);
   const [prioritizationResult, setPrioritizationResult] = useState<TestPrioritizationResult | null>(null);
   const [detectedCompensations, setDetectedCompensations] = useState<string[]>([]);
   
@@ -58,6 +104,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     setCurrentStep,
     clearPersistedData,
     isLoading: isLoadingPersistence,
+    loadFailed,
   } = useWizardPersistence<WizardData>({
     key: 'segmental_tests_wizard',
     initialData: initialWizardData,
@@ -69,25 +116,12 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
   const { testResults } = wizardData;
 
-  useEffect(() => {
-    const savedAssessmentId = localStorage.getItem('segmentalTests_assessmentId');
-    
-    if (savedAssessmentId && savedAssessmentId !== assessmentId) {
-      clearPersistedData();
-      setCurrentStep(1);
-    }
-    
-    localStorage.setItem('segmentalTests_assessmentId', assessmentId);
-    prevAssessmentIdRef.current = assessmentId;
-  }, [assessmentId, clearPersistedData, setCurrentStep]);
-
-  useEffect(() => {
-    fetchGlobalTestResults();
-  }, [assessmentId]);
-
-  const fetchGlobalTestResults = async () => {
+  // Runs once the draft (if any) is in: tests the draft already has keep their values, the others come from
+  // the submitted rows or start empty. Merged into the latest data, so a draft that loads first is never
+  // overwritten by suggestions that arrive later.
+  const loadSuggestions = useCallback(async () => {
     try {
-      const [globalResultsResponse, anamnesisResponse] = await Promise.all([
+      const [globalResultsResponse, anamnesisResponse, savedResultsResponse] = await Promise.all([
         supabase
           .from('global_test_results')
           .select('*')
@@ -96,10 +130,17 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           .from('anamnesis_responses')
           .select('pain_history, sports, activity_types, sedentary_hours_per_day, sleep_quality, objectives')
           .eq('assessment_id', assessmentId)
-          .single(),
+          .maybeSingle(),
+        supabase
+          .from('segmental_test_results')
+          .select('*')
+          .eq('assessment_id', assessmentId),
       ]);
 
+      // Without any of these the suggestions or the saved results would be wrong: stop at the error screen
       if (globalResultsResponse.error) throw globalResultsResponse.error;
+      if (anamnesisResponse.error) throw anamnesisResponse.error;
+      if (savedResultsResponse.error) throw savedResultsResponse.error;
 
       const allCompensations: string[] = [];
       
@@ -133,35 +174,27 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
       setPrioritizationResult(result);
 
       const allTests = [...result.prioritizedTests, ...result.additionalTests].map(p => p.test);
-      if (Object.keys(testResults).length === 0) {
-        initializeResults(allTests);
-      }
+      const savedRows = savedResultsResponse.data ?? [];
+      updateData(prev => {
+        const testResults = { ...prev.testResults };
+        for (const test of allTests) {
+          if (testResults[test.id]) continue;
+          const row = savedRows.find(r => r.test_name === test.name);
+          testResults[test.id] = row ? fromSavedRow(test, row) : emptyResult(test);
+        }
+        return { ...prev, testResults };
+      });
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Erro ao carregar compensações detectadas');
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessmentId, updateData]);
 
-  const initializeResults = (tests: SegmentalTest[]) => {
-    const initialResults: Record<string, TestResult> = {};
-    tests.forEach(test => {
-      initialResults[test.id] = {
-        testId: test.id,
-        testName: test.name,
-        bodyRegion: test.bodyRegion,
-        leftValue: null,
-        rightValue: null,
-        passFailLeft: null,
-        passFailRight: null,
-        notes: '',
-        unit: test.unit,
-        cutoffValue: test.cutoffValue,
-      };
-    });
-    updateData({ testResults: initialResults });
-  };
+  useEffect(() => {
+    if (!isLoadingPersistence) loadSuggestions();
+  }, [isLoadingPersistence, loadSuggestions]);
 
   // Merged into the latest results, not into `testResults` from this render: the AI result arrives
   // after an await, through the callback of the render where the analysis started
@@ -191,10 +224,18 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     const urls: string[] = [];
     if (result.mediaUrls?.photoUrl) urls.push(result.mediaUrls.photoUrl);
     if (result.mediaUrls?.videoUrl) urls.push(result.mediaUrls.videoUrl);
-    return urls;
+    return [...urls, ...(result.extraMediaUrls ?? [])];
   };
 
   const handleSubmit = async () => {
+    setConfirmingIncomplete(false);
+    // The draft could not be read: concluding would delete it
+    if (loadFailed) {
+      toast.error('Dados salvos não carregados', {
+        description: 'Não foi possível carregar o rascunho dos testes. Recarregue a página antes de concluir.',
+      });
+      return;
+    }
     setSaving(true);
 
     try {
@@ -206,20 +247,20 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         right_value: result.rightValue,
         pass_fail_left: result.passFailLeft,
         pass_fail_right: result.passFailRight,
-        cutoff_value: result.cutoffValue || null,
+        cutoff_value: result.cutoffValue ?? null,
         unit: result.unit,
         notes: result.notes || null,
         media_urls: collectMediaUrls(result),
       }));
 
+      // One row per test of the assessment (unique key): resending after "Voltar" updates the rows already saved
       const { error } = await supabase
         .from('segmental_test_results')
-        .insert(resultsToInsert);
+        .upsert(resultsToInsert, { onConflict: 'assessment_id,test_name' });
 
       if (error) throw error;
 
       clearPersistedData();
-      localStorage.removeItem('segmentalTests_assessmentId');
       
       toast.success('Testes segmentados salvos com sucesso!');
       onComplete();
@@ -229,13 +270,6 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleSkip = () => {
-    clearPersistedData();
-    localStorage.removeItem('segmentalTests_assessmentId');
-    toast.info('Testes segmentados pulados');
-    onComplete();
   };
 
   const isTestCompleted = (testId: string): boolean => {
@@ -287,6 +321,13 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
   const progress = (currentStep / totalSteps) * 100;
   const groupedTests = groupTestsByRegion(suggestedTests);
   const completedCount = getCompletedCount();
+  const missingCount = suggestedTests.filter(test => !isTestCompleted(test.id)).length;
+
+  // Tests left without a result are saved empty, but only after the professional confirms
+  const handleConclude = () => {
+    if (missingCount > 0) setConfirmingIncomplete(true);
+    else handleSubmit();
+  };
 
   // Build steps array like global tests
   const steps = [
@@ -411,14 +452,15 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         )}
 
         {!isSummaryStep && (
-          <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
+          // "Pular" leaves this test without a result and moves on; nothing is erased
+          <Button variant="ghost" onClick={handleNext} className="text-muted-foreground">
             Pular
           </Button>
         )}
 
         {isSummaryStep ? (
           <Button
-            onClick={handleSubmit}
+            onClick={handleConclude}
             disabled={saving}
             className="bg-success hover:bg-success/90"
           >
@@ -438,6 +480,21 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
           </Button>
         )}
       </div>
+
+      <AlertDialog open={confirmingIncomplete} onOpenChange={setConfirmingIncomplete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {`${missingCount} ${missingCount === 1 ? 'teste' : 'testes'} sem resultado.`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>Concluir assim?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar aos testes</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSubmit}>Concluir assim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

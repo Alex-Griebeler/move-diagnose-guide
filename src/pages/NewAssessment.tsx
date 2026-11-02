@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,19 +71,13 @@ export default function NewAssessment() {
     }
   }, [user, role, loading, navigate]);
 
-  useEffect(() => {
-    if (user && step === 'select-student') {
-      fetchStudents();
-    }
-  }, [user, step]);
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async (professionalId: string) => {
     setIsLoadingStudents(true);
     try {
       const { data: links, error: linksError } = await supabase
         .from('professional_students')
         .select('student_id')
-        .eq('professional_id', user!.id);
+        .eq('professional_id', professionalId);
 
       if (linksError) throw linksError;
 
@@ -102,7 +96,13 @@ export default function NewAssessment() {
     } finally {
       setIsLoadingStudents(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user && step === 'select-student') {
+      fetchStudents(user.id);
+    }
+  }, [user, step, fetchStudents]);
 
   const createAssessment = async (studentId: string) => {
     setIsCreating(true);

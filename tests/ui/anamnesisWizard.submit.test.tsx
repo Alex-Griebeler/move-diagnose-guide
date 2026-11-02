@@ -10,7 +10,7 @@ const STUDENT_ID = '00000000-0000-0000-0000-000000000002';
 
 const h = vi.hoisted(() => ({
   overrides: {} as Record<string, unknown>,
-  inserts: [] as Array<Record<string, unknown>>,
+  saved: [] as Array<Record<string, unknown>>,
   profileUpdates: [] as Array<{ payload: Record<string, unknown>; id: unknown }>,
 }));
 
@@ -26,9 +26,10 @@ vi.mock('@/integrations/supabase/client', () => {
         },
       }),
     }),
-    insert: (row: Record<string, unknown>) => {
-      if (table !== 'anamnesis_responses') throw new Error(`insert inesperado em ${table}`);
-      h.inserts.push(row);
+    // The anamnesis is saved with upsert by assessment (etapa 3c)
+    upsert: (row: Record<string, unknown>) => {
+      if (table !== 'anamnesis_responses') throw new Error(`upsert inesperado em ${table}`);
+      h.saved.push(row);
       return Promise.resolve(ok);
     },
     update: (payload: Record<string, unknown>) => ({
@@ -61,7 +62,7 @@ vi.mock('@/hooks/useWizardPersistence', async () => {
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: () => {} }) }));
 
 beforeEach(() => {
-  h.inserts = [];
+  h.saved = [];
   h.profileUpdates = [];
 });
 afterEach(cleanup);
@@ -80,14 +81,14 @@ async function submit(birthDate: Date) {
 
 it('Invalid Date: grava birth_date null e não manda birth_date ao perfil', async () => {
   await submit(new Date(NaN));
-  expect(h.inserts).toHaveLength(1);
-  expect(h.inserts[0].birth_date).toBeNull();
+  expect(h.saved).toHaveLength(1);
+  expect(h.saved[0].birth_date).toBeNull();
   expect(h.profileUpdates).toStrictEqual([{ payload: { laterality: 'right' }, id: STUDENT_ID }]);
 });
 
 it('data válida: grava o mesmo dia de antes na anamnese e no perfil', async () => {
   await submit(new Date('1990-05-15T03:00:00.000Z'));
-  expect(h.inserts[0].birth_date).toBe('1990-05-15');
+  expect(h.saved[0].birth_date).toBe('1990-05-15');
   expect(h.profileUpdates).toStrictEqual([
     { payload: { birth_date: '1990-05-15', laterality: 'right' }, id: STUDENT_ID },
   ]);

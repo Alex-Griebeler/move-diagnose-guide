@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,16 +41,7 @@ export default function ContinueAssessment() {
     }
   }, [user, role, authLoading, navigate]);
 
-  useEffect(() => {
-    if (!assessmentId) {
-      navigate('/dashboard');
-      return;
-    }
-    detectCurrentStep();
-  }, [assessmentId]);
-
-  const detectCurrentStep = async () => {
-    if (!assessmentId) return;
+  const detectCurrentStep = useCallback(async (assessmentId: string) => {
     setLoading(true);
 
     try {
@@ -136,7 +127,15 @@ export default function ContinueAssessment() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate, toast]);
+
+  useEffect(() => {
+    if (!assessmentId) {
+      navigate('/dashboard');
+      return;
+    }
+    detectCurrentStep(assessmentId);
+  }, [assessmentId, navigate, detectCurrentStep]);
 
   const handleAnamnesisComplete = () => {
     toast({

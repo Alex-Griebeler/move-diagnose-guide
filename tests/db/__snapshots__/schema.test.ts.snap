@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`schema: policies, funções, triggers e RLS 1`] = `
+exports[`schema: policies, funções, triggers, RLS e unicidade 1`] = `
 {
   "functions": {
     "activate_threshold_profile(p_profile_id uuid)": "CREATE OR REPLACE FUNCTION public.activate_threshold_profile(p_profile_id uuid)
@@ -342,6 +342,15 @@ $function$
     "CREATE TRIGGER guard_quick_session_update BEFORE UPDATE ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION guard_quick_session_update()",
     "CREATE TRIGGER update_quick_protocol_sessions_updated_at BEFORE UPDATE ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
     "CREATE TRIGGER update_segmental_test_results_updated_at BEFORE UPDATE ON public.segmental_test_results FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+  ],
+  "uniques": [
+    "anamnesis_responses uq_anamnesis_responses_assessment UNIQUE (assessment_id)",
+    "assessment_drafts assessment_drafts_assessment_id_step_type_key UNIQUE (assessment_id, step_type)",
+    "global_test_results uq_global_test_results_assessment_test UNIQUE (assessment_id, test_name)",
+    "organization_members organization_members_organization_id_user_id_key UNIQUE (organization_id, user_id)",
+    "professional_students professional_students_professional_id_student_id_key UNIQUE (professional_id, student_id)",
+    "segmental_test_results uq_segmental_test_results_assessment_test UNIQUE (assessment_id, test_name)",
+    "user_roles user_roles_user_id_role_key UNIQUE (user_id, role)",
   ],
 }
 `;

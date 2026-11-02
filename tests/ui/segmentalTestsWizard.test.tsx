@@ -8,11 +8,12 @@ import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTest
 
 afterEach(cleanup);
 
-// Supabase falso: só as duas leituras que o wizard faz ao abrir.
+// Supabase falso: só as três leituras que o wizard faz ao abrir.
 vi.mock('@/integrations/supabase/client', () => {
   const results: Record<string, { data: unknown; error: null }> = {
     global_test_results: { data: [{ anterior_view: { compensations: ['compensacao_sintetica'] } }], error: null },
     anamnesis_responses: { data: null, error: null },
+    segmental_test_results: { data: [], error: null },
   };
   const query = (table: string) => {
     const result = Promise.resolve(results[table]);

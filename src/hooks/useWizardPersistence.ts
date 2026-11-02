@@ -10,6 +10,9 @@ interface WizardPersistenceOptions<T> {
   key: string;
   initialData: T;
   assessmentId: string;
+  // Without a draft, the step's already submitted data, if any (the draft is deleted on submit, so going back
+  // to a submitted step would otherwise open it empty)
+  loadSubmitted?: () => Promise<T | null>;
 }
 
 // Minimal data stored in localStorage (no sensitive clinical data)
@@ -20,14 +23,20 @@ interface LocalStorageMinimalState {
   hasDatabaseDraft: boolean;
 }
 
-export function useWizardPersistence<T>({ key, initialData, assessmentId }: WizardPersistenceOptions<T>) {
+export function useWizardPersistence<T>({ key, initialData, assessmentId, loadSubmitted }: WizardPersistenceOptions<T>) {
   const storageKey = `${key}_minimal_${assessmentId}`;
   const stepType = key.replace('_wizard', ''); // 'anamnesis', 'global_tests', 'segmental_tests'
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  // The saved data could not be read: submitting the form as it is would overwrite it
+  const [loadFailed, setLoadFailed] = useState(false);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncedDataRef = useRef<string>('');
+  const loadSubmittedRef = useRef(loadSubmitted);
+  loadSubmittedRef.current = loadSubmitted;
+  // Data loaded from the submitted rows is already saved: no draft for it until something changes
+  const submittedDataRef = useRef<T | null>(null);
   
   // State initialized from initialData - actual data comes from database
   const [data, setData] = useState<T>(initialData);
@@ -61,6 +70,7 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
 
         if (error) {
           logger.error('Error loading draft from database', error);
+          setLoadFailed(true);
           setIsLoading(false);
           return;
         }
@@ -85,9 +95,16 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
           localStorage.setItem(storageKey, JSON.stringify(minimalState));
           
           lastSyncedDataRef.current = JSON.stringify({ data: draftData, step: draft.current_step });
+        } else if (loadSubmittedRef.current) {
+          const submitted = await loadSubmittedRef.current();
+          if (submitted) {
+            submittedDataRef.current = submitted;
+            setData(submitted);
+          }
         }
       } catch (e) {
         logger.error('Error loading from database', e);
+        setLoadFailed(true);
       } finally {
         setIsLoading(false);
       }
@@ -98,6 +115,8 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
 
   // Sync to database with debounce
   const syncToDatabase = useCallback(async (dataToSync: T, stepToSync: number) => {
+    if (dataToSync === submittedDataRef.current) return;
+
     // Sanitize data before syncing (remove blob/data URLs)
     const sanitizedData = sanitizeMediaUrls(dataToSync) as T;
     const syncKey = JSON.stringify({ data: sanitizedData, step: stepToSync });
@@ -261,5 +280,6 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
     clearPersistedData,
     isLoading,
     isSyncing,
+    loadFailed,
   };
 }

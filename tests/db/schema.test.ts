@@ -6,7 +6,7 @@ import { makeDb } from './harness';
 type Row = Record<string, string | boolean>;
 const ws = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 
-it('schema: policies, funções, triggers e RLS', async () => {
+it('schema: policies, funções, triggers, RLS e unicidade', async () => {
   const { db } = await makeDb();
   const pol = await db.query<Row>(`select schemaname, tablename, policyname, cmd, roles::text roles, permissive, qual, with_check
     from pg_policies order by schemaname, tablename, policyname`);
@@ -17,11 +17,14 @@ it('schema: policies, funções, triggers e RLS', async () => {
   const rls = await db.query<Row>(`select n.nspname || '.' || c.relname tbl, c.relrowsecurity, c.relforcerowsecurity
     from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where c.relkind in ('r', 'p') and (n.nspname = 'public' or (n.nspname = 'storage' and c.relname = 'objects')) order by 1`);
+  const uniques = await db.query<Row>(`select conrelid::regclass::text tbl, conname, pg_get_constraintdef(oid) def
+    from pg_constraint where contype = 'u' and connamespace = 'public'::regnamespace order by 1, 2`);
   expect({
     policies: pol.rows.map(r => `${r.schemaname}.${r.tablename} "${r.policyname}" ${r.cmd} ${r.roles} ${r.permissive} USING ${ws(r.qual)} CHECK ${ws(r.with_check)}`),
     // Sem espaço no fim das linhas (o pg_get_functiondef preserva o do SQL original).
     functions: Object.fromEntries(fns.rows.map(r => [r.sig, String(r.def).replace(/[ \t]+$/gm, '')])),
     triggers: trg.rows.map(r => ws(r.def)),
     rls: rls.rows.map(r => `${r.tbl} rls=${r.relrowsecurity} force=${r.relforcerowsecurity}`),
+    uniques: uniques.rows.map(r => `${r.tbl} ${r.conname} ${r.def}`),
   }).toMatchSnapshot();
 });

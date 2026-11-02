@@ -62,3 +62,36 @@ it('F-01: grava a data como ISO no rascunho', async () => {
   await waitFor(() => expect(db.writes).toHaveLength(1), { timeout: 4000 });
   expect(db.writes[0]).toStrictEqual({ fullName: '', birthDate: '1990-05-15T03:00:00.000Z' });
 });
+
+const SUBMITTED: Anamnesis = { fullName: 'Aluno Enviado Sintético', birthDate: undefined };
+
+it('F-04: sem rascunho, abre com os dados já enviados e não grava rascunho deles', async () => {
+  const { result } = renderHook(() => useWizardPersistence<Anamnesis>({ ...props, loadSubmitted: async () => SUBMITTED }));
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toStrictEqual(SUBMITTED);
+  await new Promise((r) => setTimeout(r, 2500));
+  expect(db.writes).toHaveLength(0);
+  // Depois de uma mudança, o rascunho volta a ser gravado
+  act(() => result.current.updateData({ fullName: 'Alterado Sintético' }));
+  await waitFor(() => expect(db.writes).toHaveLength(1), { timeout: 4000 });
+  expect(db.writes[0]).toStrictEqual({ fullName: 'Alterado Sintético' });
+});
+
+it('F-04: com rascunho, os dados enviados nem são lidos', async () => {
+  db.draft = { draft_data: { fullName: 'Rascunho Sintético' }, current_step: 2 };
+  const loadSubmitted = vi.fn(async () => SUBMITTED);
+  const { result } = renderHook(() => useWizardPersistence<Anamnesis>({ ...props, loadSubmitted }));
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data.fullName).toBe('Rascunho Sintético');
+  expect(loadSubmitted).not.toHaveBeenCalled();
+});
+
+it('F-04: falha ao ler os dados enviados fica marcada (o envio não pode gravar por cima)', async () => {
+  const { result } = renderHook(() => useWizardPersistence<Anamnesis>({
+    ...props,
+    loadSubmitted: async () => { throw new Error('falha sintética de leitura'); },
+  }));
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.loadFailed).toBe(true);
+  expect(result.current.data).toStrictEqual(initialData);
+});

@@ -49,7 +49,8 @@ function booleanToResult(value: boolean | null): ResultStatus {
 export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: AutoSegmentalTestProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [mediaUrls, setMediaUrls] = useState<{ photoUrl?: string; videoUrl?: string }>({});
+  // Starts from what the result already has (draft or submitted row), so a new upload keeps the other file
+  const [mediaUrls, setMediaUrls] = useState<{ photoUrl?: string; videoUrl?: string }>(result?.mediaUrls ?? {});
   
   const { analyzeMovement } = useMovementAnalysis({
     onAnalysisComplete: (aiResult) => {
@@ -278,6 +279,8 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
         <MediaUploader
           assessmentId={assessmentId}
           testName={test.id}
+          initialPhotoUrl={result?.mediaUrls?.photoUrl}
+          initialVideoUrl={result?.mediaUrls?.videoUrl}
           onUploadComplete={handleMediaUpload}
           onAnalyze={handleAnalyze}
           isAnalyzing={isAnalyzing}

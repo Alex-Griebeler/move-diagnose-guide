@@ -4,11 +4,12 @@ import { ChevronLeft, ChevronRight, Check, AlertCircle, ShieldCheck, ShieldQuest
 import { useToast } from '@/hooks/use-toast';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
-import type { Json, TablesInsert } from '@/integrations/supabase/types';
+import type { Json, Tables, TablesInsert } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
+import { splitSavedMedia } from '@/lib/savedMedia';
 
 const logger = createLogger('GlobalTestsWizard');
 
@@ -32,6 +33,8 @@ interface AutoTestData {
   mediaUrls: Record<ViewType, { photoUrl?: string; videoUrl?: string }>;
   notes: string;
   evidenceMetadata?: Record<ViewType, EvidenceMetadata>;
+  // Media of a submitted row whose file name fits no view: written back as it was
+  extraMediaUrls?: string[];
 }
 
 export interface GlobalTestData {
@@ -51,6 +54,38 @@ const initialData: GlobalTestData = {
   sls: createEmptyAutoTestData(),
   pushup: createEmptyAutoTestData(),
 };
+
+const viewsByTest: Record<keyof GlobalTestData, ViewType[]> = {
+  ohs: ['anterior', 'lateral', 'posterior'],
+  sls: ['left_anterior', 'left_lateral', 'left_posterior', 'right_anterior', 'right_lateral', 'right_posterior'],
+  pushup: ['lateral', 'posterior'],
+};
+
+const asObject = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
+// Inverse of handleSubmit for one row: OHS and push-up keep each view in `<view>_view`; SLS keeps each side
+// in `left_side`/`right_side`, with the per-view lists under `anterior`/`lateral`/`posterior`
+function fromSavedRow(testType: keyof GlobalTestData, row: Tables<'global_test_results'>): AutoTestData {
+  const data = createEmptyAutoTestData();
+  const evidence: Partial<Record<ViewType, EvidenceMetadata>> = {};
+  for (const view of viewsByTest[testType]) {
+    const [side, position] = testType === 'sls' ? view.split('_') : [null, view];
+    const source = side ? asObject(row[`${side}_side` as 'left_side' | 'right_side']) : asObject(row[`${view}_view` as 'anterior_view' | 'lateral_view' | 'posterior_view']);
+    const list = side ? source[position] : source.compensations;
+    if (Array.isArray(list) && list.length > 0) data.compensations[view] = list.filter((c): c is string => typeof c === 'string');
+    const meta = side ? asObject(source.evidenceMetadata)[view] : source.evidenceMetadata;
+    if (meta && typeof meta === 'object') evidence[view] = meta as EvidenceMetadata;
+  }
+  if (Object.keys(evidence).length > 0) data.evidenceMetadata = evidence as Record<ViewType, EvidenceMetadata>;
+  // MediaUploader is called with testName `${testType}_${view}` and viewType `${view}`
+  const prefixes = viewsByTest[testType].map(view => `${testType}_${view}_${view}`);
+  const { slots, unmatched } = splitSavedMedia(row.media_urls, prefixes);
+  viewsByTest[testType].forEach((view, i) => { if (slots[prefixes[i]]) data.mediaUrls[view] = slots[prefixes[i]]; });
+  if (unmatched.length > 0) data.extraMediaUrls = unmatched;
+  data.notes = row.notes ?? '';
+  return data;
+}
 
 const steps = [
   { id: 1, title: 'Overhead Squat', shortTitle: 'OHS', icon: '🏋️' },
@@ -153,10 +188,25 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     setCurrentStep,
     clearPersistedData,
     isLoading: isLoadingPersistence,
+    loadFailed,
   } = useWizardPersistence<GlobalTestData>({
     key: 'global_tests_wizard',
     initialData,
     assessmentId,
+    loadSubmitted: async () => {
+      const { data: rows, error } = await supabase
+        .from('global_test_results')
+        .select('*')
+        .eq('assessment_id', assessmentId);
+      if (error) throw error;
+      if (!rows || rows.length === 0) return null;
+      const submitted: GlobalTestData = { ...initialData };
+      for (const testType of Object.keys(viewsByTest) as Array<keyof GlobalTestData>) {
+        const row = rows.find(r => r.test_name === testType);
+        if (row) submitted[testType] = fromSavedRow(testType, row);
+      }
+      return submitted;
+    },
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -184,7 +234,7 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
       if (media.photoUrl) urls.push(media.photoUrl);
       if (media.videoUrl) urls.push(media.videoUrl);
     });
-    return urls;
+    return [...urls, ...(testData.extraMediaUrls ?? [])];
   };
 
   const resilientUpsert = async (payload: TablesInsert<'global_test_results'>) => {
@@ -205,6 +255,14 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
   };
 
   const handleSubmit = async () => {
+    if (loadFailed) {
+      toast({
+        variant: 'destructive',
+        title: 'Dados salvos não carregados',
+        description: 'Não foi possível carregar os testes já salvos. Recarregue a página antes de concluir.',
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const legacyData = toLegacyFormat(data);

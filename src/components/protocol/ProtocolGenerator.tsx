@@ -1,55 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { toast } from 'sonner';
-import { 
-  Loader2, Sparkles, CheckCircle2, AlertCircle, 
+import {
+  Loader2, Sparkles, CheckCircle2, AlertCircle,
   Dumbbell, Target, Zap, Shield, Flame, RotateCcw, TrendingUp,
-  ShieldCheck, ShieldQuestion, ShieldAlert
+  ShieldCheck, ShieldQuestion, ShieldAlert, type LucideIcon
 } from 'lucide-react';
-import { 
+import {
   ohsAnteriorCompensations, ohsLateralCompensations, ohsPosteriorCompensations,
-  slsCompensations, pushupCompensations, CompensationMapping 
+  slsCompensations, pushupCompensations, CompensationMapping
 } from '@/data/compensationMappings';
-import { 
-  calcularPrioridades, 
-  formatarParaIA, 
+import {
+  calcularPrioridades,
+  formatarParaIA,
+  Anamnese,
   CompensacaoDetectada,
   PriorityEngineResult,
-  CausaPriorizada
 } from '@/lib/priorityEngine';
+import { logger } from '@/lib/logger';
+import { parseGeneratedProtocol, type Exercise, type GeneratedProtocol } from '@/lib/protocolResponse';
+import { buildProtocolSave } from '@/lib/protocolSave';
+import { PROTOCOL_DRAFT_STEP, cachedProtocol, canonicalJson, requestKey } from '@/lib/protocolCache';
 
 interface ProtocolGeneratorProps {
   assessmentId: string;
   onComplete: () => void;
 }
 
-interface Exercise {
-  name: string;
-  phase: string;
-  bodyRegion: string;
-  targetMuscles: string[];
-  sets: number;
-  reps: string;
-  instructions: string;
-  rationale: string;
-  priority: number;
+interface CompensationForAI {
+  id: string;
+  label: string;
+  testName: string;
+  view: string;
+  side?: string;
+  hyperactiveMuscles: string[];
+  hypoactiveMuscles: string[];
+  associatedInjuries: string[];
+  weightFactor: number;
 }
 
-interface GeneratedProtocol {
-  protocolName: string;
-  priorityLevel: string;
-  frequencyPerWeek: number;
-  durationWeeks: number;
-  summary: string;
-  exercises: Exercise[];
-}
-
-const phaseConfig: Record<string, { label: string; icon: any; color: string }> = {
+const phaseConfig: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   mobility: { label: 'Mobilidade', icon: RotateCcw, color: 'text-blue-500' },
   inhibition: { label: 'Inibição', icon: Target, color: 'text-purple-500' },
   activation: { label: 'Ativação', icon: Zap, color: 'text-yellow-500' },
@@ -96,6 +92,57 @@ interface EvidenceStats {
   reducedWeightCompensations: number;
 }
 
+const KNOWN_PHASES = new Set(Object.keys(phaseConfig));
+
+// Supabase errors are plain objects with a message, not Error instances
+const messageOf = (err: unknown, fallback: string) =>
+  err && typeof err === 'object' && 'message' in err && typeof err.message === 'string' && err.message ? err.message : fallback;
+
+// A generation in progress, by assessment and request: coming back to the step while it runs waits for
+// the same paid call instead of starting another one
+const inFlight = new Map<string, Promise<GeneratedProtocol>>();
+
+async function generateAndCache(assessmentId: string, body: Record<string, unknown>, key: string | null): Promise<GeneratedProtocol> {
+  const { data, error: fnError } = await supabase.functions.invoke('generate-protocol', { body });
+  if (fnError) throw fnError;
+  if (data?.error) throw new Error(data.error);
+  const generated = parseGeneratedProtocol(data?.protocol);
+  if (!generated) throw new Error('Resposta inválida do gerador de protocolo');
+  if (key) {
+    // A cache that fails to save only costs one more generation next time
+    try {
+      const { error: cacheError } = await supabase.from('assessment_drafts').upsert(
+        { assessment_id: assessmentId, step_type: PROTOCOL_DRAFT_STEP, draft_data: { inputKey: key, protocol: generated } as unknown as Json },
+        { onConflict: 'assessment_id,step_type' },
+      );
+      if (cacheError) logger.error('Error saving the generated protocol', cacheError);
+    } catch (cacheError) {
+      logger.error('Error saving the generated protocol', cacheError);
+    }
+  }
+  return generated;
+}
+
+function ExerciseItem({ exercise, showPhase = false }: { exercise: Exercise; showPhase?: boolean }) {
+  const muscles = exercise.targetMuscles.slice(0, 3).join(', ')
+    + (exercise.targetMuscles.length > 3 ? ` +${exercise.targetMuscles.length - 3}` : '');
+  return (
+    <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium">{exercise.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {[showPhase && `Fase: ${exercise.phase}`, exercise.bodyRegion, muscles].filter(Boolean).join(' • ')}
+          </p>
+        </div>
+        <Badge variant="outline">{exercise.sets}x{exercise.reps}</Badge>
+      </div>
+      <p className="text-sm">{exercise.instructions}</p>
+      <p className="text-xs text-muted-foreground italic">💡 {exercise.rationale}</p>
+    </div>
+  );
+}
+
 export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGeneratorProps) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -104,12 +151,15 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
   const [priorityResult, setPriorityResult] = useState<PriorityEngineResult | null>(null);
   const [evidenceStats, setEvidenceStats] = useState<EvidenceStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Only the latest load may update the screen: not one started before leaving the step, nor
+  // the first mount of StrictMode
+  const latestLoad = useRef(0);
 
-  useEffect(() => {
-    generateProtocol();
-  }, [assessmentId]);
-
-  const generateProtocol = async () => {
+  // force: "Regenerar Protocolo" always generates; otherwise the saved generation is shown while the
+  // request (tests, anamnesis and engine analysis) is the same
+  const loadProtocol = useCallback(async (force: boolean) => {
+    const load = ++latestLoad.current;
+    const isLatest = () => latestLoad.current === load;
     setLoading(true);
     setGenerating(true);
     setError(null);
@@ -123,10 +173,12 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
       if (globalResults.error) throw globalResults.error;
       if (segmentalResults.error) throw segmentalResults.error;
+      // Without the anamnesis the engine would drop the student's context
+      if (anamnesisData.error) throw anamnesisData.error;
 
       const allCompensationMappings = getAllCompensations();
       const compensacoesDetectadas: CompensacaoDetectada[] = [];
-      const compensationsForAI: any[] = [];
+      const compensationsForAI: CompensationForAI[] = [];
 
       // Evidence statistics tracking
       const stats: EvidenceStats = {
@@ -207,22 +259,19 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         });
       });
 
-      setEvidenceStats(stats);
-
       const anamnesis = anamnesisData.data ? {
         objectives: anamnesisData.data.objectives,
         timeHorizon: anamnesisData.data.time_horizon,
         activityFrequency: anamnesisData.data.activity_frequency,
         activityTypes: anamnesisData.data.activity_types as string[] | undefined,
-        sports: anamnesisData.data.sports as any[] | undefined,
-        painHistory: anamnesisData.data.pain_history as any[] | undefined,
+        sports: anamnesisData.data.sports as Anamnese['sports'],
+        painHistory: anamnesisData.data.pain_history as Anamnese['painHistory'],
         sleepQuality: anamnesisData.data.sleep_quality,
         sleepHours: anamnesisData.data.sleep_hours,
         sedentaryHoursPerDay: anamnesisData.data.sedentary_hours_per_day,
       } : {};
 
       const prioridadesCalculadas = calcularPrioridades(compensacoesDetectadas, anamnesis);
-      setPriorityResult(prioridadesCalculadas);
       const analiseIA = formatarParaIA(prioridadesCalculadas);
 
       const segmentalFormatted = segmentalResults.data?.map(s => ({
@@ -236,92 +285,79 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         cutoffValue: s.cutoff_value,
       })) || [];
 
-      const { data, error: fnError } = await supabase.functions.invoke('generate-protocol', {
-        body: {
-          compensations: compensationsForAI,
-          segmentalResults: segmentalFormatted,
-          anamnesis,
-          priorityAnalysis: analiseIA,
-          primaryIssues: prioridadesCalculadas.primaryIssues,
-          secondaryIssues: prioridadesCalculadas.secondaryIssues,
-        },
-      });
+      const body = {
+        compensations: compensationsForAI,
+        segmentalResults: segmentalFormatted,
+        anamnesis,
+        priorityAnalysis: analiseIA,
+        primaryIssues: prioridadesCalculadas.primaryIssues,
+        secondaryIssues: prioridadesCalculadas.secondaryIssues,
+      };
+      const key = await requestKey(body);
+      if (!isLatest()) return;
 
-      if (fnError) throw fnError;
-      if (data.error) throw new Error(data.error);
+      const flight = `${assessmentId}:${canonicalJson(body)}`;
+      let pending = inFlight.get(flight);
+      let generated: GeneratedProtocol | null = null;
+      if (!pending && !force) {
+        // Read only now: with no generation of this request running, one that ran has already saved its result
+        const savedDraft = await supabase.from('assessment_drafts').select('draft_data').eq('assessment_id', assessmentId)
+          .eq('step_type', PROTOCOL_DRAFT_STEP).maybeSingle();
+        if (!isLatest()) return;
+        if (savedDraft.error) logger.error('Error loading the generated protocol', savedDraft.error);
+        generated = cachedProtocol(savedDraft.data?.draft_data, key);
+        pending = inFlight.get(flight);
+      }
+      if (!generated) {
+        if (!pending) {
+          pending = generateAndCache(assessmentId, body, key).finally(() => inFlight.delete(flight));
+          inFlight.set(flight, pending);
+        }
+        generated = await pending;
+      }
+      if (!isLatest()) return;
 
-      setProtocol(data.protocol);
-    } catch (err: any) {
+      setEvidenceStats(stats);
+      setPriorityResult(prioridadesCalculadas);
+      setProtocol(generated);
+    } catch (err) {
+      if (!isLatest()) return;
       console.error('Error generating protocol:', err);
-      setError(err.message || 'Erro ao gerar protocolo');
+      setError(messageOf(err, 'Erro ao gerar protocolo'));
       toast.error('Erro ao gerar protocolo');
     } finally {
-      setLoading(false);
-      setGenerating(false);
+      if (isLatest()) {
+        setLoading(false);
+        setGenerating(false);
+      }
     }
-  };
+  }, [assessmentId]);
+
+  useEffect(() => {
+    loadProtocol(false);
+    return () => {
+      latestLoad.current += 1;
+    };
+  }, [loadProtocol]);
+
+  const unknownPhaseExercises = protocol?.exercises.filter(ex => !KNOWN_PHASES.has(ex.phase)) ?? [];
 
   const saveProtocol = async () => {
-    if (!protocol) return;
+    if (!protocol || unknownPhaseExercises.length > 0) return;
     setSaving(true);
     try {
-      const { error: protocolError } = await supabase.from('protocols').insert([{
-        assessment_id: assessmentId,
-        name: protocol.protocolName,
-        priority_level: protocol.priorityLevel as "critical" | "high" | "medium" | "low" | "maintenance",
-        frequency_per_week: protocol.frequencyPerWeek,
-        duration_weeks: protocol.durationWeeks,
-        phase: 1,
-        exercises: protocol.exercises as unknown as any,
-      }]);
-      if (protocolError) throw protocolError;
-
-      if (priorityResult) {
-        const findingsToInsert = priorityResult.primaryIssues.map(issue => ({
-          assessment_id: assessmentId,
-          classification_tag: issue.id,
-          body_region: getBodyRegionFromCausa(issue.id),
-          severity: getSeverityFromScore(issue.priorityScore) as "none" | "mild" | "moderate" | "severe",
-          hyperactive_muscles: issue.categoria === 'HYPER' ? [issue.label] : [],
-          hypoactive_muscles: issue.categoria === 'HYPO' ? [issue.label] : [],
-          priority_score: issue.priorityScore,
-          context_weight: issue.contextAdjustment,
-          biomechanical_importance: issue.baseWeight,
-        }));
-        if (findingsToInsert.length > 0) {
-          await supabase.from('functional_findings').insert(findingsToInsert);
-        }
-      }
-
-      const { error: assessmentError } = await supabase.from('assessments').update({ 
-        status: 'completed', completed_at: new Date().toISOString(),
-      }).eq('id', assessmentId);
-      if (assessmentError) throw assessmentError;
+      // Protocol, findings and completion in one transaction: all of it is saved, or nothing
+      const { error: saveError } = await supabase.rpc('save_assessment_protocol', buildProtocolSave(assessmentId, protocol, priorityResult));
+      if (saveError) throw saveError;
 
       toast.success('Protocolo salvo com sucesso!');
       onComplete();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving protocol:', err);
-      toast.error('Erro ao salvar protocolo');
+      toast.error('Erro ao salvar protocolo', { description: 'Nada foi gravado pela metade. Tente de novo.' });
     } finally {
       setSaving(false);
     }
-  };
-
-  const getBodyRegionFromCausa = (causaId: string): string => {
-    if (causaId.includes('glute') || causaId.includes('hip') || causaId.includes('tfl') || causaId.includes('piriformis')) return 'Quadril';
-    if (causaId.includes('ankle') || causaId.includes('dorsi') || causaId.includes('tib') || causaId.includes('calf') || causaId.includes('foot')) return 'Tornozelo/Pé';
-    if (causaId.includes('core') || causaId.includes('lumbar') || causaId.includes('spine')) return 'Core/Lombar';
-    if (causaId.includes('shoulder') || causaId.includes('scapula') || causaId.includes('serratus') || causaId.includes('trap') || causaId.includes('pec')) return 'Ombro/Escápula';
-    if (causaId.includes('neck') || causaId.includes('cervical')) return 'Cervical';
-    if (causaId.includes('knee') || causaId.includes('quad')) return 'Joelho';
-    return 'Geral';
-  };
-
-  const getSeverityFromScore = (score: number): string => {
-    if (score >= 6) return 'severe';
-    if (score >= 4) return 'moderate';
-    return 'mild';
   };
 
   const groupedExercises = protocol?.exercises.reduce((acc, ex) => {
@@ -355,7 +391,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
           <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Erro ao gerar protocolo</h3>
           <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={generateProtocol}>Tentar Novamente</Button>
+          <Button onClick={() => loadProtocol(false)}>Tentar Novamente</Button>
         </CardContent>
       </Card>
     );
@@ -367,7 +403,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         <CardContent className="py-12 text-center">
           <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Nenhum protocolo gerado</h3>
-          <Button onClick={generateProtocol}>Gerar Protocolo</Button>
+          <Button onClick={() => loadProtocol(false)}>Gerar Protocolo</Button>
         </CardContent>
       </Card>
     );
@@ -531,33 +567,41 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
             </CardHeader>
             <CardContent className="space-y-3">
               {exercises.map((exercise, idx) => (
-                <div key={idx} className="p-4 rounded-lg bg-muted/50 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{exercise.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {exercise.bodyRegion} • {exercise.targetMuscles.slice(0, 3).join(', ')}
-                        {exercise.targetMuscles.length > 3 && ` +${exercise.targetMuscles.length - 3}`}
-                      </p>
-                    </div>
-                    <Badge variant="outline">{exercise.sets}x{exercise.reps}</Badge>
-                  </div>
-                  <p className="text-sm">{exercise.instructions}</p>
-                  <p className="text-xs text-muted-foreground italic">💡 {exercise.rationale}</p>
-                </div>
+                <ExerciseItem key={idx} exercise={exercise} />
               ))}
             </CardContent>
           </Card>
         );
       })}
 
+      {/* Exercises whose phase the screen does not know: shown, and saving waits for a new generation */}
+      {unknownPhaseExercises.length > 0 && (
+        <Card className="border-destructive/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Fase não reconhecida
+              <Badge variant="secondary">{unknownPhaseExercises.length}</Badge>
+            </CardTitle>
+            <CardDescription className="text-destructive">
+              Estes exercícios vieram com uma fase que o protocolo não usa. Regenere o protocolo para poder salvar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {unknownPhaseExercises.map((exercise, idx) => (
+              <ExerciseItem key={idx} exercise={exercise} showPhase />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Actions */}
       <div className="flex justify-between gap-4">
-        <Button variant="outline" onClick={generateProtocol} disabled={generating}>
+        <Button variant="outline" onClick={() => loadProtocol(true)} disabled={generating}>
           {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Regenerar Protocolo
         </Button>
-        <Button onClick={saveProtocol} disabled={saving}>
+        <Button onClick={saveProtocol} disabled={saving || unknownPhaseExercises.length > 0}>
           {saving ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (

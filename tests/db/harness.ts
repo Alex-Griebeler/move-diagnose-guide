@@ -12,6 +12,10 @@ export const NEW_MIG = '20261101120000_bloco1_banco_acesso.sql';
 export const ROLLBACK = REPO + '/supabase/rollbacks/20261101120000_bloco1_banco_acesso_down.sql';
 const MIG = REPO + '/supabase/migrations';
 const FIXTURES = REPO + '/tests/db/fixtures';
+// Later migrations that change rules the bloco 1 replays check: since etapa 3d, protocols and findings
+// are written only through save_assessment_protocol. The bloco 1 replays and rollback run without them,
+// so they stay comparable with their reference outputs; each of these migrations has its own test.
+export const CHANGES_BLOCO1_RULES = ['20261103120000_etapa3d_gravacao_protocolo.sql'];
 
 // skip: migrations left out by name (a later etapa tests the database without its own migration)
 export async function makeDb({ withNew = true, skip = [] as string[] } = {}) {

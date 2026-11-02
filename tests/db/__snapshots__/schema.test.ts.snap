@@ -222,6 +222,97 @@ AS $function$
   )
 $function$
 ",
+    "save_assessment_protocol(_assessment_id uuid, _protocol jsonb, _findings jsonb)": "CREATE OR REPLACE FUNCTION public.save_assessment_protocol(_assessment_id uuid, _protocol jsonb, _findings jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _uid uuid := auth.uid();
+  _assessment record;
+  _protocol_id uuid;
+BEGIN
+  -- A forgotten argument must not become "no findings"
+  IF jsonb_typeof(_protocol) IS DISTINCT FROM 'object' OR jsonb_typeof(_findings) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'protocol must be an object and findings a list' USING ERRCODE = '22023';
+  END IF;
+
+  IF _uid IS NULL OR NOT public.has_role(_uid, 'professional'::public.app_role) THEN
+    RAISE EXCEPTION 'only a professional can save a protocol' USING ERRCODE = '42501';
+  END IF;
+
+  -- Serializes concurrent saves of the same assessment
+  SELECT a.professional_id, a.status INTO _assessment
+  FROM public.assessments a
+  WHERE a.id = _assessment_id
+  FOR UPDATE;
+
+  -- Someone else's assessment gets the same answer as a missing one
+  IF NOT FOUND OR _assessment.professional_id IS DISTINCT FROM _uid THEN
+    RAISE EXCEPTION 'assessment not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  -- A repeated save (second click, or a retry after a lost response) gets the saved protocol back
+  IF _assessment.status = 'completed' THEN
+    SELECT p.id INTO _protocol_id
+    FROM public.protocols p
+    WHERE p.assessment_id = _assessment_id;
+    IF _protocol_id IS NULL THEN
+      RAISE EXCEPTION 'completed assessment without a protocol' USING ERRCODE = '42501';
+    END IF;
+    RETURN _protocol_id;
+  END IF;
+
+  IF _assessment.status NOT IN ('draft', 'in_progress') THEN
+    RAISE EXCEPTION 'only an open assessment can be completed' USING ERRCODE = '42501';
+  END IF;
+
+  INSERT INTO public.protocols (
+    assessment_id, name, priority_level, frequency_per_week, duration_weeks, phase, exercises
+  )
+  VALUES (
+    _assessment_id,
+    _protocol->>'name',
+    (_protocol->>'priority_level')::public.priority_level,
+    (_protocol->>'frequency_per_week')::integer,
+    (_protocol->>'duration_weeks')::integer,
+    1,
+    COALESCE(_protocol->'exercises', '[]'::jsonb)
+  )
+  RETURNING id INTO _protocol_id;
+
+  INSERT INTO public.functional_findings (
+    assessment_id, classification_tag, body_region, severity, hyperactive_muscles, hypoactive_muscles,
+    priority_score, context_weight, biomechanical_importance
+  )
+  SELECT
+    _assessment_id, f.classification_tag, f.body_region, f.severity, COALESCE(f.hyperactive_muscles, '[]'::jsonb),
+    COALESCE(f.hypoactive_muscles, '[]'::jsonb), f.priority_score, f.context_weight, f.biomechanical_importance
+  FROM jsonb_to_recordset(_findings) AS f(
+    classification_tag text,
+    body_region text,
+    severity public.severity_level,
+    hyperactive_muscles jsonb,
+    hypoactive_muscles jsonb,
+    priority_score numeric,
+    context_weight integer,
+    biomechanical_importance integer
+  );
+
+  -- The cached generation (ProtocolGenerator) is no longer needed once the protocol is saved
+  DELETE FROM public.assessment_drafts
+  WHERE assessment_id = _assessment_id AND step_type = 'protocol';
+
+  -- What guard_assessment_update does for clients: the server sets the completion date
+  UPDATE public.assessments
+  SET status = 'completed', completed_at = now()
+  WHERE id = _assessment_id;
+
+  RETURN _protocol_id;
+END;
+$function$
+",
     "update_updated_at_column()": "CREATE OR REPLACE FUNCTION public.update_updated_at_column()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -260,9 +351,6 @@ $function$
     "public.exercises "Professionals can update own exercises" UPDATE {authenticated} PERMISSIVE USING (has_role(auth.uid(), 'professional'::app_role) AND (created_by = auth.uid())) CHECK (has_role(auth.uid(), 'professional'::app_role) AND (created_by = auth.uid()))",
     "public.exercises "Professionals can view exercises" SELECT {authenticated} PERMISSIVE USING has_role(auth.uid(), 'professional'::app_role) CHECK ",
     "public.functional_findings "Assessment participants can view findings" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = functional_findings.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
-    "public.functional_findings "Author can delete findings while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
-    "public.functional_findings "Author can insert findings while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
-    "public.functional_findings "Author can update findings while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
     "public.global_test_results "Assessment participants can view global results" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = global_test_results.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
     "public.global_test_results "Author can delete global results while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
     "public.global_test_results "Author can insert global results while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
@@ -282,9 +370,6 @@ $function$
     "public.progress_logs "Professionals can view student progress" SELECT {public} PERMISSIVE USING (EXISTS ( SELECT 1 FROM (protocols p JOIN assessments a ON ((a.id = p.assessment_id))) WHERE ((p.id = progress_logs.protocol_id) AND (a.professional_id = auth.uid())))) CHECK ",
     "public.progress_logs "Students can log their progress" ALL {authenticated} PERMISSIVE USING (student_id = auth.uid()) CHECK ((student_id = auth.uid()) AND (EXISTS ( SELECT 1 FROM (protocols p JOIN assessments a ON ((a.id = p.assessment_id))) WHERE ((p.id = progress_logs.protocol_id) AND (a.student_id = auth.uid())))))",
     "public.protocols "Assessment participants can view protocols" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = protocols.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
-    "public.protocols "Author can delete protocols while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
-    "public.protocols "Author can insert protocols while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
-    "public.protocols "Author can update protocols while open" UPDATE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK can_author_assessment(assessment_id)",
     "public.quick_protocol_sessions "Professionals can create quick protocol sessions" INSERT {authenticated} PERMISSIVE USING  CHECK ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'in_progress'::text) AND (EXISTS ( SELECT 1 FROM professional_students ps WHERE ((ps.professional_id = auth.uid()) AND (ps.student_id = quick_protocol_sessions.student_id)))) AND ((assessment_id IS NULL) OR (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = quick_protocol_sessions.assessment_id) AND (a.professional_id = auth.uid()) AND (a.student_id = quick_protocol_sessions.student_id) AND (a.status = ANY (ARRAY['completed'::assessment_status, 'archived'::assessment_status])))))))",
     "public.quick_protocol_sessions "Professionals can delete their quick protocol sessions" DELETE {authenticated} PERMISSIVE USING ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'in_progress'::text)) CHECK ",
     "public.quick_protocol_sessions "Professionals can update their quick protocol sessions" UPDATE {authenticated} PERMISSIVE USING ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'in_progress'::text)) CHECK ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = ANY (ARRAY['in_progress'::text, 'completed'::text])))",
@@ -349,6 +434,7 @@ $function$
     "global_test_results uq_global_test_results_assessment_test UNIQUE (assessment_id, test_name)",
     "organization_members organization_members_organization_id_user_id_key UNIQUE (organization_id, user_id)",
     "professional_students professional_students_professional_id_student_id_key UNIQUE (professional_id, student_id)",
+    "protocols uq_protocols_assessment UNIQUE (assessment_id)",
     "segmental_test_results uq_segmental_test_results_assessment_test UNIQUE (assessment_id, test_name)",
     "user_roles user_roles_user_id_role_key UNIQUE (user_id, role)",
   ],

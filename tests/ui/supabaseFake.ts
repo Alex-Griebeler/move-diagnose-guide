@@ -2,11 +2,13 @@
 // Awaiting the chain directly (lists) gives [] by default; maybeSingle/single give null.
 // A table can also be a function of the `eq` filters, to answer per assessment or to hold the answer back
 // (it may return a promise). If it throws, the query answers `{ data: null, error }`, as supabase-js does.
-// Read-only unless `writes` is given: then insert/update/upsert/delete are recorded there, with their options
-// and `eq` filters, and succeed; without it they throw, so a page test that should only read fails loudly if it writes.
+// Read-only unless `writes` is given: then insert/update/upsert/delete and rpc calls are recorded there, with
+// their options and `eq` filters, and succeed; without it they throw, so a page test that should only read
+// fails loudly if it writes. `fail` makes a write answer `{ data: null, error: { message } }` instead, by
+// "table.op" (for example "assessments.update") or "name.rpc"; the write is still recorded.
 export type RecordedWrite = {
   table: string;
-  op: 'insert' | 'update' | 'upsert' | 'delete';
+  op: 'insert' | 'update' | 'upsert' | 'delete' | 'rpc';
   payload?: unknown;
   options?: unknown;
   filters: Record<string, unknown>;
@@ -14,7 +16,7 @@ export type RecordedWrite = {
 
 export type TableFilters = Record<string, unknown>;
 
-export function createSupabaseFake(tables: Record<string, unknown>, writes?: RecordedWrite[]) {
+export function createSupabaseFake(tables: Record<string, unknown>, writes?: RecordedWrite[], fail: Record<string, string> = {}) {
   const chain = (filters: TableFilters, list: () => Promise<unknown>, single: () => Promise<unknown>) => {
     const query = {
       select: () => query,
@@ -38,17 +40,22 @@ export function createSupabaseFake(tables: Record<string, unknown>, writes?: Rec
       return { data: null, error };
     }
   };
+  const record = (table: string, op: RecordedWrite['op'], payload?: unknown, options?: unknown) => {
+    if (!writes) throw new Error(`escrita inesperada: ${op} em ${table}`);
+    const entry: RecordedWrite = { table, op, payload, options, filters: {} };
+    writes.push(entry);
+    const message = fail[`${table}.${op}`];
+    const result = () => Promise.resolve(message ? { data: null, error: { message } } : { data: null, error: null });
+    return { entry, result };
+  };
   const from = (table: string) => {
     const read = () => {
       const filters: TableFilters = {};
       return chain(filters, () => answer(table, filters, []), () => answer(table, filters, null));
     };
     const write = (op: RecordedWrite['op']) => (payload?: unknown, options?: unknown) => {
-      if (!writes) throw new Error(`escrita inesperada: ${op} em ${table}`);
-      const entry: RecordedWrite = { table, op, payload, options, filters: {} };
-      writes.push(entry);
-      const ok = () => Promise.resolve({ data: null, error: null });
-      return chain(entry.filters, ok, ok);
+      const { entry, result } = record(table, op, payload, options);
+      return chain(entry.filters, result, result);
     };
     return {
       ...read(),
@@ -59,5 +66,6 @@ export function createSupabaseFake(tables: Record<string, unknown>, writes?: Rec
       delete: write('delete'),
     };
   };
-  return { from };
+  const rpc = (name: string, args?: unknown) => record(name, 'rpc', args).result();
+  return { from, rpc };
 }

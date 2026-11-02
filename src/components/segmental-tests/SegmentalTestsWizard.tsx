@@ -163,13 +163,16 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
     updateData({ testResults: initialResults });
   };
 
+  // Merged into the latest results, not into `testResults` from this render: the AI result arrives
+  // after an await, through the callback of the render where the analysis started
   const handleTestResult = (testId: string, result: Partial<TestResult>) => {
-    updateData({
+    updateData(prev => ({
+      ...prev,
       testResults: {
-        ...testResults,
-        [testId]: { ...testResults[testId], ...result },
+        ...prev.testResults,
+        [testId]: { ...prev.testResults[testId], ...result },
       },
-    });
+    }));
   };
 
   const handleNext = () => {

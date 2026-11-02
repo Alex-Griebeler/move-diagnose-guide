@@ -52,7 +52,12 @@ vi.mock('@/hooks/useWizardPersistence', async () => {
     useWizardPersistence: <T,>({ initialData }: { initialData: T }) => {
       const [data, setData] = useState<T>(initialData);
       const [currentStep, setCurrentStep] = useState(1);
-      const updateData = useCallback((updates: Partial<T>) => setData((prev) => ({ ...prev, ...updates })), []);
+      // Same contract as the real hook: a partial object or an updater on the latest data
+      const updateData = useCallback(
+        (updates: Partial<T> | ((prev: T) => T)) =>
+          setData((prev) => (typeof updates === 'function' ? updates(prev) : { ...prev, ...updates })),
+        [],
+      );
       const clearPersistedData = useCallback(async () => {}, []);
       return { data, setData, updateData, currentStep, setCurrentStep, clearPersistedData, isLoading: false, isSyncing: false };
     },

@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Check, AlertCircle, ShieldCheck, ShieldQuest
 import { useToast } from '@/hooks/use-toast';
 import { useWizardPersistence } from '@/hooks/useWizardPersistence';
 import { supabase } from '@/integrations/supabase/client';
-import type { Json } from '@/integrations/supabase/types';
+import type { Json, TablesInsert } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -187,19 +187,19 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
     return urls;
   };
 
-  const resilientUpsert = async (payload: Record<string, unknown>) => {
+  const resilientUpsert = async (payload: TablesInsert<'global_test_results'>) => {
     const { error } = await supabase
       .from('global_test_results')
-      .upsert(payload as any, { onConflict: 'assessment_id,test_name' });
+      .upsert(payload, { onConflict: 'assessment_id,test_name' });
     if (error?.code === '42P10') {
       // Constraint not yet applied — fallback to delete + insert
       await supabase.from('global_test_results')
         .delete()
-        .eq('assessment_id', payload.assessment_id as string)
-        .eq('test_name', payload.test_name as string);
+        .eq('assessment_id', payload.assessment_id)
+        .eq('test_name', payload.test_name);
       const { error: insertErr } = await supabase
         .from('global_test_results')
-        .insert(payload as any);
+        .insert(payload);
       if (insertErr) throw insertErr;
     } else if (error) throw error;
   };
@@ -310,9 +310,10 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
 
   const renderStep = () => {
     switch (currentStep) {
-      case 1: return <AutoGlobalTest testType="ohs" assessmentId={assessmentId} data={data.ohs} onUpdate={(ohs) => updateData({ ohs })} />;
-      case 2: return <AutoGlobalTest testType="sls" assessmentId={assessmentId} data={data.sls} onUpdate={(sls) => updateData({ sls })} />;
-      case 3: return <AutoGlobalTest testType="pushup" assessmentId={assessmentId} data={data.pushup} onUpdate={(pushup) => updateData({ pushup })} />;
+      // onUpdate passes an updater, applied here to the latest wizard data (see AutoGlobalTestProps)
+      case 1: return <AutoGlobalTest testType="ohs" assessmentId={assessmentId} data={data.ohs} onUpdate={(update) => updateData(prev => ({ ...prev, ohs: update(prev.ohs) }))} />;
+      case 2: return <AutoGlobalTest testType="sls" assessmentId={assessmentId} data={data.sls} onUpdate={(update) => updateData(prev => ({ ...prev, sls: update(prev.sls) }))} />;
+      case 3: return <AutoGlobalTest testType="pushup" assessmentId={assessmentId} data={data.pushup} onUpdate={(update) => updateData(prev => ({ ...prev, pushup: update(prev.pushup) }))} />;
       case 4: return <TestSummary data={toLegacyFormat(data)} />;
       default: return null;
     }

@@ -10,6 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { validDate } from '@/lib/dateGuards';
 
 interface PersonalDataStepProps {
   data: AnamnesisData;
@@ -23,7 +24,9 @@ const lateralityOptions = [
 ];
 
 export function PersonalDataStep({ data, updateData }: PersonalDataStepProps) {
-  const [calendarMonth, setCalendarMonth] = useState<Date>(data.birthDate || new Date(1990, 0, 1));
+  // An Invalid Date would crash format() and leave the calendar without a month
+  const birthDate = validDate(data.birthDate);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(birthDate || new Date(1990, 0, 1));
   
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1920 + 1 }, (_, i) => currentYear - i);
@@ -85,12 +88,12 @@ export function PersonalDataStep({ data, updateData }: PersonalDataStepProps) {
                   variant="outline"
                   className={cn(
                     "w-full justify-start text-left font-normal h-11",
-                    !data.birthDate && "text-muted-foreground"
+                    !birthDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {data.birthDate ? (
-                    format(data.birthDate, "dd/MM/yyyy", { locale: ptBR })
+                  {birthDate ? (
+                    format(birthDate, "dd/MM/yyyy", { locale: ptBR })
                   ) : (
                     <span>Selecione a data</span>
                   )}
@@ -140,7 +143,7 @@ export function PersonalDataStep({ data, updateData }: PersonalDataStepProps) {
                   
                   <Calendar
                     mode="single"
-                    selected={data.birthDate}
+                    selected={birthDate}
                     onSelect={(date) => updateData({ birthDate: date })}
                     month={calendarMonth}
                     onMonthChange={setCalendarMonth}

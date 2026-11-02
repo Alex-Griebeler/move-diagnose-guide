@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeMediaUrls } from '@/lib/draftSanitizer';
+import { restoreDraftDate, sanitizeMediaUrls } from '@/lib/draftSanitizer';
 
 // Cópia literal da implementação que estava dentro de useWizardPersistence (main 9ecf185),
-// fora do useCallback. Serve de referência: a extração não pode mudar o resultado.
-// Quando a Etapa 3 mudar o comportamento de propósito (F-01), esta cópia muda junto.
+// fora do useCallback. Serve de referência: fora de Date, o resultado não pode mudar.
+// A única diferença intencional é Date (F-01, Etapa 3a), coberta no bloco "F-01" abaixo.
 function legacySanitizeMediaUrls(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'string') {
@@ -49,6 +49,9 @@ const syntheticDraft = {
   notes: '',
 };
 
+const { birthDate: syntheticBirthDate, ...syntheticDraftWithoutDate } = syntheticDraft;
+
+// Sem Date: aqui a implementação nova tem de ser idêntica à antiga.
 const corpus: Array<[string, unknown]> = [
   ['null na raiz', null],
   ['undefined na raiz', undefined],
@@ -66,10 +69,8 @@ const corpus: Array<[string, unknown]> = [
   ['objeto vazio', {}],
   ['array vazio', []],
   ['undefined dentro de array', [1, undefined, 'blob:x', null]],
-  ['Date na raiz', new Date('2020-01-01T00:00:00.000Z')],
-  ['Date aninhado', { a: { b: new Date('2020-01-01T00:00:00.000Z') } }],
   ['profundo', { a: [{ b: [{ c: 'data:x', d: 'ok' }] }] }],
-  ['rascunho sintético', syntheticDraft],
+  ['rascunho sintético sem data', syntheticDraftWithoutDate],
 ];
 
 describe('sanitizeMediaUrls: diferencial contra a implementação antiga', () => {
@@ -99,10 +100,56 @@ describe('sanitizeMediaUrls: comportamento', () => {
       .toStrictEqual({ n: 1, b: true, z: null, u: 'https://example.invalid' });
   });
 
-  it.todo('F-01: preservar Date no rascunho (Etapa 3)');
+});
 
-  // TEMPORÁRIO: documenta o defeito F-01 como ele é hoje. A Etapa 3 substitui este teste.
-  it('F-01 (atual, temporário): Date vira objeto vazio', () => {
-    expect(sanitizeMediaUrls(new Date('1990-05-17T00:00:00.000Z'))).toStrictEqual({});
+// F-01: antes, Date virava {} no rascunho e, na retomada, Invalid Date (a tela da anamnese caía).
+describe('F-01: datas no rascunho', () => {
+  const iso = '1990-05-17T00:00:00.000Z';
+
+  it('Date válido vira a ISO de toISOString, na raiz, aninhado e em array', () => {
+    expect(sanitizeMediaUrls(new Date(iso))).toBe(iso);
+    expect(sanitizeMediaUrls({ a: { b: new Date(iso) } })).toStrictEqual({ a: { b: iso } });
+    expect(sanitizeMediaUrls([new Date(iso), 'blob:x'])).toStrictEqual([iso, undefined]);
+  });
+
+  it('Date inválido some: undefined na raiz, chave ausente em objeto, null no JSON de array', () => {
+    expect(sanitizeMediaUrls(new Date(NaN))).toBeUndefined();
+    expect(sanitizeMediaUrls({ birthDate: new Date(NaN), n: 1 })).toStrictEqual({ n: 1 });
+    expect(JSON.stringify(sanitizeMediaUrls([new Date(NaN)]))).toBe('[null]');
+  });
+
+  it('rascunho sintético: igual à implementação antiga, mais a data em ISO', () => {
+    expect(sanitizeMediaUrls(syntheticDraft)).toStrictEqual({
+      ...(legacySanitizeMediaUrls(syntheticDraftWithoutDate) as Record<string, unknown>),
+      birthDate: syntheticBirthDate.toISOString(),
+    });
+  });
+
+  it.each([
+    ['meia-noite UTC (data vinda do perfil)', new Date('1990-05-15T00:00:00.000Z')],
+    ['meia-noite local (data escolhida no calendário)', new Date(1990, 4, 15)],
+  ])('ida e volta pelo banco preserva o instante: %s', (_name, date) => {
+    const stored = JSON.parse(JSON.stringify({ birthDate: sanitizeMediaUrls(date) }));
+    expect(restoreDraftDate(stored.birthDate)?.getTime()).toBe(date.getTime());
+  });
+
+  it('restoreDraftDate aceita a ISO gravada pelo sanitizador', () => {
+    const restored = restoreDraftDate('1990-05-15T03:00:00.000Z');
+    expect(restored).toBeInstanceOf(Date);
+    expect(restored?.toISOString()).toBe('1990-05-15T03:00:00.000Z');
+  });
+
+  it.each([
+    ['objeto vazio (rascunho já corrompido)', {}],
+    ['null', null],
+    ['undefined', undefined],
+    ['número', 42],
+    ['"0" (válido para new Date: ano 2000)', '0'],
+    ['texto qualquer', 'abc'],
+    ['data sem hora', '1990-05-15'],
+    ['mês 13', '2020-13-45T00:00:00.000Z'],
+    ['dia inexistente (new Date rolaria para 01/03)', '2020-02-30T00:00:00.000Z'],
+  ])('restoreDraftDate recusa %s', (_name, value) => {
+    expect(restoreDraftDate(value)).toBeUndefined();
   });
 });

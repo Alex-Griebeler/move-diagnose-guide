@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { createLogger } from '@/lib/logger';
-import { sanitizeMediaUrls } from '@/lib/draftSanitizer';
+import { restoreDraftDate, sanitizeMediaUrls } from '@/lib/draftSanitizer';
 
 const logger = createLogger('WizardPersistence');
 
@@ -67,9 +67,9 @@ export function useWizardPersistence<T>({ key, initialData, assessmentId }: Wiza
 
         if (draft && draft.draft_data) {
           const draftData = draft.draft_data as T;
-          // Handle date restoration
+          // Handle date restoration (invalid or corrupted values become undefined, never Invalid Date)
           if (typeof draftData === 'object' && draftData !== null && 'birthDate' in draftData) {
-            (draftData as Record<string, unknown>).birthDate = new Date((draftData as Record<string, unknown>).birthDate as string);
+            (draftData as Record<string, unknown>).birthDate = restoreDraftDate((draftData as Record<string, unknown>).birthDate);
           }
           
           setData(draftData);

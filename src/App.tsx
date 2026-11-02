@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { cleanupSensitiveLocalStorage } from "@/lib/localStorageMigration";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -23,27 +24,30 @@ cleanupSensitiveLocalStorage();
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/assessment/new" element={<NewAssessment />} />
-              <Route path="/assessment/continue" element={<ContinueAssessment />} />
-              <Route path="/quick-protocol" element={<QuickProtocol />} />
-              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    {/* Inside ThemeProvider so the fallback keeps the theme; last resort for render errors */}
+    <ErrorBoundary scope="app" variant="page">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/assessment/new" element={<NewAssessment />} />
+                <Route path="/assessment/continue" element={<ContinueAssessment />} />
+                <Route path="/quick-protocol" element={<QuickProtocol />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </ThemeProvider>
 );
 

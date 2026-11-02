@@ -383,7 +383,9 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             prioritizedTests={prioritizationResult?.prioritizedTests}
           />
         ) : currentTest ? (
+          // key: each test gets its own instance, so photo/analysis state never carries over to the next test
           <AutoSegmentalTest
+            key={currentTest.id}
             test={currentTest}
             assessmentId={assessmentId}
             result={testResults[currentTest.id]}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
+import { toDateOnlyOrNull } from '@/lib/dateGuards';
 
 // Step components
 import { PersonalDataStep } from './steps/PersonalDataStep';
@@ -277,7 +278,7 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
       // Save anamnesis response
       const { error } = await supabase.from('anamnesis_responses').insert({
         assessment_id: assessmentId,
-        birth_date: data.birthDate?.toISOString().split('T')[0] || null,
+        birth_date: toDateOnlyOrNull(data.birthDate),
         weight_kg: data.weightKg ? parseFloat(data.weightKg) : null,
         height_cm: data.heightCm ? parseFloat(data.heightCm) : null,
         laterality: data.laterality || null,
@@ -306,8 +307,9 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
       if (resolvedStudentId) {
         const profileUpdate: Record<string, unknown> = {};
         
-        if (data.birthDate) {
-          profileUpdate.birth_date = data.birthDate.toISOString().split('T')[0];
+        const birthDateOnly = toDateOnlyOrNull(data.birthDate);
+        if (birthDateOnly) {
+          profileUpdate.birth_date = birthDateOnly;
         }
         if (data.laterality) {
           profileUpdate.laterality = data.laterality;

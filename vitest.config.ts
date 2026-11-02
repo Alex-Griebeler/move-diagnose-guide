@@ -8,9 +8,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // vite.config.ts compiles JSX with plugin-react-swc; here esbuild needs the automatic runtime for .tsx tests.
+  esbuild: { jsx: "automatic" },
   test: {
+    // UI tests opt into jsdom per file (// @vitest-environment jsdom); the rest stays in Node.
     environment: "node",
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.{ts,tsx}"],
     // Each database test replays every migration in PGlite.
     testTimeout: 120_000,
     hookTimeout: 120_000,

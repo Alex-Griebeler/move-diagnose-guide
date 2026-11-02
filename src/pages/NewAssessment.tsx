@@ -10,7 +10,8 @@ import { SegmentalTestsWizard } from '@/components/segmental-tests/SegmentalTest
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
 import { AssessmentNavBar } from '@/components/assessment/AssessmentNavBar';
 import { StudentSearchList, type StudentItem } from '@/components/students/StudentSearchList';
-import { 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import {
   PageLayout, 
   PageContent,
   PageLoading 
@@ -47,7 +48,8 @@ export default function NewAssessment() {
     if (studentIdParam && assessmentIdParam) {
       setSelectedStudent({
         id: studentIdParam,
-        full_name: studentNameParam ? decodeURIComponent(studentNameParam) : 'Aluno',
+        // searchParams.get already decodes; decoding again throws on names with "%"
+        full_name: studentNameParam || 'Aluno',
         email: '',
       });
       setAssessmentId(assessmentIdParam);
@@ -218,46 +220,49 @@ export default function NewAssessment() {
       />
 
       <PageContent size="lg" className="py-8">
-        {step === 'select-student' && (
-          <StudentSearchList
-            students={students}
-            onSelect={handleSelectStudent}
-            isLoading={isLoadingStudents}
-            loadingId={selectingStudentId}
-            selectedId={selectedStudent?.id}
-            emptyMessage="Você ainda não tem alunos cadastrados."
-            emptySubMessage="Adicione alunos no dashboard para iniciar avaliações."
-          />
-        )}
+        {/* One boundary per step: key resets it when the step changes; the nav bar stays usable */}
+        <ErrorBoundary key={step} scope={`assessment:${step}`} variant="step">
+          {step === 'select-student' && (
+            <StudentSearchList
+              students={students}
+              onSelect={handleSelectStudent}
+              isLoading={isLoadingStudents}
+              loadingId={selectingStudentId}
+              selectedId={selectedStudent?.id}
+              emptyMessage="Você ainda não tem alunos cadastrados."
+              emptySubMessage="Adicione alunos no dashboard para iniciar avaliações."
+            />
+          )}
 
-        {step === 'anamnesis' && assessmentId && (
-          <AnamnesisWizard
-            assessmentId={assessmentId}
-            studentId={selectedStudent?.id}
-            onComplete={handleAnamnesisComplete}
-          />
-        )}
+          {step === 'anamnesis' && assessmentId && (
+            <AnamnesisWizard
+              assessmentId={assessmentId}
+              studentId={selectedStudent?.id}
+              onComplete={handleAnamnesisComplete}
+            />
+          )}
 
-        {step === 'global-tests' && assessmentId && (
-          <GlobalTestsWizard
-            assessmentId={assessmentId}
-            onComplete={handleGlobalTestsComplete}
-          />
-        )}
+          {step === 'global-tests' && assessmentId && (
+            <GlobalTestsWizard
+              assessmentId={assessmentId}
+              onComplete={handleGlobalTestsComplete}
+            />
+          )}
 
-        {step === 'segmental-tests' && assessmentId && (
-          <SegmentalTestsWizard
-            assessmentId={assessmentId}
-            onComplete={handleSegmentalTestsComplete}
-          />
-        )}
+          {step === 'segmental-tests' && assessmentId && (
+            <SegmentalTestsWizard
+              assessmentId={assessmentId}
+              onComplete={handleSegmentalTestsComplete}
+            />
+          )}
 
-        {step === 'protocol' && assessmentId && (
-          <ProtocolGenerator
-            assessmentId={assessmentId}
-            onComplete={handleProtocolComplete}
-          />
-        )}
+          {step === 'protocol' && assessmentId && (
+            <ProtocolGenerator
+              assessmentId={assessmentId}
+              onComplete={handleProtocolComplete}
+            />
+          )}
+        </ErrorBoundary>
       </PageContent>
     </PageLayout>
   );

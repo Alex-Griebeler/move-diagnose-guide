@@ -5,6 +5,7 @@
 // o MediaUploader (dois botões), a chamada da IA (promessa que o teste resolve) e o pipeline clínico
 // (qualidade ok, sem pose, fusão com uma compensação e o status que o teste escolhe).
 // A IA do protocolo não é chamada: o teste lê o corpo enviado a generate-protocol.
+// Passo 0: a análise só sugere. A compensação sugerida entra na vista quando o profissional toca nela.
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -76,13 +77,12 @@ vi.mock('@/lib/clinical/poseBiomechanics', () => ({
 vi.mock('@/lib/clinical/biomechanicalScoring', () => ({
   fuseEvidence: () => ({
     status: h.fusionStatus,
-    // Sempre com a compensação: no caso indeterminado, o que impede a aplicação é o status
-    autoApplyCompensations: [COMP],
+    // Sempre com a compensação sugerida; nenhum status a aplica
     indeterminateReasons: h.fusionStatus === 'ready' ? [] : ['motivo sintético'],
     evidenceMetadata: {
       status: h.fusionStatus, evidenceVersion: 'sintetica', thresholdSnapshot: {}, qualityScore: 0.9, qualityPassed: true,
       qualityIssues: h.fusionStatus === 'blocked_quality' ? ['low_brightness'] : [], aiConfidence: 0.8, poseConfidence: 0, biomechanicalScore: 0, detectedCompensations: [COMP],
-      autoAppliedCompensations: [COMP], objectiveAgreementScore: 0, objectiveFindings: [], objectiveMetrics: {},
+      autoAppliedCompensations: [], objectiveAgreementScore: 0, objectiveFindings: [], objectiveMetrics: {},
       indeterminateReasons: h.fusionStatus === 'ready' ? [] : ['motivo sintético'],
       computedAt: '2026-01-01T00:00:00.000Z', predictedCompensations: [COMP],
     },
@@ -156,6 +156,8 @@ const finishAnalysis = async () => {
   await act(async () => { h.ai!.resolve({ detected_compensations: [COMP], confidence: 0.8 }); });
 };
 
+const SUGGESTION_HINT = 'sugerida pela análise — toque para confirmar';
+
 const typeNotes = () =>
   fireEvent.change(screen.getByPlaceholderText(NOTES_PLACEHOLDER), { target: { value: 'observação sintética' } });
 
@@ -178,20 +180,61 @@ it('F-02: marcar e desmarcar uma compensação à mão funciona, é gravado e ch
   expect(body.compensations).toContainEqual(expect.objectContaining({ id: COMP, testName: 'ohs', view: 'Vista Anterior', weightFactor: 0.5 }));
 });
 
-it('F-02: a análise "pronta" grava a compensação e a evidência, e as duas chegam ao protocolo', async () => {
+it('passo 0: a análise "pronta" só sugere; tocar marca, e a compensação e a evidência chegam ao protocolo', async () => {
   await renderWizard();
   await startAnalysis();
   await finishAnalysis();
 
   await screen.findByText('Qualidade: 90%');
+  expect(screen.queryByText('1 selecionadas')).toBeNull();
+  screen.getByText(SUGGESTION_HINT);
+
+  fireEvent.click(screen.getByText(COMP_LABEL));
   screen.getByText('1 selecionadas');
+  expect(screen.queryByText(SUGGESTION_HINT)).toBeNull();
 
   const rows = await submit();
   expect(ohsRow(rows).anterior_view.compensations).toEqual([COMP]);
-  expect(ohsRow(rows).anterior_view.evidenceMetadata).toMatchObject({ status: 'ready', qualityScore: 0.9, aiConfidence: 0.8 });
+  expect(ohsRow(rows).anterior_view.evidenceMetadata).toMatchObject({
+    status: 'ready', qualityScore: 0.9, aiConfidence: 0.8, adjudicatedCompensations: [COMP], autoAppliedCompensations: [],
+  });
 
   const body = await protocolInput(rows);
   expect(body.compensations).toContainEqual(expect.objectContaining({ id: COMP, testName: 'ohs', view: 'Vista Anterior', weightFactor: 1 }));
+});
+
+it('passo 0: sem o toque, a sugestão não entra na vista nem no protocolo', async () => {
+  await renderWizard();
+  await startAnalysis();
+  await finishAnalysis();
+  await screen.findByText(SUGGESTION_HINT);
+
+  const rows = await submit();
+  expect(ohsRow(rows).anterior_view.compensations).toEqual([]);
+  expect(ohsRow(rows).anterior_view.evidenceMetadata).toMatchObject({ status: 'ready', predictedCompensations: [COMP], autoAppliedCompensations: [] });
+
+  const body = await protocolInput(rows);
+  expect(body.compensations.filter((c) => c.id === COMP)).toEqual([]);
+});
+
+it('passo 0: analisar de novo troca a evidência e mantém o que o profissional confirmou', async () => {
+  h.fusionStatus = 'indeterminate';
+  await renderWizard();
+  await startAnalysis();
+  await finishAnalysis();
+  await screen.findByText('motivo sintético');
+  fireEvent.click(screen.getByText(COMP_LABEL));
+
+  h.fusionStatus = 'ready';
+  h.ai = null;
+  await startAnalysis();
+  await finishAnalysis();
+  await waitFor(() => expect(screen.queryByText('motivo sintético')).toBeNull());
+  screen.getByText('1 selecionadas');
+
+  const row = ohsRow(await submit());
+  expect(row.anterior_view.compensations).toEqual([COMP]);
+  expect(row.anterior_view.evidenceMetadata).toMatchObject({ status: 'ready', adjudicatedCompensations: [COMP] });
 });
 
 it('F-02: o que muda durante a análise não é sobrescrito quando ela termina', async () => {
@@ -199,14 +242,17 @@ it('F-02: o que muda durante a análise não é sobrescrito quando ela termina',
   await startAnalysis();
 
   typeNotes();
+  fireEvent.click(screen.getByText(COMP_LABEL));
   await finishAnalysis();
 
   await screen.findByText('Qualidade: 90%');
   expect(screen.getByPlaceholderText(NOTES_PLACEHOLDER)).toHaveProperty('value', 'observação sintética');
+  screen.getByText('1 selecionadas');
 
   const row = ohsRow(await submit());
   expect(row.notes).toBe('observação sintética');
   expect(row.anterior_view.compensations).toEqual([COMP]);
+  expect(row.anterior_view.evidenceMetadata).toMatchObject({ status: 'ready', adjudicatedCompensations: [COMP] });
 });
 
 it('F-02: a análise "indeterminada" grava a evidência e não aplica compensações, como antes', async () => {

@@ -13,6 +13,10 @@ A CI (`.github/workflows/ci.yml`) roda os testes em toda PR e em todo push no `m
 - `protocolSave.test.ts` (Etapa 3d): `buildProtocolSave` (`src/lib/protocolSave.ts`) monta a chamada de `save_assessment_protocol` com o valor do motor de pesos. Um caso real dá peso de base 4 e de contexto 6, que só cabem nas faixas novas do banco (B-13).
 - `protocolResponse.test.ts` (Etapa 3d): `parseGeneratedProtocol` (`src/lib/protocolResponse.ts`) aceita a resposta do gerador, completa os campos opcionais e recusa as que a tela não consegue mostrar ou gravar.
 - `protocolCache.test.ts` (Etapa 3d): a chave do pedido (`src/lib/protocolCache.ts`) é a mesma para o mesmo pedido em qualquer ordem de chaves, e o protocolo guardado só volta com a mesma chave e se ainda passar na validação (F-15).
+- `poseFindings.test.ts` (passo 0): com a trava `POSE_OBJECTIVE_FINDINGS_ENABLED` desligada, nenhuma das 13 regras da pose devolve achado, nem com métricas que antes disparavam cada uma (o teste traz a regra antiga para provar). Vale também para regra nova ou limiar 0 vindos do `localStorage` ou do perfil do backend.
+- `fuseEvidence.test.ts` (passo 0): a fusão não aplica compensação em nenhuma combinação, não calcula concordância e não transforma achado da pose em sugestão. A pose continua conferindo a captura (timeout, quadros válidos, confiança). Sem pose comparável, achado da IA com confiança abaixo de 70% deixa a vista "indeterminate". O snapshot marca `poseObjectiveFindingsEnabled: false` nas três fontes de configuração, mesmo quando o perfil do backend troca a versão.
+- `segmentalCutoff.test.ts` (passo 0): `passesCutoff` e `cutoffLabel` (`src/data/segmentalTestMappings.ts`). Peitoral menor passa com até 2,5 cm, os outros testes com corte continuam "valor ≥ corte", e Thomas e Ober dizem na instrução o sinal do ângulo.
+- `thresholdSources.ts` é apoio, não teste: troca a fonte dos limiares clínicos (padrão, `localStorage` ou perfil do backend, com Supabase falso).
 
 ## `tests/ui/`: componentes e telas, em jsdom
 
@@ -24,13 +28,15 @@ Cada arquivo declara `// @vitest-environment jsdom` (o padrão continua Node) e 
 - `addStudentModal.route.test.tsx`: a URL do cadastro presencial abre a nova avaliação no `App` real, que tem a tabela de rotas real e páginas stub (F-08).
 - `assessmentPages.test.tsx`: um nome com `%` na URL não derruba as páginas de avaliação. A detecção da etapa e a lista de alunos rodam uma vez só (proteção dos ajustes de `exhaustive-deps` da 3c). O `useAuth` falso devolve sempre o mesmo usuário, como o real.
 - `errorBoundary.test.tsx`: aviso por etapa (zerado ao trocar de etapa) e aviso no `App`, que fica dentro do tema.
-- `globalTestsWizard.state.test.tsx`: nos globais, a marcação manual e a evidência da análise são gravadas e chegam à entrada do protocolo, e o que muda durante a análise não é sobrescrito (F-02). O `ProtocolGenerator` real lê as linhas gravadas; a IA do protocolo não é chamada.
-- `segmentalTestsWizard.state.test.tsx`: a análise bilateral quantitativa grava os dois lados, que chegam à entrada do protocolo (F-07).
+- `globalTestsWizard.state.test.tsx`: nos globais, a marcação manual e a evidência da análise são gravadas e chegam à entrada do protocolo, e o que muda durante a análise não é sobrescrito (F-02). O `ProtocolGenerator` real lê as linhas gravadas; a IA do protocolo não é chamada. Passo 0: a análise "pronta" só sugere; a compensação entra quando o profissional toca nela, e analisar de novo mantém o que ele confirmou.
+- `segmentalTestsWizard.state.test.tsx`: o resultado bilateral quantitativo grava os dois lados, que chegam à entrada do protocolo (F-07). Passo 0: o segmentar não oferece nem chama a IA; peitoral menor com 1,5 cm passa, e um rascunho com o booleano da regra antiga é regravado certo.
+- `quickProtocolV2.aiFallback.test.tsx` (passo 0, E8): no protocolo rápido de joelho, a IA que falha (em qualquer vista, ou com exceção) mostra um aviso e leva ao primeiro teste manual, sem chamar as vistas seguintes. Uma resposta sem compensações também leva aos testes; com compensações, aos testes confirmatórios, como antes.
 - `anamnesisWizard.reload.test.tsx`, `globalTestsWizard.reload.test.tsx` e `segmentalTestsWizard.flow.test.tsx` (Etapa 3c):
   - ao voltar a uma etapa já enviada, a tela mostra o que foi salvo, e reenviar regrava o mesmo conteúdo por `upsert` (F-04);
   - o rascunho continua valendo sobre o enviado;
   - se o salvo não puder ser lido, concluir não grava por cima dele;
-  - no segmentar, "Pular" não apaga nada e concluir com teste sem resultado pede confirmação (F-05); abrir outra avaliação antes não apaga o rascunho desta, e as sugestões que chegam depois não o sobrescrevem (F-06).
+  - no segmentar, "Pular" não apaga nada e concluir com teste sem resultado pede confirmação (F-05); abrir outra avaliação antes não apaga o rascunho desta, e as sugestões que chegam depois não o sobrescrevem (F-06);
+  - no segmentar (passo 0), o passa/falha gravado vem do valor contra o corte da linha salva, na direção do teste; sem teste conhecido, fica o booleano que veio.
 - `protocolGenerator.test.tsx` (Etapa 3d):
   - salvar faz uma chamada só a `save_assessment_protocol`, sem gravar direto nas tabelas; se ela falhar, nada fica gravado e dá para tentar de novo (B-13);
   - voltar à etapa com os mesmos testes reaproveita o protocolo guardado; mudar um teste, "Regenerar" ou um protocolo guardado inválido geram de novo; StrictMode, sair e voltar no meio da geração, uma geração que termina enquanto a etapa volta a carregar e duas cargas ao mesmo tempo não geram duas vezes; sair da etapa antes de gerar não gera, e trocar de avaliação não mostra resposta atrasada (F-15);

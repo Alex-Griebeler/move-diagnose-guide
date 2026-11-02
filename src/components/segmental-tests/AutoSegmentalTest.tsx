@@ -1,12 +1,10 @@
-import { useState, useCallback } from 'react';
-import { Sparkles, Loader2, Check, X, AlertTriangle, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
+import { useCallback } from 'react';
+import { Check, X, AlertTriangle, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { MediaUploader } from '@/components/media/MediaUploader';
-import { useMovementAnalysis, AnalysisResult } from '@/hooks/useMovementAnalysis';
-import { SegmentalTest } from '@/data/segmentalTestMappings';
+import { SegmentalTest, passesCutoff, cutoffLabel } from '@/data/segmentalTestMappings';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -46,79 +44,23 @@ function booleanToResult(value: boolean | null): ResultStatus {
   return null;
 }
 
+// Passo 0: no AI here. The professional types the value or picks the result; photo and video stay as a record.
 export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: AutoSegmentalTestProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  // Starts from what the result already has (draft or submitted row), so a new upload keeps the other file
-  const [mediaUrls, setMediaUrls] = useState<{ photoUrl?: string; videoUrl?: string }>(result?.mediaUrls ?? {});
-  
-  const { analyzeMovement } = useMovementAnalysis({
-    onAnalysisComplete: (aiResult) => {
-      setAnalysisResult(aiResult);
-      
-      if (test.resultType === 'qualitative') {
-        const leftResult = aiResult.left_result || aiResult.result;
-        const rightResult = aiResult.right_result || aiResult.result;
-        
-        onUpdate({
-          passFailLeft: resultToBoolean(leftResult as ResultStatus),
-          passFailRight: test.isBilateral ? resultToBoolean(rightResult as ResultStatus) : null,
-        });
-      } else {
-        // Both sides in a single update
-        const update: Partial<TestResult> = {};
-        if (aiResult.left_value !== undefined) {
-          update.leftValue = aiResult.left_value;
-          update.passFailLeft = test.cutoffValue !== undefined ? aiResult.left_value >= test.cutoffValue : null;
-        }
-        if (aiResult.right_value !== undefined && test.isBilateral) {
-          update.rightValue = aiResult.right_value;
-          update.passFailRight = test.cutoffValue !== undefined ? aiResult.right_value >= test.cutoffValue : null;
-        }
-        if (Object.keys(update).length > 0) onUpdate(update);
-      }
-    },
-  });
+  // The cutoff the row is saved with (catalog for a new result, the row's for a saved one); direction from the test
+  const cutoff = result.cutoffValue;
 
   const handleMediaUpload = useCallback((urls: { photoUrl?: string; videoUrl?: string }) => {
-    setMediaUrls(urls);
     onUpdate({ mediaUrls: urls });
   }, [onUpdate]);
-
-  const handleAnalyze = async () => {
-    if (!mediaUrls.photoUrl) return;
-    
-    setIsAnalyzing(true);
-    try {
-      await analyzeMovement({
-        testType: 'segmental',
-        testName: test.name,
-        imageUrl: mediaUrls.photoUrl,
-        videoUrl: mediaUrls.videoUrl,
-        cutoffValue: test.cutoffValue,
-        unit: test.unit,
-        resultType: test.resultType || 'qualitative',
-        isBilateral: test.isBilateral,
-        instructions: test.instructions,
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   const handleValueChange = (side: 'left' | 'right', value: string) => {
     const numValue = value === '' ? null : parseFloat(value);
     const valueKey = side === 'left' ? 'leftValue' : 'rightValue';
     const passKey = side === 'left' ? 'passFailLeft' : 'passFailRight';
-    
-    let passFail: boolean | null = null;
-    if (numValue !== null && test.cutoffValue !== undefined) {
-      passFail = numValue >= test.cutoffValue;
-    }
 
     onUpdate({
       [valueKey]: numValue,
-      [passKey]: passFail,
+      [passKey]: passesCutoff(numValue, cutoff, test.passWhen),
     });
   };
 
@@ -197,17 +139,17 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
               {test.unit}
             </span>
           </div>
-          {test.cutoffValue !== undefined && value !== null && (
+          {passesCutoff(value, cutoff, test.passWhen) !== null && (
             <div className={cn(
               'flex items-center gap-2 text-sm',
-              value >= test.cutoffValue ? 'text-success' : 'text-destructive'
+              passesCutoff(value, cutoff, test.passWhen) ? 'text-success' : 'text-destructive'
             )}>
-              {value >= test.cutoffValue ? (
+              {passesCutoff(value, cutoff, test.passWhen) ? (
                 <CheckCircle2 className="h-4 w-4" />
               ) : (
                 <XCircle className="h-4 w-4" />
               )}
-              {value >= test.cutoffValue ? 'Passa' : 'Falha'}
+              {passesCutoff(value, cutoff, test.passWhen) ? 'Passa' : 'Falha'}
             </div>
           )}
         </div>
@@ -257,19 +199,14 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 <p className="text-xs">{test.instructions}</p>
-                {test.cutoffValue !== undefined && (
+                {cutoff !== undefined && cutoff !== null && (
                   <p className="text-xs mt-1 text-muted-foreground">
-                    Cutoff: ≥{test.cutoffValue} {test.unit}
+                    Cutoff: {cutoffLabel(cutoff, test.unit, test.passWhen)}
                   </p>
                 )}
               </TooltipContent>
             </Tooltip>
           </div>
-          {analysisResult && (
-            <Badge variant="outline" className="text-[10px] h-5">
-              {Math.round((analysisResult.confidence || 0) * 100)}% confiança
-            </Badge>
-          )}
         </div>
 
         {/* Description */}
@@ -282,30 +219,8 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
           initialPhotoUrl={result?.mediaUrls?.photoUrl}
           initialVideoUrl={result?.mediaUrls?.videoUrl}
           onUploadComplete={handleMediaUpload}
-          onAnalyze={handleAnalyze}
-          isAnalyzing={isAnalyzing}
           embedded
         />
-
-        {/* AI Analysis Loading */}
-        {isAnalyzing && (
-          <div className="flex items-center justify-center py-3 gap-2 text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Analisando...</span>
-          </div>
-        )}
-
-        {/* AI Analysis Result */}
-        {analysisResult && !isAnalyzing && analysisResult.notes && (
-          <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
-            <div className="flex items-start gap-2">
-              <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground italic leading-relaxed">
-                {analysisResult.notes}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Result Inputs */}
         <div className="space-y-3">

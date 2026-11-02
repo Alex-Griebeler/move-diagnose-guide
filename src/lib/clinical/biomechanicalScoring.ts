@@ -3,7 +3,7 @@
 // v3 — Temporal guards, captureContext, predictedCompensations
 // ============================================
 
-import { getClinicalThresholds, getThresholdSnapshot } from './clinicalThresholds';
+import { getClinicalThresholds, getThresholdSnapshot, POSE_OBJECTIVE_FINDINGS_ENABLED } from './clinicalThresholds';
 import type {
   QualityResult,
   PoseResult,
@@ -20,6 +20,8 @@ import { compensacaoCausas } from '@/data/weightEngine';
 /**
  * Fuse AI analysis and objective pose findings into a single evidence package.
  * v3: accepts optional captureContext and modelInfo, enforces temporal guards.
+ * Passo 0: nothing is applied; findings are suggestions until the professional confirms them. With pose
+ * findings off, pose only checks the capture (confidence, frames), it gives no second opinion.
  */
 export function fuseEvidence(
   aiResult: AnalysisResult | null,
@@ -42,11 +44,13 @@ export function fuseEvidence(
   // 2. Extract findings from both sources
   const aiFindings = aiResult?.detected_compensations || [];
   const aiConfidence = aiResult?.confidence ?? 0;
-  const poseFindings = poseResult?.objectiveFindings || [];
+  // With pose findings off, nothing the pose result carries becomes a suggestion either
+  const poseFindings = POSE_OBJECTIVE_FINDINGS_ENABLED ? poseResult?.objectiveFindings || [] : [];
   const poseConfidence = poseResult?.poseConfidence ?? 0;
 
-  // 3. Compute agreement score (Jaccard index)
-  const objectiveAgreementScore = computeJaccardIndex(aiFindings, poseFindings);
+  // 3. Compute agreement score (Jaccard index), only when pose findings can be compared; 0 = not computed
+  const objectiveAvailable = !!poseResult && POSE_OBJECTIVE_FINDINGS_ENABLED;
+  const objectiveAgreementScore = objectiveAvailable ? computeJaccardIndex(aiFindings, poseFindings) : 0;
 
   // 4. Determine status
   let status: ViewReliabilityStatus = 'ready';
@@ -80,28 +84,19 @@ export function fuseEvidence(
     indeterminateReasons.push(`Confiança Pose baixa (${Math.round(poseConfidence * 100)}%)`);
   }
 
-  if (poseResult && objectiveAgreementScore < confidenceThresholds.minAgreementScore) {
+  if (objectiveAvailable && objectiveAgreementScore < confidenceThresholds.minAgreementScore) {
     status = 'indeterminate';
     indeterminateReasons.push(
       `Baixa concordância entre IA e análise objetiva (${Math.round(objectiveAgreementScore * 100)}%)`
     );
   }
 
-  // 5. Determine which compensations to auto-apply
-  let autoApplyCompensations: string[] = [];
-
-  if (status === 'ready') {
-    if (poseResult && objectiveAgreementScore >= confidenceThresholds.autoApplyThreshold) {
-      autoApplyCompensations = [...new Set([...aiFindings, ...poseFindings])];
-    } else if (!poseResult) {
-      autoApplyCompensations = aiConfidence >= confidenceThresholds.autoApplyThreshold ? aiFindings : [];
-      if (aiConfidence < confidenceThresholds.autoApplyThreshold && aiFindings.length > 0) {
-        status = 'indeterminate';
-        indeterminateReasons.push('Confiança insuficiente para auto-aplicação');
-      }
-    } else {
-      autoApplyCompensations = aiFindings.filter(f => poseFindings.includes(f));
-    }
+  // 5. Without a comparable pose, AI findings below the auto-apply confidence leave the view indeterminate
+  // (the rule that applied when there was no pose; nothing is applied any more)
+  if (status === 'ready' && !objectiveAvailable && aiFindings.length > 0 &&
+      aiConfidence < confidenceThresholds.autoApplyThreshold) {
+    status = 'indeterminate';
+    indeterminateReasons.push(`Confiança da IA abaixo de ${Math.round(confidenceThresholds.autoApplyThreshold * 100)}%`);
   }
 
   // 6. Compute biomechanical score
@@ -124,7 +119,7 @@ export function fuseEvidence(
     biomechanicalScore,
     detectedCompensations: allDetected, // deprecated alias
     predictedCompensations: allDetected,
-    autoAppliedCompensations: autoApplyCompensations,
+    autoAppliedCompensations: [],
     objectiveAgreementScore,
     objectiveFindings: poseFindings,
     objectiveMetrics: poseResult?.objectiveMetrics || {},
@@ -146,7 +141,6 @@ export function fuseEvidence(
     qualityScore: qualityResult.score,
     biomechanicalScore,
     objectiveAgreementScore,
-    autoApplyCompensations,
     indeterminateReasons,
     evidenceMetadata,
   };
@@ -156,14 +150,9 @@ export function fuseEvidence(
  * Check if evidence metadata exists on a view data object.
  */
 export function hasEvidenceMetadata(viewData: unknown): viewData is { evidenceMetadata: EvidenceMetadata } {
-  return (
-    viewData !== null &&
-    typeof viewData === 'object' &&
-    'evidenceMetadata' in viewData &&
-    typeof (viewData as any).evidenceMetadata === 'object' &&
-    (viewData as any).evidenceMetadata !== null &&
-    'status' in (viewData as any).evidenceMetadata
-  );
+  if (viewData === null || typeof viewData !== 'object' || !('evidenceMetadata' in viewData)) return false;
+  const evidence = (viewData as { evidenceMetadata: unknown }).evidenceMetadata;
+  return typeof evidence === 'object' && evidence !== null && 'status' in evidence;
 }
 
 /**
@@ -214,7 +203,6 @@ function buildBlockedResult(
     qualityScore: qualityResult.score,
     biomechanicalScore: 0,
     objectiveAgreementScore: 0,
-    autoApplyCompensations: [],
     indeterminateReasons: qualityResult.issues.map(i => i.label),
     evidenceMetadata,
   };

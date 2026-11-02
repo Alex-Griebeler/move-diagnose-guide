@@ -3,12 +3,14 @@
 // v3 — Added analyzeVideoTemporal with timeout fallback
 // ============================================
 
-import { getClinicalThresholds } from './clinicalThresholds';
+import { getClinicalThresholds, POSE_OBJECTIVE_FINDINGS_ENABLED } from './clinicalThresholds';
+import type { PoseObjectiveThresholds } from './clinicalThresholds';
 import type { PoseResult, MetricThreshold } from './types';
+import type { NormalizedLandmark, PoseLandmarker } from '@mediapipe/tasks-vision';
 
 // Type for the MediaPipe PoseLandmarker (lazy loaded)
-let poseLandmarkerInstance: any = null;
-let loadingPromise: Promise<any> | null = null;
+let poseLandmarkerInstance: PoseLandmarker | null = null;
+let loadingPromise: Promise<PoseLandmarker> | null = null;
 
 // MediaPipe landmark indices (BlazePose 33-point model)
 const LANDMARKS = {
@@ -26,7 +28,7 @@ const LANDMARKS = {
 /**
  * Lazy-load the MediaPipe PoseLandmarker model.
  */
-async function loadPoseModel(): Promise<any> {
+async function loadPoseModel(): Promise<PoseLandmarker> {
   if (poseLandmarkerInstance) return poseLandmarkerInstance;
   if (loadingPromise) return loadingPromise;
 
@@ -72,6 +74,31 @@ async function loadPoseModel(): Promise<any> {
 }
 
 /**
+ * Turn the metrics of one frame into findings with the pose rules of the test and view.
+ * No finding while POSE_OBJECTIVE_FINDINGS_ENABLED is false, whatever rules the config carries.
+ */
+export function evaluatePoseFindings(
+  metrics: Record<string, number>,
+  testType: 'overhead_squat' | 'single_leg_squat' | 'pushup',
+  viewType: string,
+  poseObjective: PoseObjectiveThresholds
+): string[] {
+  if (!POSE_OBJECTIVE_FINDINGS_ENABLED) return [];
+
+  const testKey = testType === 'overhead_squat' ? 'ohs' : testType === 'single_leg_squat' ? 'sls' : 'pushup';
+  const metricThresholds = poseObjective[testKey]?.[normalizeViewType(viewType)] as MetricThreshold[] | undefined;
+
+  const findings: string[] = [];
+  metricThresholds?.forEach(threshold => {
+    const value = metrics[threshold.metric];
+    if (value === undefined) return;
+    const flagged = threshold.direction === 'above' ? value > threshold.threshold : value < threshold.threshold;
+    if (flagged) findings.push(threshold.compensationId);
+  });
+  return findings;
+}
+
+/**
  * Analyze pose from an image/video frame and extract biomechanical metrics.
  */
 export async function analyzePose(
@@ -97,19 +124,7 @@ export async function analyzePose(
     }
 
     const objectiveMetrics = extractMetrics(landmarks, testType, viewType);
-    const normalizedView = normalizeViewType(viewType);
-    const testKey = testType === 'overhead_squat' ? 'ohs' : testType === 'single_leg_squat' ? 'sls' : 'pushup';
-    const metricThresholds = thresholds.poseObjective[testKey]?.[normalizedView] as MetricThreshold[] | undefined;
-
-    const objectiveFindings: string[] = [];
-    if (metricThresholds) {
-      metricThresholds.forEach(threshold => {
-        const value = objectiveMetrics[threshold.metric];
-        if (value === undefined) return;
-        const flagged = threshold.direction === 'above' ? value > threshold.threshold : value < threshold.threshold;
-        if (flagged) objectiveFindings.push(threshold.compensationId);
-      });
-    }
+    const objectiveFindings = evaluatePoseFindings(objectiveMetrics, testType, viewType, thresholds.poseObjective);
 
     return { poseConfidence, objectiveMetrics, objectiveFindings, landmarkCount: landmarks.length };
   } catch (error) {
@@ -157,7 +172,7 @@ export async function analyzeVideoTemporal(
 
     try {
       const canvas = await extractVideoFrame(video, seekTime, config.downscaleMaxWidth);
-      const frameResult = await analyzePose(canvas as any, testType, viewType);
+      const frameResult = await analyzePose(canvas, testType, viewType);
       frameResults.push(frameResult);
 
       if (frameResult.poseConfidence > 0) {
@@ -174,7 +189,7 @@ export async function analyzeVideoTemporal(
   if (timedOut && frameResults.length === 0) {
     try {
       const canvas = await extractVideoFrame(video, duration / 2, config.downscaleMaxWidth);
-      const singleResult = await analyzePose(canvas as any, testType, viewType);
+      const singleResult = await analyzePose(canvas, testType, viewType);
       return {
         ...singleResult,
         frameCountRequested: frameCount,
@@ -300,7 +315,7 @@ function computeTemporalStability(results: PoseResult[]): number {
 // Metric Extraction per Test/View
 // ============================================
 
-function extractMetrics(landmarks: any[], testType: string, viewType: string): Record<string, number> {
+function extractMetrics(landmarks: NormalizedLandmark[], testType: string, viewType: string): Record<string, number> {
   const metrics: Record<string, number> = {};
   const normalizedView = normalizeViewType(viewType);
 
@@ -313,7 +328,7 @@ function extractMetrics(landmarks: any[], testType: string, viewType: string): R
   return metrics;
 }
 
-function extractOHSMetrics(landmarks: any[], view: string, metrics: Record<string, number>): void {
+function extractOHSMetrics(landmarks: NormalizedLandmark[], view: string, metrics: Record<string, number>): void {
   switch (view) {
     case 'anterior': {
       const valgusL = computeAngle2D(landmarks[LANDMARKS.LEFT_HIP], landmarks[LANDMARKS.LEFT_KNEE], landmarks[LANDMARKS.LEFT_ANKLE], 'xz');
@@ -341,7 +356,7 @@ function extractOHSMetrics(landmarks: any[], view: string, metrics: Record<strin
   }
 }
 
-function extractSLSMetrics(landmarks: any[], view: string, metrics: Record<string, number>): void {
+function extractSLSMetrics(landmarks: NormalizedLandmark[], view: string, metrics: Record<string, number>): void {
   switch (view) {
     case 'anterior': {
       metrics.valgusProxy = computeAngle2D(landmarks[LANDMARKS.LEFT_HIP], landmarks[LANDMARKS.LEFT_KNEE], landmarks[LANDMARKS.LEFT_ANKLE], 'xz');
@@ -363,7 +378,7 @@ function extractSLSMetrics(landmarks: any[], view: string, metrics: Record<strin
   }
 }
 
-function extractPushupMetrics(landmarks: any[], view: string, metrics: Record<string, number>): void {
+function extractPushupMetrics(landmarks: NormalizedLandmark[], view: string, metrics: Record<string, number>): void {
   switch (view) {
     case 'lateral': {
       const shoulderY = landmarks[LANDMARKS.LEFT_SHOULDER].y;
@@ -413,7 +428,7 @@ function computeDeviationFromVertical(top: { x: number; y: number }, bottom: { x
   return Math.abs(Math.atan2(dx, -dy) * (180 / Math.PI));
 }
 
-function computePoseConfidence(landmarks: any[], visibilityThreshold: number): number {
+function computePoseConfidence(landmarks: NormalizedLandmark[], visibilityThreshold: number): number {
   if (!landmarks || landmarks.length === 0) return 0;
   let visibleCount = 0;
   const keyIndices = [

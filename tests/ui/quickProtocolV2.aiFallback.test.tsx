@@ -5,7 +5,7 @@
 // criada), o toast (registra o título), o MediaUploader (um botão por vista) e a IA (resposta escolhida por vista;
 // sem resposta, devolve null, como o hook real quando a chamada falha). Dados sintéticos.
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QuickProtocolWizardV2 } from '@/components/quick-protocol/QuickProtocolWizardV2';
 import { QuickProtocolMovementCapture } from '@/components/quick-protocol/QuickProtocolMovementCapture';
@@ -56,11 +56,16 @@ beforeEach(() => {
   h.responses = {};
   h.calls = [];
   h.toasts = [];
+  // A captura passa à vista seguinte depois de 500 ms; o teste avança esse tempo em vez de esperá-lo
+  vi.useFakeTimers({ shouldAdvanceTime: true });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const captureAllAndAnalyze = async () => {
-  for (const view of VIEWS) fireEvent.click(await screen.findByText(`enviar ${view}`));
+  for (const view of VIEWS) {
+    fireEvent.click(await screen.findByText(`enviar ${view}`));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+  }
   fireEvent.click(await screen.findByText('Analisar'));
 };
 
@@ -135,6 +140,18 @@ it('resposta válida sem compensações: o texto pede os testes, e "Continuar" v
   await screen.findByText(FIRST_MANUAL_TEST);
   expect(screen.queryByText(/Nenhum déficit significativo/)).toBeNull();
   expect(h.toasts).toEqual([]);
+});
+
+it('resposta válida sem confiança: a confiança mostrada é 0%, não 70%', async () => {
+  h.responses.anterior = { detected_compensations: [], confidence: 0 };
+  h.responses.lateral = { detected_compensations: [] };
+  h.responses.posterior = { confidence: 0 };
+  await startWizard();
+
+  expect((await screen.findByText(/^Confiança:/)).textContent).toBe('Confiança: 0%');
+  screen.getByText('A análise não sugeriu compensações.');
+  fireEvent.click(screen.getByText('Continuar'));
+  await screen.findByText(FIRST_MANUAL_TEST);
 });
 
 it('resposta com compensações: testes confirmatórios, como antes', async () => {

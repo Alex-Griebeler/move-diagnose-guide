@@ -134,7 +134,8 @@ export interface AutoGlobalTestProps {
     notes: string;
     evidenceMetadata?: Record<ViewType, EvidenceMetadata>;
   };
-  onUpdate: (data: AutoGlobalTestProps['data']) => void;
+  /** Receives an updater applied to the latest data, never a copy of the data from a past render. */
+  onUpdate: (update: (prev: AutoGlobalTestProps['data']) => AutoGlobalTestProps['data']) => void;
 }
 
 // ============================================
@@ -143,7 +144,7 @@ export interface AutoGlobalTestProps {
 export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoGlobalTestProps) {
   const config = TEST_CONFIGS[testType];
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
-  const [analysisResults, setAnalysisResults] = useState<Record<ViewType, AnalysisResult | null>>({} as any);
+  const [analysisResults, setAnalysisResults] = useState<Partial<Record<ViewType, AnalysisResult | null>>>({});
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => { setCurrentViewIndex(0); }, [testType]);
@@ -151,17 +152,15 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   const currentView = config?.views?.[currentViewIndex];
   const currentViewId = currentView?.id;
 
+  // Updates are built from `prev`, not from `data`: the analysis applies them after several awaits,
+  // and `data` from that render no longer holds what changed in the meantime.
   const handleMediaUpload = useCallback((viewId: ViewType, urls: { photoUrl?: string; videoUrl?: string }) => {
-    onUpdate({ ...data, mediaUrls: { ...data.mediaUrls, [viewId]: { ...data.mediaUrls[viewId], ...urls } } });
-  }, [data, onUpdate]);
-
-  const handleUpdateCompensations = useCallback((viewId: ViewType, compensations: string[]) => {
-    onUpdate({ ...data, compensations: { ...data.compensations, [viewId]: compensations } });
-  }, [data, onUpdate]);
+    onUpdate(prev => ({ ...prev, mediaUrls: { ...prev.mediaUrls, [viewId]: { ...prev.mediaUrls[viewId], ...urls } } }));
+  }, [onUpdate]);
 
   const handleUpdateEvidence = useCallback((viewId: ViewType, metadata: EvidenceMetadata) => {
-    onUpdate({ ...data, evidenceMetadata: { ...data.evidenceMetadata, [viewId]: metadata } });
-  }, [data, onUpdate]);
+    onUpdate(prev => ({ ...prev, evidenceMetadata: { ...prev.evidenceMetadata, [viewId]: metadata } }));
+  }, [onUpdate]);
 
   const { analyzeMovement, isAnalyzing } = useMovementAnalysis({
     onAnalysisComplete: (result) => {
@@ -354,15 +353,20 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
 
       // Step 4: Evidence Fusion (with captureContext)
       const fusionResult = fuseEvidence(aiResult, poseResult, qualityResult, captureContext);
-      handleUpdateEvidence(currentViewId, fusionResult.evidenceMetadata);
 
-      // Step 5: Apply compensations based on status
-      if (fusionResult.status === 'ready' && fusionResult.autoApplyCompensations.length > 0) {
-        const validCompensations = fusionResult.autoApplyCompensations.filter(id =>
-          currentView.compensations.some(c => c.id === id)
-        );
-        handleUpdateCompensations(currentViewId, validCompensations);
-      } else if (fusionResult.status === 'indeterminate') {
+      // Step 5: Apply compensations based on status, in the same update as the evidence
+      const applyCompensations = fusionResult.status === 'ready' && fusionResult.autoApplyCompensations.length > 0;
+      const validCompensations = fusionResult.autoApplyCompensations.filter(id =>
+        currentView.compensations.some(c => c.id === id)
+      );
+      onUpdate(prev => ({
+        ...prev,
+        evidenceMetadata: { ...prev.evidenceMetadata, [currentViewId]: fusionResult.evidenceMetadata },
+        compensations: applyCompensations
+          ? { ...prev.compensations, [currentViewId]: validCompensations }
+          : prev.compensations,
+      }));
+      if (fusionResult.status === 'indeterminate') {
         toast.warning('Evidência insuficiente para auto-aplicação — revise manualmente', {
           description: fusionResult.indeterminateReasons.join('; '),
         });
@@ -373,37 +377,49 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
   };
 
   const toggleCompensation = (compId: string) => {
-    const updated = currentCompensations.includes(compId)
-      ? currentCompensations.filter(c => c !== compId)
-      : [...currentCompensations, compId];
-    handleUpdateCompensations(currentView.id, updated);
+    const viewId = currentView.id;
+    // Read outside the updater, which stays pure (StrictMode runs it twice)
+    const evidenceVersion = getClinicalThresholds().evidenceVersion;
+    const thresholdSnapshot = getThresholdSnapshot();
+    const computedAt = new Date().toISOString();
+    // Compensations and evidence in one update: two updates from the same copy would cancel each other
+    onUpdate(prev => {
+      const current = prev.compensations[viewId] || [];
+      const updated = current.includes(compId)
+        ? current.filter(c => c !== compId)
+        : [...current, compId];
 
-    // Track adjudicated compensations in evidence metadata
-    const currentViewId = currentView.id;
-    const existing = data.evidenceMetadata?.[currentViewId];
-    const updatedEvidence: EvidenceMetadata = existing
-      ? { ...existing, adjudicatedCompensations: updated }
-      : {
-          status: 'indeterminate' as ViewReliabilityStatus,
-          evidenceVersion: getClinicalThresholds().evidenceVersion,
-          thresholdSnapshot: getThresholdSnapshot(),
-          qualityScore: 0,
-          qualityPassed: false,
-          qualityIssues: [],
-          aiConfidence: 0,
-          poseConfidence: 0,
-          biomechanicalScore: 0,
-          detectedCompensations: [],
-          autoAppliedCompensations: [],
-          objectiveAgreementScore: 0,
-          objectiveFindings: [],
-          objectiveMetrics: {},
-          indeterminateReasons: ['manual_selection_only'],
-          computedAt: new Date().toISOString(),
-          predictedCompensations: [],
-          adjudicatedCompensations: updated,
-        };
-    handleUpdateEvidence(currentViewId, updatedEvidence);
+      // Track adjudicated compensations in evidence metadata
+      const existing = prev.evidenceMetadata?.[viewId];
+      const updatedEvidence: EvidenceMetadata = existing
+        ? { ...existing, adjudicatedCompensations: updated }
+        : {
+            status: 'indeterminate' as ViewReliabilityStatus,
+            evidenceVersion,
+            thresholdSnapshot,
+            qualityScore: 0,
+            qualityPassed: false,
+            qualityIssues: [],
+            aiConfidence: 0,
+            poseConfidence: 0,
+            biomechanicalScore: 0,
+            detectedCompensations: [],
+            autoAppliedCompensations: [],
+            objectiveAgreementScore: 0,
+            objectiveFindings: [],
+            objectiveMetrics: {},
+            indeterminateReasons: ['manual_selection_only'],
+            computedAt,
+            predictedCompensations: [],
+            adjudicatedCompensations: updated,
+          };
+
+      return {
+        ...prev,
+        compensations: { ...prev.compensations, [viewId]: updated },
+        evidenceMetadata: { ...prev.evidenceMetadata, [viewId]: updatedEvidence },
+      };
+    });
   };
 
   // ============================================
@@ -639,7 +655,10 @@ export function AutoGlobalTest({ testType, assessmentId, data, onUpdate }: AutoG
           <Textarea
             placeholder="Anote detalhes relevantes..."
             value={data.notes}
-            onChange={(e) => onUpdate({ ...data, notes: e.target.value })}
+            onChange={(e) => {
+              const notes = e.target.value;
+              onUpdate(prev => ({ ...prev, notes }));
+            }}
             rows={2}
             className="text-sm resize-none"
           />

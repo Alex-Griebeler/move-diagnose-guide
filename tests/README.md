@@ -19,7 +19,9 @@ Cada arquivo declara `// @vitest-environment jsdom` (o padrão continua Node) e 
 - `addStudentModal.route.test.tsx`: a URL do cadastro presencial abre a nova avaliação no `App` real, que tem a tabela de rotas real e páginas stub (F-08).
 - `assessmentPages.test.tsx`: um nome com `%` na URL não derruba as páginas de avaliação.
 - `errorBoundary.test.tsx`: aviso por etapa (zerado ao trocar de etapa) e aviso no `App`, que fica dentro do tema.
-- `helpers.tsx` e `supabaseFake.ts` são apoio, não testes.
+- `globalTestsWizard.state.test.tsx`: nos globais, a marcação manual e a evidência da análise são gravadas e chegam à entrada do protocolo, e o que muda durante a análise não é sobrescrito (F-02). O `ProtocolGenerator` real lê as linhas gravadas; a IA do protocolo não é chamada.
+- `segmentalTestsWizard.state.test.tsx`: a análise bilateral quantitativa grava os dois lados, que chegam à entrada do protocolo (F-07).
+- `helpers.tsx` e `supabaseFake.ts` são apoio, não testes. O `supabaseFake` só aceita escrita quando o teste passa um array para registrá-la; sem ele, qualquer escrita lança.
 
 ## `tests/db/`: banco em PGlite
 

@@ -64,18 +64,17 @@ export function AutoSegmentalTest({ test, assessmentId, result, onUpdate }: Auto
           passFailRight: test.isBilateral ? resultToBoolean(rightResult as ResultStatus) : null,
         });
       } else {
+        // Both sides in a single update
+        const update: Partial<TestResult> = {};
         if (aiResult.left_value !== undefined) {
-          onUpdate({
-            leftValue: aiResult.left_value,
-            passFailLeft: test.cutoffValue !== undefined ? aiResult.left_value >= test.cutoffValue : null,
-          });
+          update.leftValue = aiResult.left_value;
+          update.passFailLeft = test.cutoffValue !== undefined ? aiResult.left_value >= test.cutoffValue : null;
         }
         if (aiResult.right_value !== undefined && test.isBilateral) {
-          onUpdate({
-            rightValue: aiResult.right_value,
-            passFailRight: test.cutoffValue !== undefined ? aiResult.right_value >= test.cutoffValue : null,
-          });
+          update.rightValue = aiResult.right_value;
+          update.passFailRight = test.cutoffValue !== undefined ? aiResult.right_value >= test.cutoffValue : null;
         }
+        if (Object.keys(update).length > 0) onUpdate(update);
       }
     },
   });

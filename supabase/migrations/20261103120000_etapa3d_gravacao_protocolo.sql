@@ -14,6 +14,20 @@ BEGIN
   END IF;
 END $$;
 
+-- Precondition: no open assessment has a protocol yet. The old screen saved the protocol before completing
+-- the assessment; a failure in between left it open with its protocol, and save_assessment_protocol would
+-- hit uq_protocols_assessment on every attempt. Completing or discarding it is the owner's call.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.protocols p
+    JOIN public.assessments a ON a.id = p.assessment_id
+    WHERE a.status IN ('draft', 'in_progress')
+  ) THEN
+    RAISE EXCEPTION 'etapa 3d: avaliação aberta que já tem protocolo; resolver antes de aplicar';
+  END IF;
+END $$;
+
 -- B-13: the engine's base weight goes up to 4 and the sum of its context adjustments up to 6
 -- (tests/domain/findingsContract.test.ts keeps the engine inside these bounds). Every existing row
 -- fits, since both ranges only widen.

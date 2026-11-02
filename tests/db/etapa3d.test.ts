@@ -99,6 +99,30 @@ describe('a migration', () => {
     expect(await value(db, `select count(*) from pg_policies where tablename in ('protocols','functional_findings') and cmd <> 'SELECT'`)).toBe(6);
   });
 
+  // A tela antiga gravava o protocolo antes de concluir: uma falha entre os dois deixava a avaliação aberta com
+  // protocolo, e a função bateria na unicidade a cada tentativa. A concluída com protocolo é o caso normal.
+  it('com avaliação aberta que já tem protocolo, aborta sem mudar nada; a concluída com protocolo não impede', async () => {
+    const { db } = await makeDb({ skip: [MIGRATION] });
+    await seed(db);
+    await as(db, P1);
+    await db.query(directProtocol(A));
+    await sys(db);
+    await db.exec(`INSERT INTO assessments(id,professional_id,student_id,status) VALUES ('${A_DONE}','${P1}','${S1}','in_progress');
+${directProtocol(A_DONE)}; UPDATE assessments SET status='completed' WHERE id='${A_DONE}';`);
+    let error = '';
+    try { await db.exec(`BEGIN;\n${MIGRATION_SQL}\nCOMMIT;`); } catch (e) { error = (e as Error).message; await db.exec('ROLLBACK'); }
+    expect(error).toMatch(/aberta que já tem protocolo/);
+    expect(await value(db, `select count(*) from protocols`)).toBe(2);
+    expect(await value(db, `select count(*) from pg_proc where proname='save_assessment_protocol'`)).toBe(0);
+    expect(await value(db, `select count(*) from pg_policies where tablename in ('protocols','functional_findings') and cmd <> 'SELECT'`)).toBe(6);
+    // Resolvida a aberta (aqui, sem o protocolo), a migration aplica com a concluída no lugar
+    await sys(db);
+    await db.exec(`DELETE FROM protocols WHERE assessment_id='${A}'`);
+    await db.exec(`BEGIN;\n${MIGRATION_SQL}\nCOMMIT;`);
+    expect(await value(db, `select count(*) from pg_proc where proname='save_assessment_protocol'`)).toBe(1);
+    expect(await value(db, `select count(*) from protocols where assessment_id='${A_DONE}'`)).toBe(1);
+  });
+
   // Um nome diferente em produção, ou uma policy de escrita fora das 6, deixaria a escrita direta aberta
   it('com outra policy de escrita nas filhas, aborta sem mudar nada', async () => {
     const { db } = await makeDb({ skip: [MIGRATION] });
@@ -149,7 +173,7 @@ describe('a migration', () => {
   });
 
   // Sem policy de DELETE nas filhas: a cascata da chave estrangeira não passa pela RLS.
-  // Uma avaliação aberta com protocolo (de antes da 3d) ainda pode ser apagada pelo autor.
+  // Uma avaliação aberta com protocolo (depois da 3d, só quem ignora a RLS a cria) ainda pode ser apagada pelo autor.
   it('o autor ainda apaga a avaliação aberta, e o protocolo e os achados vão junto', async () => {
     const { db } = await makeDb();
     await seed(db);
@@ -163,6 +187,7 @@ describe('a migration', () => {
       + (select count(*) from functional_findings where assessment_id='${A}') as n`)).toBe(0);
   });
 
+  // A avaliação aberta com protocolo aqui vem do service_role: a pré-condição impede que ela exista antes da 3d
   it('um protocolo por avaliação, também para quem ignora a RLS', async () => {
     const { db } = await makeDb();
     await seed(db);

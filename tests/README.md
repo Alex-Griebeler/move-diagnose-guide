@@ -53,7 +53,7 @@ Cada arquivo declara `// @vitest-environment jsdom` (o padrão continua Node) e 
   - grava protocolo, achados e conclusão juntos, ou nada; repetir devolve o mesmo protocolo;
   - só o profissional dono de uma avaliação aberta consegue; os outros recebem o mesmo erro;
   - ninguém grava direto em `protocols` nem em `functional_findings`; o autor ainda apaga a avaliação aberta, com o que estiver nela;
-  - com protocolo duplicado, peso fora da faixa nova ou outra policy de escrita, a migration aborta sem mudar nada;
+  - com protocolo duplicado, avaliação aberta que já tem protocolo ou outra policy de escrita, a migration aborta sem mudar nada; depois dela, a faixa aceita peso 4 e contexto 6 e recusa 5 e 7;
   - o rollback volta o schema ao de antes e aborta se já houver peso fora da faixa antiga.
 - `schema.test.ts`: retrato das policies, funções, triggers, RLS e constraints UNIQUE. Toda migration nova muda o arquivo `__snapshots__/schema.test.ts.snap`. Rode `bun x vitest run -u tests/db/schema.test.ts` e revise o diff do snapshot na PR.
 

@@ -236,7 +236,9 @@ it('F-15: sair da etapa enquanto ela lê o guardado não gera', async () => {
   await waitFor(() => expect(draftReads).toBe(1));
   view.unmount();
   release();
-  await new Promise(resolve => setTimeout(resolve, 20));
+  // A chave já foi calculada antes da leitura: daqui até decidir gerar, a carga desmontada só tem microtarefas,
+  // e todas rodam antes da próxima macrotarefa. Não é espera por tempo.
+  await new Promise(resolve => setTimeout(resolve, 0));
   expect(generations()).toBe(0);
 });
 

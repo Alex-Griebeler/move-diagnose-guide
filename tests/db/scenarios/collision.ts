@@ -1,9 +1,10 @@
 // Ids repetidos entre avaliação e sessão rápida (a pasta da mídia tem o nome do id):
 // a migration recusa uma base que já tenha repetição, e nem o service_role cria uma nova.
 // Portado de codex-review/bloco1-banco-acesso/replay/collision.mjs (ver tests/README.md).
-// O corpo não foi reindentado, para ficar idêntico ao original.
+// O corpo não foi reindentado, para ficar idêntico ao original; só o makeDb deixa de fora
+// as migrations que mudam regras do bloco 1 (CHANGES_BLOCO1_RULES, ver harness.ts).
 import fs from 'node:fs';
-import { makeDb, asService, sys, allow, denyErr, summary, REPO, NEW_MIG, note, manualFail } from '../harness';
+import { makeDb, CHANGES_BLOCO1_RULES, asService, sys, allow, denyErr, summary, REPO, NEW_MIG, note, manualFail } from '../harness';
 
 export async function runCollision(): Promise<void> {
 const P = '11111111-1111-4111-8111-111111111111', S = '22222222-2222-4222-8222-222222222222';
@@ -16,7 +17,7 @@ const sql = fs.readFileSync(REPO + '/supabase/migrations/' + NEW_MIG, 'utf8');
 
 note('## Base antiga com id repetido: a migration tem de parar');
 {
-  const { db } = await makeDb({ withNew: false });
+  const { db } = await makeDb({ withNew: false, skip: CHANGES_BLOCO1_RULES });
   await sys(db);
   await db.exec(seed + `INSERT INTO public.quick_protocol_sessions(id,professional_id,student_id,status) VALUES('${A}','${P}','${S}','in_progress');`);
   let err = null;
@@ -30,7 +31,7 @@ note('## Base antiga com id repetido: a migration tem de parar');
 
 note('## Base sem repetição: aplica, e o service_role não cria repetição');
 {
-  const { db } = await makeDb({ withNew: false });
+  const { db } = await makeDb({ withNew: false, skip: CHANGES_BLOCO1_RULES });
   await sys(db);
   await db.exec(seed + `INSERT INTO public.quick_protocol_sessions(id,professional_id,student_id,status) VALUES('${Q}','${P}','${S}','in_progress');`);
   let err = null;

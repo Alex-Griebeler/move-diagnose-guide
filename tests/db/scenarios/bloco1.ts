@@ -1,10 +1,11 @@
 // Testes do bloco 1 no replay: negativos, positivos (ordem real da tela), matriz dos triggers.
 // Portado de codex-review/bloco1-banco-acesso/replay/bloco1.mjs (ver tests/README.md).
-// O corpo não foi reindentado, para ficar idêntico ao original.
-import { makeDb, as, asService, sys, allow, deny, denyErr, quiet, summary, note } from '../harness';
+// O corpo não foi reindentado, para ficar idêntico ao original; só o makeDb deixa de fora
+// as migrations que mudam regras do bloco 1 (CHANGES_BLOCO1_RULES, ver harness.ts).
+import { makeDb, CHANGES_BLOCO1_RULES, as, asService, sys, allow, deny, denyErr, quiet, summary, note } from '../harness';
 
 export async function runBloco1(): Promise<void> {
-const { db } = await makeDb();
+const { db } = await makeDb({ skip: CHANGES_BLOCO1_RULES });
 const id = n => `${n}${n}${n}${n}${n}${n}${n}${n}-${n}${n}${n}${n}-4${n}${n}${n}-8${n}${n}${n}-${n.repeat(12)}`;
 const P1 = id('1'), S1 = id('2'), X = id('3'), P2 = id('7'), S2 = id('6'), R = id('5'); // R: profissional que perde o papel
 const A_DONE = id('a'), PR_DONE = id('b'), A_P2 = id('c'), PR_P2 = id('d');

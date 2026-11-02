@@ -9,6 +9,10 @@ A CI (`.github/workflows/ci.yml`) roda os testes em toda PR e em todo push no `m
 - `dateGuards.test.ts`: `validDate` e `toDateOnlyOrNull` (`src/lib/dateGuards.ts`), que impedem um `Invalid Date` de chegar a `format` ou `toISOString`.
 - `savedMedia.test.ts`: `splitSavedMedia` (`src/lib/savedMedia.ts`) devolve cada foto ou vídeo salvo à vista ou ao teste de origem, pelo nome que o `MediaUploader` dá ao arquivo, e guarda à parte o que não reconhece (F-04, Etapa 3c).
 - `weightEngine.test.ts` e `priorityEngine.test.ts`: pesos (tabela A), ajustes de contexto (tabela E) e prioridade (tabela F). Os valores esperados estão escritos no próprio teste, com a conta em comentário.
+- `findingsContract.test.ts` (Etapa 3d): as faixas de `functional_findings`, lidas da migration da 3d, contêm todo peso de base, toda soma de ajustes de contexto e todo `priority_score` que o motor consegue calcular (B-13).
+- `protocolSave.test.ts` (Etapa 3d): `buildProtocolSave` (`src/lib/protocolSave.ts`) monta a chamada de `save_assessment_protocol` com o valor do motor de pesos. Um caso real dá peso de base 4 e de contexto 6, que só cabem nas faixas novas do banco (B-13).
+- `protocolResponse.test.ts` (Etapa 3d): `parseGeneratedProtocol` (`src/lib/protocolResponse.ts`) aceita a resposta do gerador, completa os campos opcionais e recusa as que a tela não consegue mostrar ou gravar.
+- `protocolCache.test.ts` (Etapa 3d): a chave do pedido (`src/lib/protocolCache.ts`) é a mesma para o mesmo pedido em qualquer ordem de chaves, e o protocolo guardado só volta com a mesma chave e se ainda passar na validação (F-15).
 
 ## `tests/ui/`: componentes e telas, em jsdom
 
@@ -27,19 +31,30 @@ Cada arquivo declara `// @vitest-environment jsdom` (o padrão continua Node) e 
   - o rascunho continua valendo sobre o enviado;
   - se o salvo não puder ser lido, concluir não grava por cima dele;
   - no segmentar, "Pular" não apaga nada e concluir com teste sem resultado pede confirmação (F-05); abrir outra avaliação antes não apaga o rascunho desta, e as sugestões que chegam depois não o sobrescrevem (F-06).
-- `helpers.tsx` e `supabaseFake.ts` são apoio, não testes. O `supabaseFake` só aceita escrita quando o teste passa um array para registrá-la (com operação, opções e filtros); sem ele, qualquer escrita lança. Uma tabela pode ser função dos filtros `eq`; se a função lançar, a consulta responde `{ data: null, error }`, como o supabase-js.
+- `protocolGenerator.test.tsx` (Etapa 3d):
+  - salvar faz uma chamada só a `save_assessment_protocol`, sem gravar direto nas tabelas; se ela falhar, nada fica gravado e dá para tentar de novo (B-13);
+  - voltar à etapa com os mesmos testes reaproveita o protocolo guardado; mudar um teste, "Regenerar" ou um protocolo guardado inválido geram de novo; StrictMode, sair e voltar no meio da geração, uma geração que termina enquanto a etapa volta a carregar e duas cargas ao mesmo tempo não geram duas vezes; sair da etapa antes de gerar não gera, e trocar de avaliação não mostra resposta atrasada (F-15);
+  - uma resposta inválida do gerador ou um erro ao ler a anamnese vão para a tela de erro; uma fase desconhecida aparece e bloqueia o salvar;
+  - o corpo do pedido ao gerador continua com as mesmas chaves.
+- `helpers.tsx` e `supabaseFake.ts` são apoio, não testes. O `supabaseFake` só aceita escrita quando o teste passa um array para registrá-la (com operação, opções e filtros); sem ele, qualquer escrita lança. `rpc` também é registrada assim. Uma tabela pode ser função dos filtros `eq`; se a função lançar, a consulta responde `{ data: null, error }`, como o supabase-js. Para simular falha de escrita, o teste passa `fail` com chaves `"tabela.operação"` ou `"nome.rpc"`.
 
 ## `tests/db/`: banco em PGlite
 
 `harness.ts` cria um PostgreSQL em memória (PGlite) com os papéis, `auth` e `storage` mínimos do Supabase e aplica todas as migrations de `supabase/migrations/`, em ordem (`makeDb({ skip })` deixa migrations de fora pelo nome). Nenhum dado real: só ids e e-mails sintéticos (`*.invalid`).
 
-- `bloco1.test.ts`, `r9.test.ts` e `collision.test.ts` rodam os cenários de `scenarios/`, portados sem mudar a lógica dos scripts de replay do bloco 1 (`codex-review/bloco1-banco-acesso/replay/`, fora deste repositório). Cada teste exige 0 falhas, o mesmo número de checagens e a mesma lista de rótulos da saída de referência (`fixtures/*.labels.txt`). As checagens manuais (pré-condições) também contam.
-- `rollback.test.ts`: depois de aplicar o bloco 1 e o rollback (`supabase/rollbacks/`), o schema volta a ser idêntico ao de antes.
+- `bloco1.test.ts`, `r9.test.ts` e `collision.test.ts` rodam os cenários de `scenarios/`, portados sem mudar a lógica dos scripts de replay do bloco 1 (`codex-review/bloco1-banco-acesso/replay/`, fora deste repositório). Cada teste exige 0 falhas, o mesmo número de checagens e a mesma lista de rótulos da saída de referência (`fixtures/*.labels.txt`). As checagens manuais (pré-condições) também contam. Eles rodam sem as migrations que mudam regras que essas checagens conferem (`CHANGES_BLOCO1_RULES` em `harness.ts`; hoje, a da Etapa 3d); cada uma dessas tem teste próprio.
+- `rollback.test.ts`: depois de aplicar o bloco 1 e o rollback (`supabase/rollbacks/`), o schema volta a ser idêntico ao de antes. Também roda sem `CHANGES_BLOCO1_RULES`.
 - `etapa3c.test.ts`: unicidade de `anamnesis_responses(assessment_id)` e `segmental_test_results(assessment_id, test_name)`:
   - sem a migration, o reenvio duplica e o `upsert` por chave falha;
   - com duplicado no banco, a migration aborta sem criar nada e sem apagar linha;
   - com ela, o reenvio atualiza a linha salva e a avaliação concluída continua fechada;
   - o rollback tira as duas constraints sem apagar dados.
+- `etapa3d.test.ts`: `save_assessment_protocol` e as faixas novas de peso (B-13):
+  - grava protocolo, achados e conclusão juntos, ou nada; repetir devolve o mesmo protocolo;
+  - só o profissional dono de uma avaliação aberta consegue; os outros recebem o mesmo erro;
+  - ninguém grava direto em `protocols` nem em `functional_findings`; o autor ainda apaga a avaliação aberta, com o que estiver nela;
+  - com protocolo duplicado, com avaliação aberta que já tem protocolo ou achados, ou com outra policy de escrita, a migration aborta sem mudar nada; depois dela, a faixa aceita peso 4 e contexto 6 e recusa 5 e 7;
+  - o rollback volta o schema ao de antes e aborta se já houver peso fora da faixa antiga.
 - `schema.test.ts`: retrato das policies, funções, triggers, RLS e constraints UNIQUE. Toda migration nova muda o arquivo `__snapshots__/schema.test.ts.snap`. Rode `bun x vitest run -u tests/db/schema.test.ts` e revise o diff do snapshot na PR.
 
 Os fixtures foram gerados por `work/etapa2/gerar-fixtures.mjs` (fora do repositório), que confere o sha256 de cada saída de referência antes de extrair.

@@ -1,8 +1,9 @@
 // Codex r9: transição de avaliação aberta, datas pelo servidor e pré-condição de vínculo aberto.
 // Portado de codex-review/bloco1-banco-acesso/replay/r9.mjs (ver tests/README.md).
-// O corpo não foi reindentado, para ficar idêntico ao original.
+// O corpo não foi reindentado, para ficar idêntico ao original; só o makeDb deixa de fora
+// as migrations que mudam regras do bloco 1 (CHANGES_BLOCO1_RULES, ver harness.ts).
 import fs from 'node:fs';
-import { makeDb, as, sys, allow, denyErr, summary, REPO, NEW_MIG, note, manualFail } from '../harness';
+import { makeDb, CHANGES_BLOCO1_RULES, as, sys, allow, denyErr, summary, REPO, NEW_MIG, note, manualFail } from '../harness';
 
 export async function runR9(): Promise<void> {
 const id = n => `${n}${n}${n}${n}${n}${n}${n}${n}-${n}${n}${n}${n}-4${n}${n}${n}-8${n}${n}${n}-${n.repeat(12)}`;
@@ -14,7 +15,7 @@ INSERT INTO public.professional_students(professional_id,student_id) VALUES('${P
 
 note('## Transições da avaliação aberta');
 {
-  const { db } = await makeDb();
+  const { db } = await makeDb({ skip: CHANGES_BLOCO1_RULES });
   await sys(db); await db.exec(seed);
   await as(db, P1);
   const ins = await allow(db, 'P1 cria rascunho com datas retroativas',
@@ -44,7 +45,7 @@ note('## Transições da avaliação aberta');
 
 note('## Pré-condição: sessão ligada a avaliação aberta');
 for (const [status, expectFail] of [['draft', true], ['in_progress', true], ['completed', false], ['archived', false]]) {
-  const { db } = await makeDb({ withNew: false });
+  const { db } = await makeDb({ withNew: false, skip: CHANGES_BLOCO1_RULES });
   await sys(db); await db.exec(seed);
   const A = (await db.query(`INSERT INTO assessments(professional_id,student_id,status) VALUES('${P1}','${S1}','${status}') RETURNING id`)).rows[0].id;
   await db.exec(`INSERT INTO quick_protocol_sessions(professional_id,student_id,assessment_id,status) VALUES('${P1}','${S1}','${A}','completed')`);

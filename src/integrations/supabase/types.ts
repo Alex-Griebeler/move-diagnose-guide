@@ -808,6 +808,10 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      save_assessment_protocol: {
+        Args: { _assessment_id: string; _findings: Json; _protocol: Json }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "professional" | "student"

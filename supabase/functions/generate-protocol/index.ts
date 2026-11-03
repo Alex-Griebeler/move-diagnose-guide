@@ -122,6 +122,15 @@ interface ProtocolRequest {
   secondaryIssues?: PrioritizedIssue[];
 }
 
+// An exercise as the AI returns it, with the fields read here. Not validated here: the screen validates the
+// protocol (parseGeneratedProtocol)
+interface GeneratedExercise {
+  exerciseId: string;
+  videoUrl?: string;
+  phase: string;
+  priority: number;
+}
+
 // ============================================
 // Exercise Matching Logic
 // ============================================
@@ -575,7 +584,7 @@ IMPORTANTE:
     // ============================================
     const exerciseMap = new Map(exerciseLibrary?.map(e => [e.id, e]) || []);
     
-    protocol.exercises = protocol.exercises.map((ex: any) => {
+    protocol.exercises = protocol.exercises.map((ex: GeneratedExercise) => {
       const libraryExercise = exerciseMap.get(ex.exerciseId);
       if (libraryExercise) {
         return {
@@ -590,7 +599,7 @@ IMPORTANTE:
 
     // Sort exercises by phase order and priority
     const phaseOrder = ['mobility', 'inhibition', 'activation', 'stability', 'strength', 'integration'];
-    protocol.exercises.sort((a: any, b: any) => {
+    protocol.exercises.sort((a: GeneratedExercise, b: GeneratedExercise) => {
       const phaseCompare = phaseOrder.indexOf(a.phase) - phaseOrder.indexOf(b.phase);
       if (phaseCompare !== 0) return phaseCompare;
       return b.priority - a.priority;

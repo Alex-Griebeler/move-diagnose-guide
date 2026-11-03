@@ -64,6 +64,35 @@ BEFORE INSERT OR UPDATE ON public.quick_protocol_sessions
 FOR EACH ROW
 EXECUTE FUNCTION public.guard_quick_session_red_flags();
 
+-- Lovable's platform role sandbox_exec (LOGIN, BYPASSRLS) gets SELECT and INSERT on every new public table through
+-- the default privileges, so after 20261104120000 it could write a clearance or a revocation around the functions.
+-- Only where the role exists (not in local databases). It keeps SELECT, as on every other table.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sandbox_exec') THEN
+    REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.red_flag_clearances, public.red_flag_clearance_revocations FROM sandbox_exec;
+  END IF;
+END $$;
+
+-- Postcondition: no client role and no other login role writes clearances or revocations directly, except the
+-- owner of the functions, roles that act as it, and superusers. A new platform role stops this migration instead
+-- of keeping a way around the lock.
+DO $$
+DECLARE
+  _bad text;
+BEGIN
+  SELECT string_agg(r.rolname, ', ' ORDER BY r.rolname) INTO _bad
+  FROM pg_roles r
+  WHERE (r.rolcanlogin OR r.rolname IN ('anon', 'authenticated', 'service_role'))
+    AND NOT r.rolsuper
+    AND NOT pg_has_role(r.oid, (SELECT c.relowner FROM pg_class c WHERE c.oid = 'public.red_flag_clearances'::regclass), 'USAGE')
+    AND (has_table_privilege(r.oid, 'public.red_flag_clearances', 'INSERT, UPDATE, DELETE, TRUNCATE')
+      OR has_table_privilege(r.oid, 'public.red_flag_clearance_revocations', 'INSERT, UPDATE, DELETE, TRUNCATE'));
+  IF _bad IS NOT NULL THEN
+    RAISE EXCEPTION 'etapa 5a: papel que grava direto nas liberações: %', _bad;
+  END IF;
+END $$;
+
 -- Postcondition: same owner rule as 20261104120000
 DO $$
 BEGIN

@@ -12,6 +12,7 @@ import { makeDb, as, asService, sys, snapshot, REPO, ETAPA5A } from './harness';
 const [M1, M2] = ETAPA5A;
 const read = (path: string) => fs.readFileSync(`${REPO}/${path}`, 'utf8');
 const M1_SQL = read(`supabase/migrations/${M1}`);
+const M2_SQL = read(`supabase/migrations/${M2}`);
 const M2_DOWN = read('supabase/rollbacks/20261105120000_etapa5a_triagem_rapida_down.sql');
 const M1_DOWN = read('supabase/rollbacks/20261104120000_etapa5a_red_flags_down.sql');
 const TYPES = read('src/integrations/supabase/types.ts');
@@ -667,6 +668,39 @@ describe('permissões e dono', () => {
       await sys(db);
       expect(await value(db, `select count(*) from pg_proc where proname = 'red_flags_cleared'`)).toBe(0);
     }
+  });
+
+  // Em produção, o papel da plataforma do Lovable ganha SELECT e INSERT em toda tabela nova e ignora a RLS
+  const SANDBOX = `CREATE ROLE sandbox_exec LOGIN BYPASSRLS;
+GRANT SELECT, INSERT ON public.red_flag_clearances, public.red_flag_clearance_revocations TO sandbox_exec`;
+  const sandboxClearance = `INSERT INTO public.red_flag_clearances (assessment_id, professional_id, justification, cleared_flags, red_flags_version)
+    VALUES ('${A}', '${P1}', '${J}', ARRAY['nightPain'], 0)`;
+
+  it('sandbox_exec: só com a M1 grava uma liberação direto; a M2 tira a escrita e deixa a leitura', async () => {
+    const { db } = await makeDb({ skip: [M2] });
+    await seed(db, { nightPain: true });
+    await sys(db);
+    await db.exec(SANDBOX);
+    await db.exec('BEGIN; SET LOCAL ROLE sandbox_exec');
+    expect(await errorOf(db, sandboxClearance)).toBe('');
+    await db.exec('ROLLBACK');
+    await sys(db);
+    await db.exec(M2_SQL);
+    await db.exec('SET ROLE sandbox_exec');
+    expect(await errorOf(db, sandboxClearance)).toMatch(DENIED);
+    expect(await errorOf(db, `INSERT INTO public.red_flag_clearance_revocations (clearance_id, professional_id, reason)
+      VALUES (gen_random_uuid(), '${P1}', '${R}')`)).toMatch(DENIED);
+    expect(await errorOf(db, 'select count(*) from public.red_flag_clearances')).toBe('');
+  });
+
+  it('a M2 para se outro papel com login ainda grava nas liberações', async () => {
+    const { db } = await makeDb({ skip: [M2] });
+    await sys(db);
+    await db.exec('CREATE ROLE outro_login LOGIN; GRANT INSERT ON public.red_flag_clearance_revocations TO outro_login');
+    let error = '';
+    try { await db.exec(`BEGIN;\n${M2_SQL}\nCOMMIT;`); } catch (e) { error = (e as Error).message; await db.exec('ROLLBACK'); }
+    expect(error).toMatch(/etapa 5a: papel que grava direto nas liberações: outro_login/);
+    expect(await value(db, `select count(*) from pg_proc where proname = 'guard_quick_session_red_flags'`)).toBe(0);
   });
 
   it('os argumentos das funções novas em types.ts são os do banco', async () => {

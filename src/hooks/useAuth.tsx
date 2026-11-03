@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { readAuthLink } from '@/lib/authLink';
 
 type UserRole = 'professional' | 'student';
 
@@ -12,7 +13,19 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /** Signed in by an invite or recovery link: must create a password at /definir-senha */
+  needsPassword: boolean;
+  /** The invite or recovery link in the URL failed (expired or already used) */
+  authLinkFailed: boolean;
+  clearAuthLinkFailed: () => void;
+  setPassword: (password: string) => Promise<{ error: Error | null }>;
+  requestPasswordReset: (email: string) => Promise<{ error: Error | null }>;
 }
+
+// On import, before supabase-js reads the link and clears it from the URL
+const initialAuthLink = typeof window === 'undefined'
+  ? { needsPassword: false, failed: false }
+  : readAuthLink(window.location.hash, window.location.search);
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -21,11 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsPassword, setNeedsPassword] = useState(initialAuthLink.needsPassword);
+  const [authLinkFailed, setAuthLinkFailed] = useState(initialAuthLink.failed);
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') setNeedsPassword(true);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -120,10 +136,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setRole(null);
+    setNeedsPassword(false);
   };
 
+  const setPassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { error: error as Error };
+    setNeedsPassword(false);
+    return { error: null };
+  };
+
+  const requestPasswordReset = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/definir-senha`,
+    });
+    return { error: error ? (error as Error) : null };
+  };
+
+  const clearAuthLinkFailed = () => setAuthLinkFailed(false);
+
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user, session, role, loading, signUp, signIn, signOut,
+        needsPassword, authLinkFailed, clearAuthLinkFailed, setPassword, requestPasswordReset,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

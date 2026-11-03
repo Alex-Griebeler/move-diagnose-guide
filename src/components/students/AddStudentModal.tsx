@@ -82,8 +82,12 @@ export function AddStudentModal({ open, onOpenChange, onStudentAdded }: AddStude
       }
 
       setSuccess(data.message || 'Convite enviado com sucesso!');
-      // An account that already existed is only linked: no e-mail goes out
-      if (data.existingUser) {
+      // An account that never signed in gets the e-mail to create the password; one that did is only linked
+      if (data.accessEmailSent) {
+        toast.success('E-mail de acesso enviado!', {
+          description: 'O aluno já tinha conta e vai receber um link para criar a senha.',
+        });
+      } else if (data.existingUser) {
         toast.success('Aluno vinculado!', {
           description: 'Ele já tinha conta no sistema. Nenhum email foi enviado.',
         });

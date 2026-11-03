@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { functionErrorMessage } from '@/lib/functionError';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,9 +82,16 @@ export function AddStudentModal({ open, onOpenChange, onStudentAdded }: AddStude
       }
 
       setSuccess(data.message || 'Convite enviado com sucesso!');
-      toast.success('Convite enviado!', {
-        description: 'O aluno receberá um email para definir sua senha.',
-      });
+      // An account that already existed is only linked: no e-mail goes out
+      if (data.existingUser) {
+        toast.success('Aluno vinculado!', {
+          description: 'Ele já tinha conta no sistema. Nenhum email foi enviado.',
+        });
+      } else {
+        toast.success('Convite enviado!', {
+          description: 'O aluno receberá um email para definir sua senha.',
+        });
+      }
       onStudentAdded?.();
       
       // Reset form after success
@@ -92,7 +100,7 @@ export function AddStudentModal({ open, onOpenChange, onStudentAdded }: AddStude
       }, 2000);
     } catch (err: unknown) {
       console.error('Error sending invite:', err);
-      setError((err instanceof Error && err.message) || 'Erro ao enviar convite');
+      setError(await functionErrorMessage(err, 'Erro ao enviar convite'));
     } finally {
       setInviteLoading(false);
     }
@@ -144,7 +152,7 @@ export function AddStudentModal({ open, onOpenChange, onStudentAdded }: AddStude
       navigate(`/assessment/new?studentId=${data.studentId}&assessmentId=${data.assessmentId}&studentName=${encodeURIComponent(data.studentName)}`);
     } catch (err: unknown) {
       console.error('Error creating student:', err);
-      setError((err instanceof Error && err.message) || 'Erro ao cadastrar aluno');
+      setError(await functionErrorMessage(err, 'Erro ao cadastrar aluno'));
     } finally {
       setInpersonLoading(false);
     }

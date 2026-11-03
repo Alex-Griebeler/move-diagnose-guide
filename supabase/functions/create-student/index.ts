@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { decideSignup, successMessage, type ExistingAccount } from "./signupDecision.ts";
 
 // ============================================================================
 // SECURE PASSWORD GENERATION
@@ -136,7 +137,7 @@ async function verifyProfessional(
   authHeader: string,
   professionalId: string,
   supabaseAdmin: SupabaseClient
-): Promise<{ valid: boolean; error?: string }> {
+): Promise<{ valid: boolean; error?: string; callerEmail?: string }> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
@@ -170,45 +171,48 @@ async function verifyProfessional(
   }
 
   console.log("[VERIFY] Professional verified:", caller.id);
-  return { valid: true };
+  return { valid: true, callerEmail: caller.email };
 }
 
 // ============================================================================
-// STEP 3: Find Existing Student
+// STEP 3: Find Existing Account (with its role and whether it is linked)
 // ============================================================================
 
-async function findExistingStudent(
+// A failed read throws: before, it read as "no account" and the function tried to create one that already existed
+async function findExistingAccount(
   email: string,
+  professionalId: string,
   supabaseAdmin: SupabaseClient
-): Promise<{ id: string } | null> {
-  const { data: profile } = await supabaseAdmin
+): Promise<ExistingAccount | null> {
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id")
     .eq("email", email)
-    .single();
+    .maybeSingle();
+  if (profileError) throw new Error(`Erro ao procurar o aluno: ${profileError.message}`);
+  if (!profile) {
+    console.log("[FIND]", { found: false });
+    return null;
+  }
 
-  console.log("[FIND]", { email, found: !!profile });
-  return profile;
-}
+  const { data: roleData, error: roleError } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+  if (roleError) throw new Error(`Erro ao ler o papel da conta: ${roleError.message}`);
 
-// ============================================================================
-// STEP 4: Check if Already Linked
-// ============================================================================
-
-async function isAlreadyLinked(
-  professionalId: string,
-  studentId: string,
-  supabaseAdmin: SupabaseClient
-): Promise<boolean> {
-  const { data: link } = await supabaseAdmin
+  const { data: link, error: linkError } = await supabaseAdmin
     .from("professional_students")
     .select("id")
     .eq("professional_id", professionalId)
-    .eq("student_id", studentId)
-    .single();
+    .eq("student_id", profile.id)
+    .maybeSingle();
+  if (linkError) throw new Error(`Erro ao conferir o vínculo: ${linkError.message}`);
 
-  console.log("[LINK_CHECK]", { professionalId, studentId, linked: !!link });
-  return !!link;
+  const existing = { id: profile.id, role: roleData?.role ?? null, linked: !!link };
+  console.log("[FIND]", { found: true, studentId: existing.id, role: existing.role, linked: existing.linked });
+  return existing;
 }
 
 // ============================================================================
@@ -362,22 +366,21 @@ serve(async (req: Request) => {
       return errorResponse(profVerification.error || "Não autorizado", 403);
     }
 
-    // 5. Check if student already exists
-    const existingStudent = await findExistingStudent(request.email, supabaseAdmin);
-    
+    // 5. Check if the e-mail already has an account, and decide
+    const existing = await findExistingAccount(request.email, request.professionalId, supabaseAdmin);
+    const decision = decideSignup(request.email, { id: request.professionalId, email: profVerification.callerEmail }, existing);
+
+    if (decision.action === "reject") {
+      console.log("[FLOW] Rejected:", decision.status);
+      return errorResponse(decision.error, decision.status);
+    }
+
     let studentId: string;
     let isExisting = false;
 
-    if (existingStudent) {
-      // 6a. Student exists - check if already linked
-      const alreadyLinked = await isAlreadyLinked(request.professionalId, existingStudent.id, supabaseAdmin);
-      if (alreadyLinked) {
-        console.log("[FLOW] Student already linked");
-        return errorResponse("Este aluno já está vinculado a você", 409);
-      }
-
-      // Link existing student
-      studentId = existingStudent.id;
+    if (decision.action === "link") {
+      // 6a. The account exists, is a student's and is not linked yet: link it
+      studentId = decision.studentId;
       isExisting = true;
       console.log("[FLOW] Linking existing student:", studentId);
 
@@ -417,11 +420,7 @@ serve(async (req: Request) => {
     }
 
     // 8. Build success message
-    const message = isExisting
-      ? `Aluno ${request.fullName} vinculado com sucesso`
-      : request.mode === "invite"
-        ? `Convite enviado para ${request.email}`
-        : `Aluno ${request.fullName} cadastrado com sucesso`;
+    const message = successMessage(request.mode, isExisting, request.fullName, request.email);
 
     console.log("[SUCCESS]", { studentId, mode: request.mode, isExisting, assessmentId });
 

@@ -97,7 +97,7 @@ O resultado esperado está em `race.out`:
 - **Com a trava:** a segunda inserção espera e falha, e nenhuma colisão fica gravada.
 - **Sem a trava:** a colisão acontece.
 
-`red_flags_race.sh` (Etapa 5a) faz o mesmo para as red flags, sobre as migrations de verdade, e reaproveita o Supabase mínimo de `tests/db/harness.ts`. Em cada corrida, a transação 2 começa quando a 1 já fez o seu comando e dorme 3 s antes do `COMMIT` (o script olha o `pg_stat_activity`, sem `sleep` fixo). Cada caso confere o erro, a espera e o estado esperados, e o script sai com erro se algum não bater. A porta 54332 pode ser trocada em `PG_PORT`.
+`red_flags_race.sh` (Etapa 5a) faz o mesmo para as red flags, sobre as migrations de verdade, e reaproveita o Supabase mínimo de `tests/db/harness.ts`. Em cada corrida, a transação 2 começa quando a 1 já fez o seu comando e dorme 3 s antes do `COMMIT` (o script olha o `pg_stat_activity`, sem `sleep` fixo). Cada caso confere o erro esperado, se a transação 2 ficou parada numa trava da 1 (visto no `pg_stat_activity`, não pelo tempo) e o estado final, e o script sai com erro se algum não bater. A porta 54332 pode ser trocada em `PG_PORT`.
 
 ```bash
 PG_BIN=/caminho/do/postgres/bin tests/integration/race/red_flags_race.sh

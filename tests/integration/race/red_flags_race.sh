@@ -3,8 +3,8 @@
 # tem uma conexão só), sobre as migrations de verdade de supabase/migrations/. A transação 2 começa quando a 1 já
 # fez o seu comando e dorme 3 s antes do COMMIT. Os dois primeiros casos rodam também sem a trava da anamnese na
 # gravação, para mostrar que a corrida existe sem ela. No fim, o dono e o cascade de protocols. Cada caso confere o
-# erro, a espera e o estado esperados; o script sai com erro se algum não bater. Cria um cluster descartável e apaga
-# tudo no fim. Ver README.md. Dados sintéticos.
+# erro esperado, se a 2 ficou parada numa trava da 1 (pg_stat_activity) e o estado final; o script sai com erro se
+# algum não bater. Cria um cluster descartável e apaga tudo no fim. Ver README.md. Dados sintéticos.
 set -uo pipefail
 PG_BIN="${PG_BIN:-/Applications/Postgres.app/Contents/Versions/latest/bin}"
 PORT="${PG_PORT:-54332}"
@@ -96,18 +96,27 @@ race() {
     tries=$((tries + 1)); [ $tries -gt 100 ] && { echo "a transação 1 não chegou ao pg_sleep: $2"; exit 1; }
     sleep 0.1
   done
-  local t0 t1 out e e1 err1 err2 waited state
+  # A 2 roda ao lado; enquanto ela não termina, o script olha se ela está parada esperando uma trava (Lock)
+  local t0 t1 e e1 err1 err2 waited state locked=não app2="t2_corrida_$n"
   t0=$(now)
-  out=$($Q -d $db -c "$(as_who "$5")" -c "$6" 2>&1); e=$?
+  ( PGAPPNAME=$app2 $Q -d $db -c "$(as_who "$5")" -c "$6" > "$TMP/t2.out" 2>&1; echo $? > "$TMP/t2.exit" ) &
+  local t2pid=$!
+  while kill -0 $t2pid 2>/dev/null; do
+    [ "$($Q -d postgres -Atc "SELECT count(*) FROM pg_stat_activity WHERE application_name = '$app2' AND wait_event_type = 'Lock'")" = 1 ] && locked=sim
+    sleep 0.05
+  done
   t1=$(now)
+  # Sem espera, a 2 tem de ter terminado com a 1 ainda aberta, dormindo
+  local t1_open
+  t1_open=$($Q -d postgres -Atc "SELECT count(*) FROM pg_stat_activity WHERE application_name = '$app' AND wait_event = 'PgSleep'")
   wait
   e1=$(cat "$TMP/t1.exit"); err1=$(grep -m1 ERROR "$TMP/t1.out")
-  err2=$(echo "$out" | grep -m1 ERROR)
+  e=$(cat "$TMP/t2.exit"); err2=$(grep -m1 ERROR "$TMP/t2.out")
   waited=$(python3 -c "print(round($t1-$t0,1))")
   state=$($Q -d $db -Atc "$7")
   echo "== $2 ($1)"
   echo "   T1: exit=$e1${err1:+ | $err1}"
-  echo "   T2: exit=$e, esperou $waited s${err2:+ | $err2}"
+  echo "   T2: exit=$e, esperou trava: $locked ($waited s)${err2:+ | $err2}"
   echo "   estado: $state"
   check "$([ "$e1" = 0 ] && [ -z "$err1" ] && echo 1)" "a transação 1 falhou"
   if [ -z "$8" ]; then
@@ -116,9 +125,9 @@ race() {
     check "$([ "$e" != 0 ] && [[ "$err2" == *"$8"* ]] && echo 1)" "a transação 2 devia dar: $8"
   fi
   if [ "$9" = sim ]; then
-    check "$(python3 -c "print(1 if $waited >= 1 else 0)")" "a transação 2 devia esperar a 1"
+    check "$([ "$locked" = sim ] && echo 1)" "a transação 2 devia ficar parada na trava da 1"
   else
-    check "$(python3 -c "print(1 if $waited < 1 else 0)")" "a transação 2 não devia esperar"
+    check "$([ "$locked" = não ] && [ "$t1_open" = 1 ] && echo 1)" "a transação 2 devia terminar sem trava, com a 1 ainda aberta"
   fi
   check "$([ "$state" = "${10}" ] && echo 1)" "estado esperado: ${10}"
 }

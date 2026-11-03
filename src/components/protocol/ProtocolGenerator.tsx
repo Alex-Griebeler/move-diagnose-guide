@@ -392,6 +392,32 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
     };
   }, [loadProtocol]);
 
+  // Etapa 5a: a red flag may be marked, or the clearance revoked, in another tab while the protocol is on screen.
+  // Coming back to this tab reads the status again; saving is checked by the database anyway
+  const showingProtocol = !!protocol && !gate?.blocked;
+  useEffect(() => {
+    if (!showingProtocol) return;
+    const recheck = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const load = latestLoad.current;
+      try {
+        const status = await readRedFlagStatus(assessmentId);
+        // A load started meanwhile, or the step was left: that one owns the screen
+        if (latestLoad.current !== load) return;
+        setGate(status);
+        if (status.blocked) setProtocol(null);
+      } catch (err) {
+        logger.error('Error reading the red flag status', err);
+      }
+    };
+    document.addEventListener('visibilitychange', recheck);
+    window.addEventListener('focus', recheck);
+    return () => {
+      document.removeEventListener('visibilitychange', recheck);
+      window.removeEventListener('focus', recheck);
+    };
+  }, [showingProtocol, assessmentId]);
+
   const unknownPhaseExercises = protocol?.exercises.filter(ex => !KNOWN_PHASES.has(ex.phase)) ?? [];
 
   const saveProtocol = async () => {

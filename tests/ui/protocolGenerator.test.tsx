@@ -461,6 +461,32 @@ describe('Etapa 5a: red flags', () => {
     expect(screen.queryByText(/^Liberado por você em/)).toBeNull();
   });
 
+  it.each([
+    ['a aba volta a ficar visível', () => document.dispatchEvent(new Event('visibilitychange'))],
+    ['a janela volta ao foco', () => window.dispatchEvent(new Event('focus'))],
+  ])('red flag marcada em outra aba com o protocolo na tela: quando %s, o status é lido de novo e volta o cartão (Codex r2)', async (_label, comeBack) => {
+    mount();
+    await screen.findByText('Salvar e Finalizar');
+    h.tables['rpc:assessment_red_flag_status'] = BLOCKED;
+    comeBack();
+    expect(await screen.findByText('Liberar e gerar protocolo')).toBeTruthy();
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+    expect(screen.queryByText('Mobilidade sintética')).toBeNull();
+    expect(generations()).toBe(1);
+  });
+
+  it('a aba volta com o status aberto: o protocolo continua, sem gerar de novo', async () => {
+    mount();
+    await screen.findByText('Salvar e Finalizar');
+    let reads = 0;
+    h.tables['rpc:assessment_red_flag_status'] = () => { reads += 1; return OPEN; };
+    document.dispatchEvent(new Event('visibilitychange'));
+    await waitFor(() => expect(reads).toBe(1));
+    screen.getByText('Salvar e Finalizar');
+    screen.getByText('Mobilidade sintética');
+    expect(generations()).toBe(1);
+  });
+
   it('a Edge devolve 400 (a versão antiga da tela, sem o id): tela de erro, como qualquer falha', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     h.edgeError = { message: 'Edge Function returned a non-2xx status code', context: { status: 400 } };

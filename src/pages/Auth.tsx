@@ -15,6 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
+const forgotSchema = z.object({
+  email: z.string().email('Email inválido'),
+});
+
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
@@ -31,6 +35,7 @@ const signupSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
+type ForgotFormData = z.infer<typeof forgotSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
 type UserRole = 'professional' | 'student';
 
@@ -38,13 +43,20 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, requestPasswordReset } = useAuth();
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
+  });
+
+  const forgotForm = useForm<ForgotFormData>({
+    resolver: zodResolver(forgotSchema),
+    defaultValues: { email: '' },
   });
 
   const signupForm = useForm<SignupFormData>({
@@ -71,6 +83,32 @@ export default function Auth() {
         });
         navigate('/dashboard');
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openForgot = () => {
+    forgotForm.reset({ email: loginForm.getValues('email') });
+    setForgotSent(false);
+    setForgotOpen(true);
+  };
+
+  // The e-mail link opens /definir-senha; the answer is the same whether or not the e-mail has an account
+  const handleForgot = async (data: ForgotFormData) => {
+    setIsLoading(true);
+    try {
+      const { error } = await requestPasswordReset(data.email);
+      if (error) {
+        const tooSoon = (error as { status?: number }).status === 429 || error.message.includes('security purposes');
+        toast({
+          variant: 'destructive',
+          title: 'Não foi possível enviar o link',
+          description: tooSoon ? 'Espere um minuto antes de pedir outro link.' : error.message,
+        });
+        return;
+      }
+      setForgotSent(true);
     } finally {
       setIsLoading(false);
     }
@@ -124,66 +162,122 @@ export default function Auth() {
           <CardContent>
             {/* Login Tab */}
             <TabsContent value="login" className="mt-0">
-              <div className="space-y-1 mb-6">
-                <CardTitle className="text-xl font-semibold">Bem-vindo de volta</CardTitle>
-                <CardDescription className="text-sm">
-                  Entre com suas credenciais para acessar o sistema
-                </CardDescription>
-              </div>
-
-              <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    {...loginForm.register('email')}
-                    className="h-11"
-                  />
-                  {loginForm.formState.errors.email && (
-                    <p className="text-xs text-destructive">
-                      {loginForm.formState.errors.email.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="login-password" className="text-sm font-medium">Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="login-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      {...loginForm.register('password')}
-                      className="h-11 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+              {forgotOpen ? (
+                <>
+                  <div className="space-y-1 mb-6">
+                    <CardTitle className="text-xl font-semibold">Esqueci minha senha</CardTitle>
+                    <CardDescription className="text-sm">
+                      Enviamos um link para você criar uma nova senha
+                    </CardDescription>
                   </div>
-                  {loginForm.formState.errors.password && (
-                    <p className="text-xs text-destructive">
-                      {loginForm.formState.errors.password.message}
-                    </p>
-                  )}
-                </div>
 
-                <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                  {isLoading ? (
-                    <span className="animate-pulse-subtle">Entrando...</span>
+                  {forgotSent ? (
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Se este e-mail tiver conta, você vai receber um link para criar uma nova senha. Confira também o spam.
+                    </p>
                   ) : (
-                    <>
-                      Entrar
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </>
+                    <form onSubmit={forgotForm.handleSubmit(handleForgot)} className="space-y-4 mb-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="forgot-email" className="text-sm font-medium">Email</Label>
+                        <Input
+                          id="forgot-email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          {...forgotForm.register('email')}
+                          className="h-11"
+                        />
+                        {forgotForm.formState.errors.email && (
+                          <p className="text-xs text-destructive">
+                            {forgotForm.formState.errors.email.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                        {isLoading ? (
+                          <span className="animate-pulse-subtle">Enviando...</span>
+                        ) : (
+                          'Enviar link'
+                        )}
+                      </Button>
+                    </form>
                   )}
-                </Button>
-              </form>
+
+                  <Button type="button" variant="ghost" className="w-full" onClick={() => setForgotOpen(false)}>
+                    Voltar para a entrada
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1 mb-6">
+                    <CardTitle className="text-xl font-semibold">Bem-vindo de volta</CardTitle>
+                    <CardDescription className="text-sm">
+                      Entre com suas credenciais para acessar o sistema
+                    </CardDescription>
+                  </div>
+
+                  <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        {...loginForm.register('email')}
+                        className="h-11"
+                      />
+                      {loginForm.formState.errors.email && (
+                        <p className="text-xs text-destructive">
+                          {loginForm.formState.errors.email.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password" className="text-sm font-medium">Senha</Label>
+                      <div className="relative">
+                        <Input
+                          id="login-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          {...loginForm.register('password')}
+                          className="h-11 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {loginForm.formState.errors.password && (
+                        <p className="text-xs text-destructive">
+                          {loginForm.formState.errors.password.message}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={openForgot}
+                        className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                      >
+                        Esqueci minha senha
+                      </button>
+                    </div>
+
+                    <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                      {isLoading ? (
+                        <span className="animate-pulse-subtle">Entrando...</span>
+                      ) : (
+                        <>
+                          Entrar
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </>
+              )}
             </TabsContent>
 
             {/* Signup Tab */}

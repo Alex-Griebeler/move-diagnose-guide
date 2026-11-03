@@ -99,6 +99,19 @@ it('convite para conta que já existia: não promete e-mail', async () => {
   await waitFor(() => expect(h.toasts).toStrictEqual(['Aluno vinculado! | Ele já tinha conta no sistema. Nenhum email foi enviado.']));
 });
 
+it('convite para conta que nunca entrou: avisa que o link de acesso foi enviado', async () => {
+  h.answer = () => ({
+    data: {
+      success: true, existingUser: true, accessEmailSent: true,
+      message: 'Aluno Sintético já tinha conta e nunca entrou. Enviamos para prof@example.invalid um link para criar a senha.',
+    },
+    error: null,
+  });
+  sendInvite();
+  await screen.findByText(/um link para criar a senha/);
+  await waitFor(() => expect(h.toasts).toStrictEqual(['E-mail de acesso enviado! | O aluno já tinha conta e vai receber um link para criar a senha.']));
+});
+
 it('convite para conta nova: convite enviado', async () => {
   h.answer = () => ({ data: { success: true, existingUser: false, message: 'Convite enviado para aluno@example.invalid' }, error: null });
   sendInvite();

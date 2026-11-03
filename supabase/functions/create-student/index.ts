@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { decideSignup, successMessage, type ExistingAccount } from "./signupDecision.ts";
+import { decideSignup, successMessage, type ExistingAccount, type SignupOutcome } from "./signupDecision.ts";
 
 // ============================================================================
 // SECURE PASSWORD GENERATION
@@ -55,6 +55,7 @@ interface SuccessResponse {
   studentEmail: string;
   mode: "invite" | "inperson";
   existingUser: boolean;
+  accessEmailSent: boolean;
   assessmentId?: string;
   message: string;
 }
@@ -210,9 +211,34 @@ async function findExistingAccount(
     .maybeSingle();
   if (linkError) throw new Error(`Erro ao conferir o vínculo: ${linkError.message}`);
 
-  const existing = { id: profile.id, role: roleData?.role ?? null, linked: !!link };
-  console.log("[FIND]", { found: true, studentId: existing.id, role: existing.role, linked: existing.linked });
+  // Never signed in: no password of their own, so the invite sends them the e-mail to create one
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+  if (authError || !authData?.user) throw new Error(`Erro ao ler a conta do aluno: ${authError?.message ?? "conta não encontrada"}`);
+
+  const existing = {
+    id: profile.id,
+    role: roleData?.role ?? null,
+    linked: !!link,
+    hasSignedIn: !!authData.user.last_sign_in_at,
+  };
+  console.log("[FIND]", { found: true, studentId: existing.id, role: existing.role, linked: existing.linked, hasSignedIn: existing.hasSignedIn });
   return existing;
+}
+
+// ============================================================================
+// STEP 4: Send the access e-mail (account that never signed in)
+// ============================================================================
+
+// The recovery e-mail: the link signs the student in and the app opens /definir-senha. inviteUserByEmail refuses an
+// e-mail that already has an account
+async function sendAccessEmail(email: string, supabaseAdmin: SupabaseClient): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email);
+  if (error) {
+    console.error("[ACCESS] Error:", error.message);
+    return { success: false, error: error.message };
+  }
+  console.log("[ACCESS] Sent");
+  return { success: true };
 }
 
 // ============================================================================
@@ -294,6 +320,11 @@ async function linkStudentToProfessional(
     .from("professional_students")
     .insert({ professional_id: professionalId, student_id: studentId });
 
+  // UNIQUE (professional_id, student_id): a concurrent request already linked them, which is what was asked
+  if (error?.code === "23505") {
+    console.log("[LINK] Already linked:", { professionalId, studentId });
+    return { success: true };
+  }
   if (error) {
     console.error("[LINK] Error:", error.message);
     return { success: false, error: "Erro ao vincular aluno ao profissional" };
@@ -368,7 +399,12 @@ serve(async (req: Request) => {
 
     // 5. Check if the e-mail already has an account, and decide
     const existing = await findExistingAccount(request.email, request.professionalId, supabaseAdmin);
-    const decision = decideSignup(request.email, { id: request.professionalId, email: profVerification.callerEmail }, existing);
+    const decision = decideSignup(
+      request.email,
+      request.mode,
+      { id: request.professionalId, email: profVerification.callerEmail },
+      existing,
+    );
 
     if (decision.action === "reject") {
       console.log("[FLOW] Rejected:", decision.status);
@@ -376,12 +412,34 @@ serve(async (req: Request) => {
     }
 
     let studentId: string;
-    let isExisting = false;
+    let outcome: SignupOutcome;
 
-    if (decision.action === "link") {
-      // 6a. The account exists, is a student's and is not linked yet: link it
+    if (decision.action === "sendAccess") {
+      // 6a. Student account that never signed in: link it if needed, then send the e-mail to create the password
       studentId = decision.studentId;
-      isExisting = true;
+      outcome = "accessSent";
+      console.log("[FLOW] Sending access to existing student:", { studentId, link: decision.link });
+
+      if (decision.link) {
+        const linkResult = await linkStudentToProfessional(request.professionalId, studentId, supabaseAdmin);
+        if (!linkResult.success) {
+          return errorResponse(linkResult.error || "Erro ao vincular", 500);
+        }
+      }
+
+      const accessResult = await sendAccessEmail(request.email, supabaseAdmin);
+      if (!accessResult.success) {
+        // Linked already, so a new invite in a few minutes only resends the e-mail. The provider's text stays in the log
+        return errorResponse(
+          `${request.fullName} está vinculado a você, mas o e-mail de acesso não saiu. ` +
+            "Envie o convite de novo daqui a alguns minutos.",
+          502,
+        );
+      }
+    } else if (decision.action === "link") {
+      // 6b. The account exists, is a student's that already signed in and is not linked yet: link it
+      studentId = decision.studentId;
+      outcome = "linked";
       console.log("[FLOW] Linking existing student:", studentId);
 
       const linkResult = await linkStudentToProfessional(request.professionalId, studentId, supabaseAdmin);
@@ -389,7 +447,7 @@ serve(async (req: Request) => {
         return errorResponse(linkResult.error || "Erro ao vincular", 500);
       }
     } else {
-      // 6b. Create new student
+      // 6c. Create new student
       console.log("[FLOW] Creating new student");
       const createResult = await createNewStudent(request, supabaseAdmin);
       
@@ -398,6 +456,7 @@ serve(async (req: Request) => {
       }
 
       studentId = createResult.userId;
+      outcome = "created";
 
       // Update profile with full name and phone
       await updateProfile(studentId, request.fullName, request.phone, supabaseAdmin);
@@ -420,9 +479,9 @@ serve(async (req: Request) => {
     }
 
     // 8. Build success message
-    const message = successMessage(request.mode, isExisting, request.fullName, request.email);
+    const message = successMessage(request.mode, outcome, request.fullName, request.email);
 
-    console.log("[SUCCESS]", { studentId, mode: request.mode, isExisting, assessmentId });
+    console.log("[SUCCESS]", { studentId, mode: request.mode, outcome, assessmentId });
 
     return successResponse({
       success: true,
@@ -430,7 +489,8 @@ serve(async (req: Request) => {
       studentName: request.fullName,
       studentEmail: request.email,
       mode: request.mode,
-      existingUser: isExisting,
+      existingUser: outcome !== "created",
+      accessEmailSent: outcome === "accessSent",
       assessmentId,
       message,
     });

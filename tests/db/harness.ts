@@ -12,10 +12,14 @@ export const NEW_MIG = '20261101120000_bloco1_banco_acesso.sql';
 export const ROLLBACK = REPO + '/supabase/rollbacks/20261101120000_bloco1_banco_acesso_down.sql';
 const MIG = REPO + '/supabase/migrations';
 const FIXTURES = REPO + '/tests/db/fixtures';
+// Etapa 5a: red flags lock the protocol (protocols written only by its owner, anamnesis closed with its
+// assessment, quick protocol triage). Tests of earlier etapas that need the database as they left it skip these.
+export const ETAPA5A = ['20261104120000_etapa5a_red_flags.sql', '20261105120000_etapa5a_triagem_rapida.sql'];
 // Later migrations that change rules the bloco 1 replays check: since etapa 3d, protocols and findings
-// are written only through save_assessment_protocol. The bloco 1 replays and rollback run without them,
-// so they stay comparable with their reference outputs; each of these migrations has its own test.
-export const CHANGES_BLOCO1_RULES = ['20261103120000_etapa3d_gravacao_protocolo.sql'];
+// are written only through save_assessment_protocol, and since etapa 5a only with red flags cleared.
+// The bloco 1 replays and rollback run without them, so they stay comparable with their reference outputs;
+// each of these migrations has its own test.
+export const CHANGES_BLOCO1_RULES = ['20261103120000_etapa3d_gravacao_protocolo.sql', ...ETAPA5A];
 
 // skip: migrations left out by name (a later etapa tests the database without its own migration)
 export async function makeDb({ withNew = true, skip = [] as string[] } = {}) {

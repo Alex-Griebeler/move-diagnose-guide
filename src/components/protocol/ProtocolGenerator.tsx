@@ -27,6 +27,8 @@ import { logger } from '@/lib/logger';
 import { parseGeneratedProtocol, type Exercise, type GeneratedProtocol } from '@/lib/protocolResponse';
 import { buildProtocolSave } from '@/lib/protocolSave';
 import { PROTOCOL_DRAFT_STEP, cachedProtocol, canonicalJson, requestKey } from '@/lib/protocolCache';
+import { isRedFlagGateError, justificationOk, parseRedFlagStatus, type RedFlagStatus } from '@/lib/redFlags';
+import { RedFlagClearanceCard, RedFlagClearedNote } from '@/components/red-flags/RedFlagClearance';
 
 interface ProtocolGeneratorProps {
   assessmentId: string;
@@ -102,8 +104,18 @@ const messageOf = (err: unknown, fallback: string) =>
 // the same paid call instead of starting another one
 const inFlight = new Map<string, Promise<GeneratedProtocol>>();
 
+// Etapa 5a: the red flags of the assessment, read before anything is generated
+async function readRedFlagStatus(assessmentId: string): Promise<RedFlagStatus> {
+  const { data, error } = await supabase.rpc('assessment_red_flag_status', { _assessment_id: assessmentId });
+  if (error) throw error;
+  const status = parseRedFlagStatus(data);
+  if (!status) throw new Error('Não foi possível conferir as red flags');
+  return status;
+}
+
 async function generateAndCache(assessmentId: string, body: Record<string, unknown>, key: string | null): Promise<GeneratedProtocol> {
-  const { data, error: fnError } = await supabase.functions.invoke('generate-protocol', { body });
+  // The Edge checks the red flags of this assessment too; the id stays out of the request key
+  const { data, error: fnError } = await supabase.functions.invoke('generate-protocol', { body: { ...body, assessmentId } });
   if (fnError) throw fnError;
   if (data?.error) throw new Error(data.error);
   const generated = parseGeneratedProtocol(data?.protocol);
@@ -151,6 +163,11 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
   const [priorityResult, setPriorityResult] = useState<PriorityEngineResult | null>(null);
   const [evidenceStats, setEvidenceStats] = useState<EvidenceStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Etapa 5a: closed, the card asks for the clearance; open with a clearance, it shows above the protocol
+  const [gate, setGate] = useState<RedFlagStatus | null>(null);
+  const [justification, setJustification] = useState('');
+  const [clearing, setClearing] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   // Only the latest load may update the screen: not one started before leaving the step, nor
   // the first mount of StrictMode
   const latestLoad = useRef(0);
@@ -163,8 +180,18 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
     setLoading(true);
     setGenerating(true);
     setError(null);
+    setGate(null);
 
     try {
+      // Red flags first: while one is not cleared, nothing is generated nor shown
+      const status = await readRedFlagStatus(assessmentId);
+      if (!isLatest()) return;
+      setGate(status);
+      if (status.blocked) {
+        setProtocol(null);
+        return;
+      }
+
       const [globalResults, segmentalResults, anamnesisData] = await Promise.all([
         supabase.from('global_test_results').select('*').eq('assessment_id', assessmentId),
         supabase.from('segmental_test_results').select('*').eq('assessment_id', assessmentId),
@@ -317,11 +344,36 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
       }
       if (!isLatest()) return;
 
+      // A red flag may have been marked, or the clearance revoked, while the protocol was generated: read the
+      // status again before showing it
+      const statusNow = await readRedFlagStatus(assessmentId);
+      if (!isLatest()) return;
+      setGate(statusNow);
+      if (statusNow.blocked) {
+        setProtocol(null);
+        return;
+      }
+
       setEvidenceStats(stats);
       setPriorityResult(prioridadesCalculadas);
       setProtocol(generated);
     } catch (err) {
       if (!isLatest()) return;
+      // The Edge stopped on a red flag the screen had not seen: back to the card
+      if (isRedFlagGateError(err)) {
+        try {
+          const status = await readRedFlagStatus(assessmentId);
+          if (!isLatest()) return;
+          if (status.blocked) {
+            setGate(status);
+            setProtocol(null);
+            return;
+          }
+        } catch (statusErr) {
+          logger.error('Error reading the red flag status', statusErr);
+        }
+        if (!isLatest()) return;
+      }
       console.error('Error generating protocol:', err);
       setError(messageOf(err, 'Erro ao gerar protocolo'));
       toast.error('Erro ao gerar protocolo');
@@ -340,6 +392,32 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
     };
   }, [loadProtocol]);
 
+  // Etapa 5a: a red flag may be marked, or the clearance revoked, in another tab while the protocol is on screen.
+  // Coming back to this tab reads the status again; saving is checked by the database anyway
+  const showingProtocol = !!protocol && !gate?.blocked;
+  useEffect(() => {
+    if (!showingProtocol) return;
+    const recheck = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const load = latestLoad.current;
+      try {
+        const status = await readRedFlagStatus(assessmentId);
+        // A load started meanwhile, or the step was left: that one owns the screen
+        if (latestLoad.current !== load) return;
+        setGate(status);
+        if (status.blocked) setProtocol(null);
+      } catch (err) {
+        logger.error('Error reading the red flag status', err);
+      }
+    };
+    document.addEventListener('visibilitychange', recheck);
+    window.addEventListener('focus', recheck);
+    return () => {
+      document.removeEventListener('visibilitychange', recheck);
+      window.removeEventListener('focus', recheck);
+    };
+  }, [showingProtocol, assessmentId]);
+
   const unknownPhaseExercises = protocol?.exercises.filter(ex => !KNOWN_PHASES.has(ex.phase)) ?? [];
 
   const saveProtocol = async () => {
@@ -354,9 +432,60 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
       onComplete();
     } catch (err) {
       console.error('Error saving protocol:', err);
+      // A red flag lit after the generation, or the clearance was revoked: back to the card
+      if (isRedFlagGateError(err)) {
+        try {
+          const status = await readRedFlagStatus(assessmentId);
+          if (status.blocked) {
+            setGate(status);
+            setProtocol(null);
+            return;
+          }
+        } catch (statusErr) {
+          logger.error('Error reading the red flag status', statusErr);
+        }
+      }
       toast.error('Erro ao salvar protocolo', { description: 'Nada foi gravado pela metade. Tente de novo.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const clearRedFlags = async () => {
+    setClearing(true);
+    try {
+      const { error: clearError } = await supabase.rpc('clear_assessment_red_flags', {
+        _assessment_id: assessmentId,
+        _justification: justification,
+      });
+      if (clearError) throw clearError;
+      setJustification('');
+      // The status again, and only then the generation
+      loadProtocol(false);
+    } catch (err) {
+      logger.error('Error clearing the red flags', err);
+      toast.error('Erro ao liberar', { description: 'Não foi possível registrar a liberação. Tente novamente.' });
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const revokeClearance = async (reason: string) => {
+    if (!gate?.clearance) return;
+    setRevoking(true);
+    try {
+      const { error: revokeError } = await supabase.rpc('revoke_red_flag_clearance', {
+        _clearance_id: gate.clearance.id,
+        _reason: reason,
+      });
+      if (revokeError) throw revokeError;
+      // The status again: without another valid clearance the card comes back, and the protocol goes away
+      loadProtocol(false);
+    } catch (err) {
+      logger.error('Error revoking the clearance', err);
+      toast.error('Erro ao revogar', { description: 'Não foi possível revogar a liberação. Tente novamente.' });
+    } finally {
+      setRevoking(false);
     }
   };
 
@@ -381,6 +510,33 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
           <Progress value={generating ? 66 : 33} className="w-64 mt-6" />
         </CardContent>
       </Card>
+    );
+  }
+
+  if (gate?.blocked === 'anamnesis_missing') {
+    return (
+      <Card className="border-destructive/50">
+        <CardContent className="py-12 text-center">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <p className="text-muted-foreground">Falta a anamnese desta avaliação. Preencha antes de gerar o protocolo.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (gate?.blocked) {
+    return (
+      <RedFlagClearanceCard
+        source="anamnese"
+        activeFlags={gate.activeFlags}
+        justification={justification}
+        onJustificationChange={setJustification}
+      >
+        <Button onClick={clearRedFlags} disabled={clearing || !justificationOk(justification)}>
+          {clearing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          Liberar e gerar protocolo
+        </Button>
+      </RedFlagClearanceCard>
     );
   }
 
@@ -411,6 +567,8 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
 
   return (
     <div className="space-y-6">
+      {gate?.clearance && <RedFlagClearedNote clearance={gate.clearance} busy={revoking} onRevoke={revokeClearance} />}
+
       {/* Evidence Statistics */}
       {evidenceStats && evidenceStats.totalViews > 0 && (
         <Card className="border-border/50">

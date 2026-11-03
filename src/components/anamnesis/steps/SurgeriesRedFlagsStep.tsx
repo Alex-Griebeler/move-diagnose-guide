@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { RED_FLAG_ITEMS } from '@/lib/redFlags';
 
 interface SurgeriesRedFlagsStepProps {
   data: AnamnesisData;
@@ -30,17 +31,6 @@ const lateralityOptions = [
   { value: 'esquerdo', label: 'E' },
   { value: 'bilateral', label: 'Bilateral' },
 ];
-
-const redFlagItems = [
-  { key: 'unexplainedWeightLoss', label: 'Perda de peso inexplicada' },
-  { key: 'nightPain', label: 'Dor noturna que não melhora' },
-  { key: 'fever', label: 'Febre associada à dor' },
-  { key: 'bladderBowelDysfunction', label: 'Disfunção bexiga/intestino' },
-  { key: 'progressiveWeakness', label: 'Fraqueza progressiva' },
-  { key: 'recentTrauma', label: 'Trauma recente significativo' },
-  { key: 'cancerHistory', label: 'Histórico de câncer' },
-  { key: 'osteoporosis', label: 'Osteoporose' },
-] as const;
 
 export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsStepProps) {
   const [selectedRegion, setSelectedRegion] = useState('');
@@ -224,7 +214,7 @@ export function SurgeriesRedFlagsStep({ data, updateData }: SurgeriesRedFlagsSte
         </p>
 
         <div className="flex flex-wrap gap-2">
-          {redFlagItems.map((item) => (
+          {RED_FLAG_ITEMS.map((item) => (
             <button
               key={item.key}
               type="button"

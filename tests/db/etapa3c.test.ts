@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import type { PGlite } from '@electric-sql/pglite';
 import { describe, expect, it } from 'vitest';
-import { makeDb, as, sys, REPO } from './harness';
+import { makeDb, as, sys, REPO, ETAPA5A } from './harness';
 
 // Etapa 3c (F-04): uma anamnese por avaliação e um resultado segmentar por teste da avaliação.
 // Os wizards gravam com upsert nessas chaves; antes, "Voltar" e reenviar inseria outra linha.
 // Portado de work/codex-review/etapa3c-voltar-pular-rascunho/replay (fora deste repositório).
+// O banco como a 3c o deixou: sem a 5a, que fecha a anamnese de avaliação concluída para todos os papéis
+// (etapa5a.test.ts) e mudaria o erro esperado aqui.
 const MIGRATION = '20261102120000_etapa3c_unicidade_filhas.sql';
 const MIGRATION_SQL = fs.readFileSync(`${REPO}/supabase/migrations/${MIGRATION}`, 'utf8');
 const ROLLBACK_SQL = fs.readFileSync(`${REPO}/supabase/rollbacks/20261102120000_etapa3c_unicidade_filhas_down.sql`, 'utf8');
@@ -41,7 +43,7 @@ const count = (table: string, a: string) => `select count(*) from ${table} where
 
 describe('sem a migration (o defeito)', () => {
   it('reenviar insere outra anamnese e outro resultado do mesmo teste; upsert por chave falha', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await seed(db);
     await as(db, P1);
     await db.exec(`INSERT INTO anamnesis_responses(assessment_id) VALUES('${A_OPEN}'); INSERT INTO anamnesis_responses(assessment_id) VALUES('${A_OPEN}');
@@ -55,7 +57,7 @@ INSERT INTO segmental_test_results(assessment_id,test_name,body_region) VALUES('
 
 describe('a migration', () => {
   it('as colunas da chave são NOT NULL, então nenhum NULL escapa da unicidade', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     const r = await db.query<{ c: string; is_nullable: string }>(`select table_name||'.'||column_name c, is_nullable from information_schema.columns
       where table_schema='public' and ((table_name='anamnesis_responses' and column_name='assessment_id')
         or (table_name='segmental_test_results' and column_name in ('assessment_id','test_name'))) order by 1`);
@@ -70,7 +72,7 @@ describe('a migration', () => {
     ['anamnese duplicada', `INSERT INTO anamnesis_responses(assessment_id) VALUES('${A_OPEN}'),('${A_OPEN}')`, /mais de uma anamnese/],
     ['teste segmentar repetido', `INSERT INTO segmental_test_results(assessment_id,test_name,body_region) VALUES('${A_OPEN}','t','r'),('${A_OPEN}','t','r')`, /teste segmentar repetido/],
   ])('com %s, aborta sem criar nada e sem apagar nenhuma linha', async (_label, duplicate, reason) => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await seed(db);
     await db.exec(duplicate);
     const rows = `select (select count(*) from anamnesis_responses)+(select count(*) from segmental_test_results)`;
@@ -86,7 +88,7 @@ describe('a migration', () => {
 
 describe('com a migration', () => {
   it('reenviar atualiza a linha salva; insert repetido falha; avaliação concluída continua fechada', async () => {
-    const { db } = await makeDb();
+    const { db } = await makeDb({ skip: ETAPA5A });
     expect(await value(db, `select count(*) from pg_constraint where conname in ${UNIQUES} and contype='u'`)).toBe(2);
     await seed(db);
     await as(db, P1);
@@ -111,7 +113,7 @@ describe('com a migration', () => {
   });
 
   it('rollback tira as duas constraints, pode rodar de novo e não apaga dados', async () => {
-    const { db } = await makeDb();
+    const { db } = await makeDb({ skip: ETAPA5A });
     await seed(db);
     await as(db, P1);
     await db.exec(upsertAnamnesis(A_OPEN, 70));

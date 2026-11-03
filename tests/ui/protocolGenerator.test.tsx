@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
-// Etapa 3d (B-13, F-15): a etapa do protocolo. Real: ProtocolGenerator, o motor de prioridades, a validação
-// da resposta e a montagem do pedido. Falsos: Supabase (tabelas, escritas e rpc registradas, falhas por nome)
-// e a Edge generate-protocol (a resposta é a de quando foi chamada; cada chamada pode ser retida). Dados sintéticos.
+// Etapa 3d (B-13, F-15) e 5a (red flags): a etapa do protocolo. Real: ProtocolGenerator, o motor de prioridades,
+// a validação da resposta, a montagem do pedido e o cartão de liberação. Falsos: Supabase (tabelas, escritas e rpc
+// registradas, falhas por nome, o status de red flags como tabela) e a Edge generate-protocol (a resposta é a de
+// quando foi chamada; cada chamada pode ser retida ou devolver erro). Dados sintéticos.
 import { StrictMode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { RecordedWrite } from './supabaseFake';
 import { ProtocolGenerator } from '@/components/protocol/ProtocolGenerator';
+import { requestKey } from '@/lib/protocolCache';
 
 const ASSESSMENT = '00000000-0000-0000-0000-0000000000e1';
 
@@ -16,6 +18,7 @@ const h = vi.hoisted(() => ({
   fail: {} as Record<string, string>,
   invokes: [] as Array<{ name: string; body: unknown }>,
   response: null as unknown,
+  edgeError: null as unknown,
   holds: [] as Array<Promise<void>>,
   toasts: [] as string[],
 }));
@@ -30,8 +33,9 @@ vi.mock('@/integrations/supabase/client', async () => {
         invoke: async (name: string, opts: { body: unknown }) => {
           const call = h.invokes.push({ name, body: opts.body }) - 1;
           const response = h.response;
+          const edgeError = h.edgeError;
           await h.holds[call];
-          return { data: response, error: null };
+          return edgeError ? { data: null, error: edgeError } : { data: response, error: null };
         },
       },
     },
@@ -79,6 +83,16 @@ const watchKey = (held?: number) => {
 };
 let draftReads = 0;
 
+// Etapa 5a: respostas de assessment_red_flag_status
+const OPEN = { blocked: null, active_flags: [], clearance: null };
+const BLOCKED = { blocked: 'red_flags_not_cleared', active_flags: ['nightPain', 'unspecified'], clearance: null };
+const JUSTIFICATION = 'Liberado pelo médico sintético em 10/11';
+const CLEARED = {
+  blocked: null, active_flags: ['nightPain'],
+  clearance: { id: '00000000-0000-0000-0000-0000000000c1', justification: JUSTIFICATION, created_at: '2026-11-02T15:00:00Z' },
+};
+const rpcs = (name: string) => h.writes.filter(w => w.table === name && w.op === 'rpc');
+
 beforeEach(() => {
   h.writes.length = 0; h.invokes.length = 0; h.toasts.length = 0; h.holds.length = 0; releases.length = 0;
   draftReads = 0;
@@ -96,6 +110,8 @@ beforeEach(() => {
     return last ? { draft_data: last.draft_data } : null;
   };
   h.response = protocolWith([exercise('Mobilidade sintética', 'mobility')]);
+  h.edgeError = null;
+  h.tables['rpc:assessment_red_flag_status'] = OPEN;
 });
 afterEach(() => {
   releases.forEach(release => release());
@@ -303,10 +319,191 @@ it('falha ao ler ou guardar a geração não bloqueia: gera e mostra', async () 
   expect(generations()).toBe(1);
 });
 
-it('o pedido à geração tem as mesmas chaves de antes, com o contexto do aluno', async () => {
+it('o pedido à geração tem as mesmas chaves de antes, com o contexto do aluno e o id da avaliação (5a)', async () => {
   mount();
   await screen.findByText('Salvar e Finalizar');
   const body = h.invokes[0].body as Record<string, unknown>;
-  expect(Object.keys(body).sort()).toStrictEqual(['anamnesis', 'compensations', 'primaryIssues', 'priorityAnalysis', 'secondaryIssues', 'segmentalResults']);
+  expect(Object.keys(body).sort()).toStrictEqual(['anamnesis', 'assessmentId', 'compensations', 'primaryIssues', 'priorityAnalysis', 'secondaryIssues', 'segmentalResults']);
   expect(body.anamnesis).toMatchObject({ objectives: 'objetivo sintético' });
+  expect(body.assessmentId).toBe(ASSESSMENT);
+});
+
+describe('Etapa 5a: red flags', () => {
+  it('o id da avaliação vai à Edge, mas não muda a chave do protocolo guardado', async () => {
+    mount();
+    await screen.findByText('Salvar e Finalizar');
+    const { assessmentId, ...request } = h.invokes[0].body as Record<string, unknown>;
+    expect(assessmentId).toBe(ASSESSMENT);
+    const saved = upserts()[0].payload as { draft_data: { inputKey: string } };
+    expect(saved.draft_data.inputKey).toBe(await requestKey(request));
+  });
+
+  it('bloqueada: o cartão com as red flags, e nada é lido nem gerado', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = BLOCKED;
+    mount();
+    expect(await screen.findByText('Red flags na anamnese — Dor noturna que não melhora, Red flag sem detalhe')).toBeTruthy();
+    screen.getByText('O protocolo fica travado até você liberar, com justificativa (por exemplo, liberação médica com data).');
+    screen.getByLabelText('Justificativa (mínimo de 20 caracteres)');
+    expect(generations()).toBe(0);
+    expect(draftReads).toBe(0);
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+  });
+
+  it('o botão de liberar só liga com 20 caracteres, sem contar os espaços das pontas', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = BLOCKED;
+    mount();
+    const field = await screen.findByLabelText('Justificativa (mínimo de 20 caracteres)');
+    const button = () => screen.getByText('Liberar e gerar protocolo').closest('button')!;
+    expect(button().disabled).toBe(true);
+    fireEvent.change(field, { target: { value: 'x'.repeat(19) } });
+    expect(button().disabled).toBe(true);
+    fireEvent.change(field, { target: { value: `   ${'x'.repeat(19)}\n\t ` } });
+    expect(button().disabled).toBe(true);
+    fireEvent.change(field, { target: { value: 'x'.repeat(20) } });
+    expect(button().disabled).toBe(false);
+    fireEvent.click(button());
+    await waitFor(() => expect(rpcs('clear_assessment_red_flags')).toHaveLength(1));
+  });
+
+  it('liberar grava a liberação, lê o status de novo e só então gera; a liberação aparece acima do protocolo', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = () => (rpcs('clear_assessment_red_flags').length ? CLEARED : BLOCKED);
+    mount();
+    fireEvent.change(await screen.findByLabelText('Justificativa (mínimo de 20 caracteres)'), { target: { value: JUSTIFICATION } });
+    expect(generations()).toBe(0);
+    fireEvent.click(screen.getByText('Liberar e gerar protocolo'));
+    await screen.findByText('Salvar e Finalizar');
+    expect(rpcs('clear_assessment_red_flags').map(w => w.payload)).toStrictEqual([{ _assessment_id: ASSESSMENT, _justification: JUSTIFICATION }]);
+    expect(generations()).toBe(1);
+    screen.getByText(new RegExp(`^Liberado por você em \\d{2}/\\d{2}/\\d{4}: ${JUSTIFICATION}$`));
+    screen.getByText('Revogar');
+  });
+
+  it('a liberação que falha mostra o erro e fica no cartão, sem gerar', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = BLOCKED;
+    h.fail['clear_assessment_red_flags.rpc'] = 'falha sintética';
+    mount();
+    fireEvent.change(await screen.findByLabelText('Justificativa (mínimo de 20 caracteres)'), { target: { value: JUSTIFICATION } });
+    fireEvent.click(screen.getByText('Liberar e gerar protocolo'));
+    await waitFor(() => expect(h.toasts).toStrictEqual(['erro: Erro ao liberar (Não foi possível registrar a liberação. Tente novamente.)']));
+    screen.getByText('Liberar e gerar protocolo');
+    expect(generations()).toBe(0);
+  });
+
+  it('revogar pede o motivo, grava e volta ao cartão; o protocolo sai da tela', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = () => (rpcs('revoke_red_flag_clearance').length ? { ...BLOCKED, active_flags: ['nightPain'] } : CLEARED);
+    mount();
+    await screen.findByText('Salvar e Finalizar');
+    fireEvent.click(screen.getByText('Revogar'));
+    const field = screen.getByLabelText('Motivo da revogação (mínimo de 20 caracteres)');
+    const button = () => screen.getByText('Revogar liberação').closest('button')!;
+    expect(button().disabled).toBe(true);
+    fireEvent.change(field, { target: { value: 'Motivo sintético da revogação' } });
+    fireEvent.click(button());
+    expect(await screen.findByText('Red flags na anamnese — Dor noturna que não melhora')).toBeTruthy();
+    expect(rpcs('revoke_red_flag_clearance').map(w => w.payload)).toStrictEqual([
+      { _clearance_id: CLEARED.clearance.id, _reason: 'Motivo sintético da revogação' },
+    ]);
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+    expect(screen.queryByText('Mobilidade sintética')).toBeNull();
+  });
+
+  it('sem anamnese: o aviso, sem cartão de liberação e sem gerar', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = { blocked: 'anamnesis_missing', active_flags: [], clearance: null };
+    mount();
+    expect(await screen.findByText('Falta a anamnese desta avaliação. Preencha antes de gerar o protocolo.')).toBeTruthy();
+    expect(screen.queryByText('Liberar e gerar protocolo')).toBeNull();
+    expect(generations()).toBe(0);
+  });
+
+  it.each([
+    ['dá erro', () => { throw new Error('falha sintética do status'); }, 'falha sintética do status'],
+    ['vem num formato que a tela não lê', () => ({ blocked: 'outro_motivo', active_flags: [] }), 'Não foi possível conferir as red flags'],
+  ])('o status %s: tela de erro, sem gerar', async (_label, status, message) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.tables['rpc:assessment_red_flag_status'] = status;
+    mount();
+    expect(await screen.findByText(message)).toBeTruthy();
+    expect(generations()).toBe(0);
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+  });
+
+  it('a Edge devolve 409: o status é lido de novo e a tela volta ao cartão, sem a tela de erro', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.tables['rpc:assessment_red_flag_status'] = () => (generations() > 0 ? BLOCKED : OPEN);
+    h.edgeError = { message: 'Edge Function returned a non-2xx status code', context: { status: 409 } };
+    mount();
+    expect(await screen.findByText('Liberar e gerar protocolo')).toBeTruthy();
+    expect(generations()).toBe(1);
+    expect(screen.queryByText('Erro ao gerar protocolo')).toBeNull();
+    expect(upserts()).toHaveLength(0);
+  });
+
+  it('uma red flag marcada durante a geração: o status é lido de novo e o protocolo gerado não aparece (Codex r1)', async () => {
+    holdCall(0);
+    mount();
+    await waitFor(() => expect(generations()).toBe(1));
+    h.tables['rpc:assessment_red_flag_status'] = BLOCKED;
+    releases[0]();
+    expect(await screen.findByText('Liberar e gerar protocolo')).toBeTruthy();
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+    expect(screen.queryByText('Mobilidade sintética')).toBeNull();
+  });
+
+  it('uma liberação revogada durante a geração: o mesmo, e a nota da liberação sai', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = CLEARED;
+    holdCall(0);
+    mount();
+    await waitFor(() => expect(generations()).toBe(1));
+    h.tables['rpc:assessment_red_flag_status'] = { ...BLOCKED, active_flags: ['nightPain'] };
+    releases[0]();
+    expect(await screen.findByText('Red flags na anamnese — Dor noturna que não melhora')).toBeTruthy();
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+    expect(screen.queryByText(/^Liberado por você em/)).toBeNull();
+  });
+
+  it.each([
+    ['a aba volta a ficar visível', () => document.dispatchEvent(new Event('visibilitychange'))],
+    ['a janela volta ao foco', () => window.dispatchEvent(new Event('focus'))],
+  ])('red flag marcada em outra aba com o protocolo na tela: quando %s, o status é lido de novo e volta o cartão (Codex r2)', async (_label, comeBack) => {
+    mount();
+    await screen.findByText('Salvar e Finalizar');
+    h.tables['rpc:assessment_red_flag_status'] = BLOCKED;
+    comeBack();
+    expect(await screen.findByText('Liberar e gerar protocolo')).toBeTruthy();
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+    expect(screen.queryByText('Mobilidade sintética')).toBeNull();
+    expect(generations()).toBe(1);
+  });
+
+  it('a aba volta com o status aberto: o protocolo continua, sem gerar de novo', async () => {
+    mount();
+    await screen.findByText('Salvar e Finalizar');
+    let reads = 0;
+    h.tables['rpc:assessment_red_flag_status'] = () => { reads += 1; return OPEN; };
+    document.dispatchEvent(new Event('visibilitychange'));
+    await waitFor(() => expect(reads).toBe(1));
+    screen.getByText('Salvar e Finalizar');
+    screen.getByText('Mobilidade sintética');
+    expect(generations()).toBe(1);
+  });
+
+  it('a Edge devolve 400 (a versão antiga da tela, sem o id): tela de erro, como qualquer falha', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.edgeError = { message: 'Edge Function returned a non-2xx status code', context: { status: 400 } };
+    mount();
+    expect(await screen.findByText('Erro ao gerar protocolo')).toBeTruthy();
+    expect(screen.queryByText('Liberar e gerar protocolo')).toBeNull();
+  });
+
+  it('a gravação recusada pela porta volta ao cartão, sem concluir e sem o aviso de erro', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.tables['rpc:assessment_red_flag_status'] = () => (rpcs('save_assessment_protocol').length ? BLOCKED : OPEN);
+    h.fail['save_assessment_protocol.rpc'] = 'red_flags_not_cleared';
+    const onComplete = vi.fn();
+    mount(onComplete);
+    fireEvent.click(await screen.findByText('Salvar e Finalizar'));
+    expect(await screen.findByText('Liberar e gerar protocolo')).toBeTruthy();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(h.toasts).toStrictEqual([]);
+  });
 });

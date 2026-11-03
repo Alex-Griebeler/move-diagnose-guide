@@ -92,6 +92,8 @@ vi.mock('@/lib/clinical/biomechanicalScoring', () => ({
 beforeEach(() => {
   localStorage.clear();
   for (const table of Object.keys(h.tables)) delete h.tables[table];
+  // Etapa 5a: avaliação sem red flag, a porta aberta
+  h.tables['rpc:assessment_red_flag_status'] = { blocked: null, active_flags: [], clearance: null };
   h.writes.length = 0;
   h.invokes.length = 0;
   h.ai = null;
@@ -143,6 +145,7 @@ const protocolInput = async (rows: GlobalRow[]) => {
   h.tables.global_test_results = rows;
   render(<ProtocolGenerator assessmentId={ASSESSMENT} onComplete={() => {}} />);
   await waitFor(() => expect(h.invokes.some((i) => i.name === 'generate-protocol')).toBe(true));
+  expect(h.invokes.find((i) => i.name === 'generate-protocol')!.body).toMatchObject({ assessmentId: ASSESSMENT });
   return h.invokes.find((i) => i.name === 'generate-protocol')!.body as { compensations: Array<Record<string, unknown>> };
 };
 

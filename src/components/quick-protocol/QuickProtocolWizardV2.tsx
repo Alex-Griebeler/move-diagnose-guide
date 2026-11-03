@@ -2,10 +2,10 @@
  * Quick Protocol Wizard V2 - Novo Fluxo com IA
  * 
  * Fluxo principal (knee_pain):
- * 1. Intro → SideSelection → MovementCapture → AIResult → ConfirmatoryTests → Result → Retest
+ * 1. Intro → Triage → SideSelection → MovementCapture → AIResult → ConfirmatoryTests → Result → Retest
  * 
  * Fallback manual:
- * 1. Intro → SideSelection → FixedTests → Result → Retest
+ * 1. Intro → Triage → SideSelection → FixedTests → Result → Retest
  */
 
 import { useState, useEffect } from 'react';
@@ -20,6 +20,9 @@ import { createLogger } from '@/lib/logger';
 
 import { QuickProtocolIntro } from './QuickProtocolIntro';
 import { QuickProtocolSideSelector } from './QuickProtocolSideSelector';
+import { QuickProtocolTriage } from './QuickProtocolTriage';
+import { startQuickSession } from './startQuickSession';
+import { NO_RED_FLAGS, type RedFlags } from '@/lib/redFlags';
 import { QuickProtocolMovementCapture } from './QuickProtocolMovementCapture';
 import { QuickProtocolAIResult } from './QuickProtocolAIResult';
 import { QuickProtocolConfirmatoryTests } from './QuickProtocolConfirmatoryTests';
@@ -54,6 +57,7 @@ const logger = createLogger('QuickProtocolWizardV2');
 
 type WizardStep = 
   | 'intro' 
+  | 'triage'            // Etapa 5a: triagem de red flags
   | 'side_selection' 
   | 'movement_capture'  // Novo: captura de vídeo
   | 'ai_result'         // Novo: resultado da IA
@@ -89,6 +93,9 @@ export function QuickProtocolWizardV2({
   const [affectedSide, setAffectedSide] = useState<AffectedSide | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Etapa 5a: red flag triage before the side, and the justification that clears it
+  const [redFlags, setRedFlags] = useState<RedFlags>(NO_RED_FLAGS);
+  const [justification, setJustification] = useState('');
 
   // AI flow state
   const [detectedCompensations, setDetectedCompensations] = useState<KneeRelevantCompensation[]>([]);
@@ -120,28 +127,21 @@ export function QuickProtocolWizardV2({
     setAffectedSide(side);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Create session immediately - we need the sessionId for media uploads
-      const { data: session, error } = await supabase
-        .from('quick_protocol_sessions')
-        .insert({
-          student_id: studentId,
-          professional_id: user.id,
-          assessment_id: assessmentId,
-          protocol_type: protocolType,
-          status: 'in_progress',
-          test_results: {},
-          affected_side: side,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      logger.info('Session created', { sessionId: session.id });
-      setSessionId(session.id);
+      // Create session immediately - we need the sessionId for media uploads - with the triage, and clear its red flags
+      const started = await startQuickSession({
+        sessionId, studentId, assessmentId, protocolType, side, redFlags, justification,
+      });
+      logger.info('Session created', { sessionId: started.sessionId });
+      setSessionId(started.sessionId);
+      if (!started.cleared) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao liberar',
+          description: 'Não foi possível registrar a liberação. Tente novamente.',
+        });
+        setStep('triage');
+        return;
+      }
       
       // Go to AI flow if available, otherwise manual
       if (isAIFlowAvailable && flowMode === 'ai') {
@@ -325,9 +325,21 @@ export function QuickProtocolWizardV2({
         return (
           <QuickProtocolIntro
             protocolType={protocolType}
-            onStart={() => setStep('side_selection')}
+            onStart={() => setStep('triage')}
             hasPriorAssessment={!!assessmentId}
             priorDeficits={[]}
+          />
+        );
+
+      case 'triage':
+        return (
+          <QuickProtocolTriage
+            flags={redFlags}
+            onFlagsChange={setRedFlags}
+            justification={justification}
+            onJustificationChange={setJustification}
+            onContinue={() => setStep('side_selection')}
+            onClose={handleClose}
           />
         );
 
@@ -438,7 +450,7 @@ export function QuickProtocolWizardV2({
                     <span>Lado {getSideLabel(affectedSide)}</span>
                   </>
                 )}
-                {flowMode === 'ai' && step !== 'intro' && step !== 'side_selection' && (
+                {flowMode === 'ai' && step !== 'intro' && step !== 'triage' && step !== 'side_selection' && (
                   <>
                     <span>•</span>
                     <span className="text-primary">IA</span>

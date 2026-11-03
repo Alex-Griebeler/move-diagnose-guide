@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import type { PGlite } from '@electric-sql/pglite';
 import { describe, expect, it } from 'vitest';
-import { makeDb, as, asService, sys, snapshot, REPO } from './harness';
+import { makeDb, as, asService, sys, snapshot, REPO, ETAPA5A } from './harness';
 import { calcularPrioridades } from '@/lib/priorityEngine';
 import { buildProtocolSave } from '@/lib/protocolSave';
 import type { GeneratedProtocol } from '@/lib/protocolResponse';
@@ -10,6 +10,9 @@ import type { GeneratedProtocol } from '@/lib/protocolResponse';
 // e só pela função save_assessment_protocol. Antes, um achado de peso 4 derrubava o lote, o erro era
 // ignorado e a avaliação era concluída sem achados; e uma falha no meio deixava protocolo gravado,
 // que o reenvio duplicava.
+// Os testes que escrevem direto em protocols (o service_role, que a 3d ainda deixava) e os da reversão da 3d rodam no
+// banco como a 3d o deixou, sem a 5a; a 5a fecha mais (etapa5a.test.ts). Os da gravação rodam com tudo, e a avaliação
+// tem uma anamnese sem red flag, que a 5a exige.
 const MIGRATION = '20261103120000_etapa3d_gravacao_protocolo.sql';
 const MIGRATION_SQL = fs.readFileSync(`${REPO}/supabase/migrations/${MIGRATION}`, 'utf8');
 const ROLLBACK_SQL = fs.readFileSync(`${REPO}/supabase/rollbacks/20261103120000_etapa3d_gravacao_protocolo_down.sql`, 'utf8');
@@ -27,7 +30,8 @@ INSERT INTO public.professional_students(professional_id,student_id) VALUES('${P
 INSERT INTO public.assessments(id,professional_id,student_id,status) VALUES
   ('${A}','${P1}','${S1}','in_progress'),('${A_ARCH}','${P1}','${S1}','archived'),('${A_OTHER}','${P2}','${S1}','in_progress');
 INSERT INTO public.assessment_drafts(assessment_id,step_type,draft_data) VALUES
-  ('${A}','protocol','{"inputKey":"k"}'),('${A}','segmental_tests','{}');`);
+  ('${A}','protocol','{"inputKey":"k"}'),('${A}','segmental_tests','{}');
+INSERT INTO public.anamnesis_responses(assessment_id,red_flags,has_red_flags) VALUES ('${A}','{"nightPain":false}',false);`);
 }
 async function value(db: PGlite, sql: string) {
   await sys(db);
@@ -65,7 +69,7 @@ const directFinding = (a: string, bio = 3, ctx = 0) => `INSERT INTO functional_f
 
 describe('sem a migration (o defeito)', () => {
   it('peso 4 derruba o lote, contexto 6 é recusado, e a avaliação conclui sem achados', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await seed(db);
     await as(db, P1);
     expect(await errorOf(db, `${directFinding(A, 4)}, ('${A}','u','r',3,0)`)).toMatch(/biomechanical_importance_check/);
@@ -79,7 +83,7 @@ describe('sem a migration (o defeito)', () => {
   });
 
   it('com a avaliação aberta, reenviar grava um segundo protocolo', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await seed(db);
     for (let i = 0; i < 2; i++) { await as(db, P1); await db.query(directProtocol(A)); }
     expect(await value(db, `select count(*) from protocols where assessment_id='${A}'`)).toBe(2);
@@ -88,7 +92,7 @@ describe('sem a migration (o defeito)', () => {
 
 describe('a migration', () => {
   it('com protocolo duplicado, aborta sem mudar nada e sem apagar nenhuma linha', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await seed(db);
     await db.exec(`${directProtocol(A)}; ${directProtocol(A)};`);
     let error = '';
@@ -102,7 +106,7 @@ describe('a migration', () => {
   // A tela antiga gravava o protocolo antes de concluir: uma falha entre os dois deixava a avaliação aberta com
   // protocolo, e a função bateria na unicidade a cada tentativa. A concluída com protocolo é o caso normal.
   it('com avaliação aberta que já tem protocolo, aborta sem mudar nada; a concluída com protocolo não impede', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await seed(db);
     await as(db, P1);
     await db.query(directProtocol(A));
@@ -126,7 +130,7 @@ ${directProtocol(A_DONE)}; UPDATE assessments SET status='completed' WHERE id='$
   // Achados gravados direto numa avaliação aberta, que as policies do bloco 1 deixavam, ficariam junto dos que a
   // função grava ao concluir
   it('com avaliação aberta que só tem achados, aborta sem mudar nada', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await seed(db);
     await as(db, P1);
     await db.query(directFinding(A));
@@ -141,7 +145,7 @@ ${directProtocol(A_DONE)}; UPDATE assessments SET status='completed' WHERE id='$
 
   // Um nome diferente em produção, ou uma policy de escrita fora das 6, deixaria a escrita direta aberta
   it('com outra policy de escrita nas filhas, aborta sem mudar nada', async () => {
-    const { db } = await makeDb({ skip: [MIGRATION] });
+    const { db } = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     await sys(db);
     await db.exec(`CREATE POLICY "outra" ON public.functional_findings FOR ALL TO authenticated USING (true) WITH CHECK (true)`);
     let error = '';
@@ -165,7 +169,7 @@ ${directProtocol(A_DONE)}; UPDATE assessments SET status='completed' WHERE id='$
   // Com a avaliação aberta, que é quando as policies do bloco 1 deixavam escrever. As linhas
   // de alterar e apagar vêm do service_role (como as de antes da 3d).
   it('o profissional não escreve mais protocolo nem achado direto; a leitura continua', async () => {
-    const { db } = await makeDb();
+    const { db } = await makeDb({ skip: ETAPA5A });
     await seed(db);
     await as(db, P1);
     expect(await errorOf(db, directProtocol(A))).toMatch(RLS);
@@ -191,7 +195,7 @@ ${directProtocol(A_DONE)}; UPDATE assessments SET status='completed' WHERE id='$
   // Sem policy de DELETE nas filhas: a cascata da chave estrangeira não passa pela RLS.
   // Uma avaliação aberta com protocolo (depois da 3d, só quem ignora a RLS a cria) ainda pode ser apagada pelo autor.
   it('o autor ainda apaga a avaliação aberta, e o protocolo e os achados vão junto', async () => {
-    const { db } = await makeDb();
+    const { db } = await makeDb({ skip: ETAPA5A });
     await seed(db);
     await asService(db);
     await db.query(directProtocol(A));
@@ -205,7 +209,7 @@ ${directProtocol(A_DONE)}; UPDATE assessments SET status='completed' WHERE id='$
 
   // A avaliação aberta com protocolo aqui vem do service_role: a pré-condição impede que ela exista antes da 3d
   it('um protocolo por avaliação, também para quem ignora a RLS', async () => {
-    const { db } = await makeDb();
+    const { db } = await makeDb({ skip: ETAPA5A });
     await seed(db);
     await asService(db);
     await db.query(directProtocol(A));
@@ -336,6 +340,16 @@ describe('save_assessment_protocol', () => {
     expect(await errorOf(db, request(A_DONE))).toMatch(/completed assessment without a protocol/);
   });
 
+  it('sem anamnese, não grava nada e a avaliação continua aberta (5a)', async () => {
+    const { db } = await makeDb();
+    await seed(db);
+    await sys(db);
+    await db.exec(`DELETE FROM anamnesis_responses WHERE assessment_id='${A}'`);
+    await as(db, P1);
+    expect(await errorOf(db, request(A))).toMatch(/anamnesis_missing/);
+    expect(await value(db, state(A))).toMatchObject({ status: 'in_progress', protocols: 0, findings: 0 });
+  });
+
   it('lista vazia conclui com 0 achados (aluno sem compensações)', async () => {
     const { db } = await makeDb();
     await seed(db);
@@ -372,9 +386,9 @@ describe('save_assessment_protocol', () => {
 
 describe('rollback', () => {
   it('volta as faixas, as policies de escrita e tira a unicidade e a função', async () => {
-    const base = await makeDb({ skip: [MIGRATION] });
+    const base = await makeDb({ skip: [MIGRATION, ...ETAPA5A] });
     const before = await snapshot(base.db);
-    const { db } = await makeDb();
+    const { db } = await makeDb({ skip: ETAPA5A });
     await sys(db);
     await db.exec(ROLLBACK_SQL);
     // Policies, funções e triggers idênticos ao banco sem a 3d
@@ -392,7 +406,7 @@ INSERT INTO public.assessments(id,professional_id,student_id,status) VALUES('${A
   });
 
   it('com achado fora da faixa antiga, para sem apagar nada', async () => {
-    const { db } = await makeDb();
+    const { db } = await makeDb({ skip: ETAPA5A });
     await seed(db);
     await as(db, P1);
     await db.query(request(A));

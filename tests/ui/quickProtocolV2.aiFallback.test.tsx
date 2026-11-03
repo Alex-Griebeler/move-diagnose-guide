@@ -76,6 +76,8 @@ const startWizard = async () => {
     </MemoryRouter>,
   );
   fireEvent.click(screen.getByText('Iniciar Protocolo Rápido'));
+  // Etapa 5a: a triagem de red flags vem antes do lado; sem nenhuma marcada, segue
+  fireEvent.click(await screen.findByText('Continuar'));
   fireEvent.click(await screen.findByText('Esquerdo'));
   await captureAllAndAnalyze();
 };

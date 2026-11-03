@@ -16,6 +16,7 @@ A CI (`.github/workflows/ci.yml`) roda os testes em toda PR e em todo push no `m
 - `poseFindings.test.ts` (passo 0): com a trava `POSE_OBJECTIVE_FINDINGS_ENABLED` desligada, nenhuma das 13 regras da pose devolve achado, nem com métricas que antes disparavam cada uma (o teste traz a regra antiga para provar). Vale também para regra nova ou limiar 0 vindos do `localStorage` ou do perfil do backend.
 - `fuseEvidence.test.ts` (passo 0): a fusão não aplica compensação em nenhuma combinação, não calcula concordância e não transforma achado da pose em sugestão. A pose continua conferindo a captura (timeout, quadros válidos, confiança). Sem pose comparável, achado da IA com confiança abaixo de 70% deixa a vista "indeterminate". O snapshot marca `poseObjectiveFindingsEnabled: false` nas três fontes de configuração, mesmo quando o perfil do backend troca a versão.
 - `segmentalCutoff.test.ts` (passo 0): `passesCutoff` e `cutoffLabel` (`src/data/segmentalTestMappings.ts`). Peitoral menor passa com até 2,5 cm, os outros testes com corte continuam "valor ≥ corte", e Thomas e Ober dizem na instrução o sinal do ângulo.
+- `redFlagGate.test.ts` (Etapa 5a): a porta de red flags da Edge Function de protocolo (`supabase/functions/generate-protocol/redFlagGate.ts`). Sem `assessmentId` válido, 400; se a leitura do estado falhar, lançar ou vier fora do formato, 403; com red flag sem liberação ou sem anamnese, 409 com o motivo e as red flags; só sem trava a geração segue.
 - `thresholdSources.ts` é apoio, não teste: troca a fonte dos limiares clínicos (padrão, `localStorage` ou perfil do backend, com Supabase falso).
 
 ## `tests/ui/`: componentes e telas, em jsdom
@@ -41,14 +42,22 @@ Cada arquivo declara `// @vitest-environment jsdom` (o padrão continua Node) e 
   - salvar faz uma chamada só a `save_assessment_protocol`, sem gravar direto nas tabelas; se ela falhar, nada fica gravado e dá para tentar de novo (B-13);
   - voltar à etapa com os mesmos testes reaproveita o protocolo guardado; mudar um teste, "Regenerar" ou um protocolo guardado inválido geram de novo; StrictMode, sair e voltar no meio da geração, uma geração que termina enquanto a etapa volta a carregar e duas cargas ao mesmo tempo não geram duas vezes; sair da etapa antes de gerar não gera, e trocar de avaliação não mostra resposta atrasada (F-15);
   - uma resposta inválida do gerador ou um erro ao ler a anamnese vão para a tela de erro; uma fase desconhecida aparece e bloqueia o salvar;
-  - o corpo do pedido ao gerador continua com as mesmas chaves.
-- `helpers.tsx` e `supabaseFake.ts` são apoio, não testes. O `supabaseFake` só aceita escrita quando o teste passa um array para registrá-la (com operação, opções e filtros); sem ele, qualquer escrita lança. `rpc` também é registrada assim. Uma tabela pode ser função dos filtros `eq`; se a função lançar, a consulta responde `{ data: null, error }`, como o supabase-js. Para simular falha de escrita, o teste passa `fail` com chaves `"tabela.operação"` ou `"nome.rpc"`.
+  - o corpo do pedido ao gerador continua com as mesmas chaves, mais o `assessmentId` da Etapa 5a, que fica fora da chave do protocolo guardado.
+- `protocolGenerator.test.tsx` (Etapa 5a, red flags):
+  - com red flag sem liberação, a etapa mostra o cartão de liberação e não lê os testes nem chama o gerador; "Liberar e gerar protocolo" só com justificativa de 20 caracteres (espaços nas pontas não contam);
+  - liberar grava a liberação, confere o estado de novo e gera, com a liberação em cima do protocolo; se a liberação falhar, um aviso e o cartão continua; revogar volta ao cartão;
+  - sem anamnese, o aviso de que ela falta; uma leitura do estado com erro ou fora do formato vai para a tela de erro;
+  - a Edge Function que recusa com 409 traz o cartão de volta; um 400 vai para a tela de erro; um salvar recusado pela trava do banco também traz o cartão, sem aviso de erro.
+- `quickProtocolTriage.test.tsx` (Etapa 5a, E6): no protocolo rápido, V1 e V2, a triagem de red flags vem antes do lado. Sem red flag, segue, e a sessão nasce com a triagem; com alguma, o cartão, e "Continuar" só com a justificativa, que é gravada logo depois de criar a sessão. Se a liberação falhar, a tela volta ao cartão sem ir aos testes, e a nova tentativa usa a mesma sessão. "Encerrar" sai sem criar nada.
+- `redFlagsToast.test.tsx` (Etapa 5a, E4): em `NewAssessment` e `ContinueAssessment`, o aviso de red flag da anamnese fica na tela; antes, o "Anamnese concluída!" da página o trocava na hora (só cabe um toast por vez).
+- Com a Etapa 5a, `globalTestsWizard.state.test.tsx`, `segmentalTestsWizard.state.test.tsx` e `quickProtocolV2.aiFallback.test.tsx` passam pela trava aberta (estado sem red flag, ou "Continuar" na triagem), e os dois primeiros conferem que o pedido ao gerador leva o `assessmentId`.
+- `helpers.tsx` e `supabaseFake.ts` são apoio, não testes. O `supabaseFake` só aceita escrita quando o teste passa um array para registrá-la (com operação, opções e filtros); sem ele, qualquer escrita lança. `rpc` também é registrada assim, salvo a que só lê: essa responde de `tables["rpc:nome"]` (um valor, ou uma função dos argumentos), sem registro. Uma tabela pode ser função dos filtros `eq`; se a função lançar, a consulta responde `{ data: null, error }`, como o supabase-js. Para simular falha de escrita, o teste passa `fail` com chaves `"tabela.operação"` ou `"nome.rpc"`.
 
 ## `tests/db/`: banco em PGlite
 
 `harness.ts` cria um PostgreSQL em memória (PGlite) com os papéis, `auth` e `storage` mínimos do Supabase e aplica todas as migrations de `supabase/migrations/`, em ordem (`makeDb({ skip })` deixa migrations de fora pelo nome). Nenhum dado real: só ids e e-mails sintéticos (`*.invalid`).
 
-- `bloco1.test.ts`, `r9.test.ts` e `collision.test.ts` rodam os cenários de `scenarios/`, portados sem mudar a lógica dos scripts de replay do bloco 1 (`codex-review/bloco1-banco-acesso/replay/`, fora deste repositório). Cada teste exige 0 falhas, o mesmo número de checagens e a mesma lista de rótulos da saída de referência (`fixtures/*.labels.txt`). As checagens manuais (pré-condições) também contam. Eles rodam sem as migrations que mudam regras que essas checagens conferem (`CHANGES_BLOCO1_RULES` em `harness.ts`; hoje, a da Etapa 3d); cada uma dessas tem teste próprio.
+- `bloco1.test.ts`, `r9.test.ts` e `collision.test.ts` rodam os cenários de `scenarios/`, portados sem mudar a lógica dos scripts de replay do bloco 1 (`codex-review/bloco1-banco-acesso/replay/`, fora deste repositório). Cada teste exige 0 falhas, o mesmo número de checagens e a mesma lista de rótulos da saída de referência (`fixtures/*.labels.txt`). As checagens manuais (pré-condições) também contam. Eles rodam sem as migrations que mudam regras que essas checagens conferem (`CHANGES_BLOCO1_RULES` em `harness.ts`; hoje, a da Etapa 3d e as duas da 5a); cada uma dessas tem teste próprio.
 - `rollback.test.ts`: depois de aplicar o bloco 1 e o rollback (`supabase/rollbacks/`), o schema volta a ser idêntico ao de antes. Também roda sem `CHANGES_BLOCO1_RULES`.
 - `etapa3c.test.ts`: unicidade de `anamnesis_responses(assessment_id)` e `segmental_test_results(assessment_id, test_name)`:
   - sem a migration, o reenvio duplica e o `upsert` por chave falha;
@@ -61,6 +70,16 @@ Cada arquivo declara `// @vitest-environment jsdom` (o padrão continua Node) e 
   - ninguém grava direto em `protocols` nem em `functional_findings`; o autor ainda apaga a avaliação aberta, com o que estiver nela;
   - com protocolo duplicado, com avaliação aberta que já tem protocolo ou achados, ou com outra policy de escrita, a migration aborta sem mudar nada; depois dela, a faixa aceita peso 4 e contexto 6 e recusa 5 e 7;
   - o rollback volta o schema ao de antes e aborta se já houver peso fora da faixa antiga.
+- `etapa3c.test.ts` e `etapa3d.test.ts` rodam sem as migrations da 5a (`ETAPA5A`), salvo os casos que a 5a não muda; o seed da 3d ganhou uma anamnese sem red flag, e um caso novo prova que sem anamnese nada é gravado.
+- `etapa5a.test.ts`: red flag trava o protocolo até o profissional dono liberar (C-01):
+  - sem a 5a, o protocolo é salvo com red flag, o `service_role` grava direto em `protocols` e a sessão rápida conclui sem triagem;
+  - com ela, `save_assessment_protocol` dá `red_flags_not_cleared` sem liberação válida: red flag nova ou reacesa depois da liberação, liberações parciais de versões diferentes, anamnese apagada e gravada de novo, liberação revogada; sem anamnese, `anamnesis_missing`;
+  - ninguém escreve direto em `protocols` (nem `service_role`, nem com policy permissiva recriada; `TRUNCATE` também não); o cascade de apagar a avaliação continua;
+  - a versão das red flags é do servidor; a anamnese de avaliação fechada não muda mais;
+  - liberar e revogar: só o dono, com avaliação aberta, justificativa e motivo de 20 a 2000 caracteres; as tabelas de liberação só se leem;
+  - protocolo rápido: sem triagem a sessão não nasce; com red flag, não conclui nem recebe intervenção sem liberação, mesmo num UPDATE que reacende e conclui de uma vez; só com a primeira migration, a tela antiga continua funcionando;
+  - permissões e dono das funções, a migration parando se rodar como papel de cliente, e `types.ts` igual ao banco;
+  - a reversão (segunda migration, depois a primeira) devolve o `save_assessment_protocol` da 3d e mantém os registros.
 - `schema.test.ts`: retrato das policies, funções, triggers, RLS e constraints UNIQUE. Toda migration nova muda o arquivo `__snapshots__/schema.test.ts.snap`. Rode `bun x vitest run -u tests/db/schema.test.ts` e revise o diff do snapshot na PR.
 
 Os fixtures foram gerados por `work/etapa2/gerar-fixtures.mjs` (fora do repositório), que confere o sha256 de cada saída de referência antes de extrair.
@@ -77,6 +96,22 @@ O resultado esperado está em `race.out`:
 
 - **Com a trava:** a segunda inserção espera e falha, e nenhuma colisão fica gravada.
 - **Sem a trava:** a colisão acontece.
+
+`red_flags_race.sh` (Etapa 5a) faz o mesmo para as red flags, sobre as migrations de verdade, e reaproveita o Supabase mínimo de `tests/db/harness.ts`. Em cada corrida, a transação 1 segura a sua por 3 s e a 2 começa 1 s depois. A porta 54332 pode ser trocada em `PG_PORT`.
+
+```bash
+PG_BIN=/caminho/do/postgres/bin tests/integration/race/red_flags_race.sh
+```
+
+O resultado esperado está em `red_flags_race.out` (os tempos variam um pouco):
+
+- **Gravação e anamnese, com a trava:** se a anamnese marca red flag primeiro, a gravação espera e dá `red_flags_not_cleared`; se a gravação vem primeiro, a anamnese espera e é recusada, porque a avaliação fechou.
+- **Sem a trava** (a gravação lê a anamnese sem `FOR UPDATE`): nos dois casos, o protocolo é salvo com a red flag marcada.
+- **Liberação e anamnese:** a liberação espera a anamnese e cobre a versão e as red flags novas.
+- **Revogação e gravação:** quem chega primeiro vence. Revogada primeiro, a gravação dá `red_flags_not_cleared`; gravada primeiro, a revogação não acha a liberação, porque a avaliação fechou.
+- **Sem deadlock:** apagar a avaliação com a anamnese travada, ou mudar a anamnese de uma avaliação sendo apagada, termina sem erro.
+- **Sessão rápida:** red flag nova ou revogação antes da conclusão dão `red_flags_not_cleared`; concluída primeiro, a revogação não acha a liberação.
+- **Dono e cascade:** nem o `service_role` apaga, muda ou dá `TRUNCATE` em `protocols`; apagar a avaliação concluída leva o protocolo junto, pelo cascade.
 
 ## Ruleset do `main` (`.github/rulesets/main.json`)
 

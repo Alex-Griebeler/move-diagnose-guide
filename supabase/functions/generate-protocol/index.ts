@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { redFlagGate } from "./redFlagGate.ts";
 
 // ============================================
 // CORS Configuration
@@ -8,12 +9,14 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  // Etapa 5a: every response carries it (401 included), so a request without login shows this version is live
+  'x-fbk-edge': '5a',
 };
 
 // ============================================
 // Authentication
 // ============================================
-async function validateAuth(req: Request): Promise<{ userId: string; isProfessional: boolean } | null> {
+async function validateAuth(req: Request): Promise<{ userId: string; isProfessional: boolean; client: SupabaseClient } | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -47,7 +50,7 @@ async function validateAuth(req: Request): Promise<{ userId: string; isProfessio
     .eq('role', 'professional')
     .maybeSingle();
 
-  return { userId: user.id, isProfessional: !roleError && !!roleRow };
+  return { userId: user.id, isProfessional: !roleError && !!roleRow, client: supabase };
 }
 
 // ============================================
@@ -110,6 +113,7 @@ interface PrioritizedIssue {
 }
 
 interface ProtocolRequest {
+  assessmentId?: string;
   compensations: CompensationFinding[];
   segmentalResults: SegmentalResult[];
   anamnesis: AnamnesisData;
@@ -289,7 +293,18 @@ serve(async (req) => {
 
     console.log(`Authenticated request from user: ${auth.userId}`);
 
-    const { compensations, segmentalResults, anamnesis, priorityAnalysis, primaryIssues, secondaryIssues }: ProtocolRequest = await req.json();
+    const { assessmentId, compensations, segmentalResults, anamnesis, priorityAnalysis, primaryIssues, secondaryIssues }: ProtocolRequest = await req.json();
+
+    // Etapa 5a: red flags, read with the user's own client (only the owning professional gets an answer)
+    const gate = await redFlagGate(assessmentId, (id) =>
+      auth.client.rpc('assessment_red_flag_status', { _assessment_id: id }));
+    if (!gate.proceed) {
+      console.error(`Red flag gate: ${gate.status} ${gate.body.error}`);
+      return new Response(JSON.stringify(gate.body), {
+        status: gate.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // ============================================
     // Step 1: Fetch curated exercise library

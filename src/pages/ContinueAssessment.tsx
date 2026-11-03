@@ -138,10 +138,7 @@ export default function ContinueAssessment() {
   }, [assessmentId, navigate, detectCurrentStep]);
 
   const handleAnamnesisComplete = () => {
-    toast({
-      title: 'Anamnese concluída!',
-      description: 'Prossiga para os testes globais.',
-    });
+    // The anamnesis already showed its own toast, with the red flag warning when there is one (Etapa 5a, E4)
     setStep('global-tests');
   };
 

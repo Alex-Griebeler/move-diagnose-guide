@@ -58,6 +58,66 @@ BEGIN
 END;
 $function$
 ",
+    "active_red_flags(_flags jsonb, _has boolean)": "CREATE OR REPLACE FUNCTION public.active_red_flags(_flags jsonb, _has boolean)
+ RETURNS text[]
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+  SELECT CASE
+    WHEN cardinality(f.keys) > 0 THEN f.keys
+    WHEN _has IS TRUE THEN ARRAY['unspecified']
+    ELSE ARRAY[]::text[]
+  END
+  FROM (
+    SELECT ARRAY(
+      SELECT e.key
+      FROM jsonb_each(CASE WHEN jsonb_typeof(_flags) = 'object' THEN _flags ELSE '{}'::jsonb END) AS e
+      WHERE e.value = 'true'::jsonb
+      ORDER BY e.key COLLATE "C"
+    ) AS keys
+  ) AS f
+$function$
+",
+    "assessment_red_flag_status(_assessment_id uuid)": "CREATE OR REPLACE FUNCTION public.assessment_red_flag_status(_assessment_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _uid uuid := auth.uid();
+  _owner uuid;
+  _active text[];
+  _version bigint;
+  _clearance record;
+BEGIN
+  SELECT a.professional_id INTO _owner FROM public.assessments a WHERE a.id = _assessment_id;
+  IF _uid IS NULL OR _owner IS DISTINCT FROM _uid OR NOT public.has_role(_uid, 'professional'::public.app_role) THEN
+    RAISE EXCEPTION 'assessment not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT public.active_red_flags(r.red_flags, r.has_red_flags), r.red_flags_version INTO _active, _version
+  FROM public.anamnesis_responses r
+  WHERE r.assessment_id = _assessment_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('blocked', 'anamnesis_missing', 'active_flags', '[]'::jsonb, 'clearance', NULL);
+  END IF;
+  IF cardinality(_active) = 0 THEN
+    RETURN jsonb_build_object('blocked', NULL, 'active_flags', '[]'::jsonb, 'clearance', NULL);
+  END IF;
+
+  SELECT c.id, c.justification, c.created_at INTO _clearance
+  FROM public.red_flag_clearances c
+  WHERE c.id = public.valid_red_flag_clearance(_assessment_id, NULL, _active, _version);
+  RETURN jsonb_build_object(
+    'blocked', CASE WHEN _clearance.id IS NULL THEN 'red_flags_not_cleared' END,
+    'active_flags', to_jsonb(_active),
+    'clearance', CASE WHEN _clearance.id IS NOT NULL THEN
+      jsonb_build_object('id', _clearance.id, 'justification', _clearance.justification, 'created_at', _clearance.created_at) END);
+END;
+$function$
+",
     "assign_server_row_id()": "CREATE OR REPLACE FUNCTION public.assign_server_row_id()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -97,6 +157,137 @@ AS $function$
       AND a.status IN ('draft', 'in_progress')
   )
   AND public.has_role(auth.uid(), 'professional'::app_role)
+$function$
+",
+    "clear_assessment_red_flags(_assessment_id uuid, _justification text)": "CREATE OR REPLACE FUNCTION public.clear_assessment_red_flags(_assessment_id uuid, _justification text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _uid uuid := auth.uid();
+  _text text := btrim(_justification, E' \\t\\r\\n');
+  _assessment record;
+  _active text[];
+  _version bigint;
+  _id uuid;
+BEGIN
+  IF _text IS NULL OR char_length(_text) NOT BETWEEN 20 AND 2000 THEN
+    RAISE EXCEPTION 'the justification needs 20 to 2000 characters' USING ERRCODE = '22023';
+  END IF;
+  IF _uid IS NULL OR NOT public.has_role(_uid, 'professional'::public.app_role) THEN
+    RAISE EXCEPTION 'assessment not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  -- The assessment first, then its anamnesis, as save_assessment_protocol
+  SELECT a.professional_id, a.status INTO _assessment
+  FROM public.assessments a
+  WHERE a.id = _assessment_id
+  FOR UPDATE;
+  IF NOT FOUND OR _assessment.professional_id IS DISTINCT FROM _uid OR _assessment.status NOT IN ('draft', 'in_progress') THEN
+    RAISE EXCEPTION 'assessment not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT public.active_red_flags(r.red_flags, r.has_red_flags), r.red_flags_version INTO _active, _version
+  FROM public.anamnesis_responses r
+  WHERE r.assessment_id = _assessment_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'anamnesis_missing' USING ERRCODE = 'P0001';
+  END IF;
+  IF cardinality(_active) = 0 THEN
+    RAISE EXCEPTION 'no active red flag to clear' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO public.red_flag_clearances (assessment_id, professional_id, justification, cleared_flags, red_flags_version)
+  VALUES (_assessment_id, _uid, _text, _active, _version)
+  RETURNING id INTO _id;
+  RETURN _id;
+END;
+$function$
+",
+    "clear_quick_session_red_flags(_session_id uuid, _justification text)": "CREATE OR REPLACE FUNCTION public.clear_quick_session_red_flags(_session_id uuid, _justification text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _uid uuid := auth.uid();
+  _text text := btrim(_justification, E' \\t\\r\\n');
+  _session record;
+  _active text[];
+  _id uuid;
+BEGIN
+  IF _text IS NULL OR char_length(_text) NOT BETWEEN 20 AND 2000 THEN
+    RAISE EXCEPTION 'the justification needs 20 to 2000 characters' USING ERRCODE = '22023';
+  END IF;
+  IF _uid IS NULL OR NOT public.has_role(_uid, 'professional'::public.app_role) THEN
+    RAISE EXCEPTION 'quick protocol session not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  -- The session row is the lock for its completion, its red flags, clearing and revoking
+  SELECT q.professional_id, q.status, q.red_flags, q.red_flags_version INTO _session
+  FROM public.quick_protocol_sessions q
+  WHERE q.id = _session_id
+  FOR UPDATE;
+  IF NOT FOUND OR _session.professional_id IS DISTINCT FROM _uid OR _session.status IS DISTINCT FROM 'in_progress' THEN
+    RAISE EXCEPTION 'quick protocol session not found or not yours' USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(_session.red_flags) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'triage_missing' USING ERRCODE = 'P0001';
+  END IF;
+  _active := public.active_red_flags(_session.red_flags, NULL);
+  IF cardinality(_active) = 0 THEN
+    RAISE EXCEPTION 'no active red flag to clear' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO public.red_flag_clearances (quick_session_id, professional_id, justification, cleared_flags, red_flags_version)
+  VALUES (_session_id, _uid, _text, _active, _session.red_flags_version)
+  RETURNING id INTO _id;
+  RETURN _id;
+END;
+$function$
+",
+    "guard_anamnesis_red_flags()": "CREATE OR REPLACE FUNCTION public.guard_anamnesis_red_flags()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _status text;
+BEGIN
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    SELECT a.status INTO _status FROM public.assessments a WHERE a.id = OLD.assessment_id;
+    -- The assessment is gone: this is its cascade
+    IF NOT FOUND AND TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
+    IF _status IS NULL OR _status NOT IN ('draft', 'in_progress') THEN
+      RAISE EXCEPTION 'the anamnesis changes only while its assessment is open' USING ERRCODE = '42501';
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
+  END IF;
+
+  IF TG_OP = 'INSERT' OR NEW.assessment_id IS DISTINCT FROM OLD.assessment_id THEN
+    SELECT a.status INTO _status FROM public.assessments a WHERE a.id = NEW.assessment_id;
+    IF _status IS NULL OR _status NOT IN ('draft', 'in_progress') THEN
+      RAISE EXCEPTION 'the anamnesis changes only while its assessment is open' USING ERRCODE = '42501';
+    END IF;
+    -- New here: no clearance of this assessment was given for these red flags
+    NEW.red_flags_version := public.red_flags_next_version(NULL, public.active_red_flags(NEW.red_flags, NEW.has_red_flags), 0);
+  ELSE
+    NEW.red_flags_version := public.red_flags_next_version(
+      public.active_red_flags(OLD.red_flags, OLD.has_red_flags),
+      public.active_red_flags(NEW.red_flags, NEW.has_red_flags),
+      OLD.red_flags_version);
+  END IF;
+  RETURN NEW;
+END;
 $function$
 ",
     "guard_assessment_update()": "CREATE OR REPLACE FUNCTION public.guard_assessment_update()
@@ -150,6 +341,75 @@ BEGIN
     END IF;
   END IF;
 
+  RETURN NEW;
+END;
+$function$
+",
+    "guard_protocol_write()": "CREATE OR REPLACE FUNCTION public.guard_protocol_write()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _active text[];
+  _version bigint;
+BEGIN
+  IF current_user IS DISTINCT FROM (SELECT pg_catalog.pg_get_userbyid(c.relowner) FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID) THEN
+    RAISE EXCEPTION 'protocols are written only by save_assessment_protocol' USING ERRCODE = '42501';
+  END IF;
+
+  IF TG_OP = 'TRUNCATE' THEN
+    RETURN NULL;
+  ELSIF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  SELECT public.active_red_flags(r.red_flags, r.has_red_flags), r.red_flags_version INTO _active, _version
+  FROM public.anamnesis_responses r
+  WHERE r.assessment_id = NEW.assessment_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'anamnesis_missing' USING ERRCODE = 'P0001';
+  END IF;
+  IF NOT public.red_flags_cleared(NEW.assessment_id, NULL, _active, _version) THEN
+    RAISE EXCEPTION 'red_flags_not_cleared' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$function$
+",
+    "guard_quick_session_red_flags()": "CREATE OR REPLACE FUNCTION public.guard_quick_session_red_flags()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _active text[];
+BEGIN
+  _active := public.active_red_flags(NEW.red_flags, NULL);
+  IF TG_OP = 'INSERT' THEN
+    NEW.red_flags_version := public.red_flags_next_version(NULL, _active, 0);
+    -- No triage, no session
+    IF jsonb_typeof(NEW.red_flags) IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'triage_missing' USING ERRCODE = 'P0001';
+    END IF;
+    -- The intervention only comes in through an UPDATE, which goes through the lock below
+    IF NEW.intervention_applied IS NOT NULL OR NEW.status IS DISTINCT FROM 'in_progress' THEN
+      RAISE EXCEPTION 'a quick protocol session starts in progress and without an intervention' USING ERRCODE = '42501';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  NEW.red_flags_version := public.red_flags_next_version(
+    public.active_red_flags(OLD.red_flags, NULL), _active, OLD.red_flags_version);
+  IF NEW.status = 'completed' OR NEW.intervention_applied IS NOT NULL THEN
+    IF jsonb_typeof(NEW.red_flags) IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'triage_missing' USING ERRCODE = 'P0001';
+    END IF;
+    IF NOT public.red_flags_cleared(NULL, NEW.id, _active, NEW.red_flags_version) THEN
+      RAISE EXCEPTION 'red_flags_not_cleared' USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
   RETURN NEW;
 END;
 $function$
@@ -222,6 +482,136 @@ AS $function$
   )
 $function$
 ",
+    "quick_session_red_flag_status(_session_id uuid)": "CREATE OR REPLACE FUNCTION public.quick_session_red_flag_status(_session_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _uid uuid := auth.uid();
+  _session record;
+  _active text[];
+  _clearance record;
+BEGIN
+  SELECT q.professional_id, q.red_flags, q.red_flags_version INTO _session
+  FROM public.quick_protocol_sessions q
+  WHERE q.id = _session_id;
+  IF NOT FOUND OR _uid IS NULL OR _session.professional_id IS DISTINCT FROM _uid
+     OR NOT public.has_role(_uid, 'professional'::public.app_role) THEN
+    RAISE EXCEPTION 'quick protocol session not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  IF jsonb_typeof(_session.red_flags) IS DISTINCT FROM 'object' THEN
+    RETURN jsonb_build_object('blocked', 'triage_missing', 'active_flags', '[]'::jsonb, 'clearance', NULL);
+  END IF;
+  _active := public.active_red_flags(_session.red_flags, NULL);
+  IF cardinality(_active) = 0 THEN
+    RETURN jsonb_build_object('blocked', NULL, 'active_flags', '[]'::jsonb, 'clearance', NULL);
+  END IF;
+
+  SELECT c.id, c.justification, c.created_at INTO _clearance
+  FROM public.red_flag_clearances c
+  WHERE c.id = public.valid_red_flag_clearance(NULL, _session_id, _active, _session.red_flags_version);
+  RETURN jsonb_build_object(
+    'blocked', CASE WHEN _clearance.id IS NULL THEN 'red_flags_not_cleared' END,
+    'active_flags', to_jsonb(_active),
+    'clearance', CASE WHEN _clearance.id IS NOT NULL THEN
+      jsonb_build_object('id', _clearance.id, 'justification', _clearance.justification, 'created_at', _clearance.created_at) END);
+END;
+$function$
+",
+    "quick_session_red_flags_version()": "CREATE OR REPLACE FUNCTION public.quick_session_red_flags_version()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.red_flags_version := public.red_flags_next_version(NULL, public.active_red_flags(NEW.red_flags, NULL), 0);
+  ELSE
+    NEW.red_flags_version := public.red_flags_next_version(
+      public.active_red_flags(OLD.red_flags, NULL), public.active_red_flags(NEW.red_flags, NULL), OLD.red_flags_version);
+  END IF;
+  RETURN NEW;
+END;
+$function$
+",
+    "red_flags_cleared(_assessment_id uuid, _quick_session_id uuid, _active text[], _version bigint)": "CREATE OR REPLACE FUNCTION public.red_flags_cleared(_assessment_id uuid, _quick_session_id uuid, _active text[], _version bigint)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT _active IS NOT NULL
+    AND (cardinality(_active) = 0
+      OR public.valid_red_flag_clearance(_assessment_id, _quick_session_id, _active, _version) IS NOT NULL)
+$function$
+",
+    "red_flags_next_version(_old text[], _new text[], _version bigint)": "CREATE OR REPLACE FUNCTION public.red_flags_next_version(_old text[], _new text[], _version bigint)
+ RETURNS bigint
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT CASE
+    WHEN _old IS NULL THEN CASE WHEN cardinality(_new) > 0 THEN nextval('public.red_flags_version_seq') ELSE 0 END
+    WHEN _old @> _new THEN _version
+    ELSE nextval('public.red_flags_version_seq')
+  END
+$function$
+",
+    "revoke_red_flag_clearance(_clearance_id uuid, _reason text)": "CREATE OR REPLACE FUNCTION public.revoke_red_flag_clearance(_clearance_id uuid, _reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  _uid uuid := auth.uid();
+  _text text := btrim(_reason, E' \\t\\r\\n');
+  _clearance record;
+  _owner uuid;
+  _open boolean;
+BEGIN
+  IF _text IS NULL OR char_length(_text) NOT BETWEEN 20 AND 2000 THEN
+    RAISE EXCEPTION 'the reason needs 20 to 2000 characters' USING ERRCODE = '22023';
+  END IF;
+  IF _uid IS NULL OR NOT public.has_role(_uid, 'professional'::public.app_role) THEN
+    RAISE EXCEPTION 'clearance not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT c.assessment_id, c.quick_session_id INTO _clearance
+  FROM public.red_flag_clearances c
+  WHERE c.id = _clearance_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'clearance not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  IF _clearance.assessment_id IS NOT NULL THEN
+    SELECT a.professional_id, a.status IN ('draft', 'in_progress') INTO _owner, _open
+    FROM public.assessments a
+    WHERE a.id = _clearance.assessment_id
+    FOR UPDATE;
+  ELSE
+    SELECT q.professional_id, q.status = 'in_progress' INTO _owner, _open
+    FROM public.quick_protocol_sessions q
+    WHERE q.id = _clearance.quick_session_id
+    FOR UPDATE;
+  END IF;
+  IF _owner IS DISTINCT FROM _uid OR _open IS NOT TRUE THEN
+    RAISE EXCEPTION 'clearance not found or not yours' USING ERRCODE = '42501';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.red_flag_clearance_revocations r WHERE r.clearance_id = _clearance_id) THEN
+    RAISE EXCEPTION 'clearance already revoked' USING ERRCODE = '23505';
+  END IF;
+  INSERT INTO public.red_flag_clearance_revocations (clearance_id, professional_id, reason)
+  VALUES (_clearance_id, _uid, _text);
+END;
+$function$
+",
     "save_assessment_protocol(_assessment_id uuid, _protocol jsonb, _findings jsonb)": "CREATE OR REPLACE FUNCTION public.save_assessment_protocol(_assessment_id uuid, _protocol jsonb, _findings jsonb)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -232,6 +622,8 @@ DECLARE
   _uid uuid := auth.uid();
   _assessment record;
   _protocol_id uuid;
+  _active text[];
+  _version bigint;
 BEGIN
   -- A forgotten argument must not become "no findings"
   IF jsonb_typeof(_protocol) IS DISTINCT FROM 'object' OR jsonb_typeof(_findings) IS DISTINCT FROM 'array' THEN
@@ -266,6 +658,20 @@ BEGIN
 
   IF _assessment.status NOT IN ('draft', 'in_progress') THEN
     RAISE EXCEPTION 'only an open assessment can be completed' USING ERRCODE = '42501';
+  END IF;
+
+  -- Etapa 5a: the anamnesis row is the queue shared with its writers. A red flag marked before this lock is
+  -- seen here (the lock returns the committed row); one marked after waits and then finds the assessment
+  -- completed (guard_anamnesis_red_flags). Without an anamnesis there was no triage.
+  SELECT public.active_red_flags(r.red_flags, r.has_red_flags), r.red_flags_version INTO _active, _version
+  FROM public.anamnesis_responses r
+  WHERE r.assessment_id = _assessment_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'anamnesis_missing' USING ERRCODE = 'P0001';
+  END IF;
+  IF NOT public.red_flags_cleared(_assessment_id, NULL, _active, _version) THEN
+    RAISE EXCEPTION 'red_flags_not_cleared' USING ERRCODE = 'P0001';
   END IF;
 
   INSERT INTO public.protocols (
@@ -324,6 +730,23 @@ BEGIN
 END;
 $function$
 ",
+    "valid_red_flag_clearance(_assessment_id uuid, _quick_session_id uuid, _active text[], _version bigint)": "CREATE OR REPLACE FUNCTION public.valid_red_flag_clearance(_assessment_id uuid, _quick_session_id uuid, _active text[], _version bigint)
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT c.id
+  FROM public.red_flag_clearances c
+  WHERE ((_assessment_id IS NOT NULL AND c.assessment_id = _assessment_id)
+      OR (_quick_session_id IS NOT NULL AND c.quick_session_id = _quick_session_id))
+    AND c.red_flags_version = _version
+    AND c.cleared_flags @> _active
+    AND NOT EXISTS (SELECT 1 FROM public.red_flag_clearance_revocations r WHERE r.clearance_id = c.id)
+  ORDER BY c.created_at DESC, c.id
+  LIMIT 1
+$function$
+",
   },
   "policies": [
     "public.anamnesis_responses "Assessment participants can view anamnesis" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = anamnesis_responses.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
@@ -375,6 +798,8 @@ $function$
     "public.quick_protocol_sessions "Professionals can update their quick protocol sessions" UPDATE {authenticated} PERMISSIVE USING ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = 'in_progress'::text)) CHECK ((professional_id = auth.uid()) AND has_role(auth.uid(), 'professional'::app_role) AND (status = ANY (ARRAY['in_progress'::text, 'completed'::text])))",
     "public.quick_protocol_sessions "Professionals can view their quick protocol sessions" SELECT {authenticated} PERMISSIVE USING (professional_id = auth.uid()) CHECK ",
     "public.quick_protocol_sessions "Students can view their quick protocol sessions" SELECT {public} PERMISSIVE USING (auth.uid() = student_id) CHECK ",
+    "public.red_flag_clearance_revocations "Professionals can view their red flag revocations" SELECT {authenticated} PERMISSIVE USING (professional_id = auth.uid()) CHECK ",
+    "public.red_flag_clearances "Professionals can view their red flag clearances" SELECT {authenticated} PERMISSIVE USING (professional_id = auth.uid()) CHECK ",
     "public.segmental_test_results "Assessment participants can view segmental results" SELECT {authenticated} PERMISSIVE USING (EXISTS ( SELECT 1 FROM assessments a WHERE ((a.id = segmental_test_results.assessment_id) AND ((a.professional_id = auth.uid()) OR (a.student_id = auth.uid()))))) CHECK ",
     "public.segmental_test_results "Author can delete segmental results while open" DELETE {authenticated} PERMISSIVE USING can_author_assessment(assessment_id) CHECK ",
     "public.segmental_test_results "Author can insert segmental results while open" INSERT {authenticated} PERMISSIVE USING  CHECK can_author_assessment(assessment_id)",
@@ -406,11 +831,14 @@ $function$
     "public.progress_logs rls=true force=false",
     "public.protocols rls=true force=false",
     "public.quick_protocol_sessions rls=true force=false",
+    "public.red_flag_clearance_revocations rls=true force=false",
+    "public.red_flag_clearances rls=true force=false",
     "public.segmental_test_results rls=true force=false",
     "public.user_roles rls=true force=false",
     "storage.objects rls=true force=false",
   ],
   "triggers": [
+    "CREATE TRIGGER guard_anamnesis_red_flags BEFORE INSERT OR DELETE OR UPDATE ON public.anamnesis_responses FOR EACH ROW EXECUTE FUNCTION guard_anamnesis_red_flags()",
     "CREATE TRIGGER update_anamnesis_responses_updated_at BEFORE UPDATE ON public.anamnesis_responses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
     "CREATE TRIGGER update_assessment_drafts_updated_at BEFORE UPDATE ON public.assessment_drafts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
     "CREATE TRIGGER assign_server_row_id BEFORE INSERT OR UPDATE OF id ON public.assessments FOR EACH ROW EXECUTE FUNCTION assign_server_row_id()",
@@ -422,8 +850,11 @@ $function$
     "CREATE TRIGGER update_global_test_results_updated_at BEFORE UPDATE ON public.global_test_results FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
     "CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
     "CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER guard_protocol_truncate BEFORE TRUNCATE ON public.protocols FOR EACH STATEMENT EXECUTE FUNCTION guard_protocol_write()",
+    "CREATE TRIGGER guard_protocol_write BEFORE INSERT OR DELETE OR UPDATE ON public.protocols FOR EACH ROW EXECUTE FUNCTION guard_protocol_write()",
     "CREATE TRIGGER update_protocols_updated_at BEFORE UPDATE ON public.protocols FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
     "CREATE TRIGGER assign_server_row_id BEFORE INSERT OR UPDATE OF id ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION assign_server_row_id()",
+    "CREATE TRIGGER guard_quick_session_red_flags BEFORE INSERT OR UPDATE ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION guard_quick_session_red_flags()",
     "CREATE TRIGGER guard_quick_session_update BEFORE UPDATE ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION guard_quick_session_update()",
     "CREATE TRIGGER update_quick_protocol_sessions_updated_at BEFORE UPDATE ON public.quick_protocol_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
     "CREATE TRIGGER update_segmental_test_results_updated_at BEFORE UPDATE ON public.segmental_test_results FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",

@@ -18,6 +18,9 @@ import { QuickProtocolTest } from './QuickProtocolTest';
 import { QuickProtocolResult } from './QuickProtocolResult';
 import { QuickProtocolRetest } from './QuickProtocolRetest';
 import { QuickProtocolSideSelector } from './QuickProtocolSideSelector';
+import { QuickProtocolTriage } from './QuickProtocolTriage';
+import { startQuickSession } from './startQuickSession';
+import { NO_RED_FLAGS, type RedFlags } from '@/lib/redFlags';
 
 import { 
   ProtocolType,
@@ -34,7 +37,7 @@ import {
 
 const logger = createLogger('QuickProtocolWizard');
 
-type WizardStep = 'intro' | 'side_selection' | 'test' | 'result' | 'retest' | 'complete';
+type WizardStep = 'intro' | 'triage' | 'side_selection' | 'test' | 'result' | 'retest' | 'complete';
 type AffectedSide = 'left' | 'right' | 'bilateral';
 
 interface QuickProtocolWizardProps {
@@ -62,6 +65,9 @@ export function QuickProtocolWizard({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priorDeficits, setPriorDeficits] = useState<string[]>([]);
+  // Etapa 5a: red flag triage before the side, and the justification that clears it
+  const [redFlags, setRedFlags] = useState<RedFlags>(NO_RED_FLAGS);
+  const [justification, setJustification] = useState('');
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -108,36 +114,28 @@ export function QuickProtocolWizard({
   };
 
   const handleStart = () => {
-    // Go to side selection before starting tests
-    setStep('side_selection');
+    // Red flag triage, then side selection, before starting tests
+    setStep('triage');
   };
 
   const handleSideSelected = async (side: AffectedSide) => {
     setAffectedSide(side);
     
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Create session in database with affected side
-      const { data: session, error } = await supabase
-        .from('quick_protocol_sessions')
-        .insert({
-          student_id: studentId,
-          professional_id: user.id,
-          assessment_id: assessmentId,
-          protocol_type: protocolType,
-          status: 'in_progress',
-          test_results: {},
-          affected_side: side,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setSessionId(session.id);
+      // Create session in database with affected side and triage, and clear its red flags
+      const started = await startQuickSession({
+        sessionId, studentId, assessmentId, protocolType, side, redFlags, justification,
+      });
+      setSessionId(started.sessionId);
+      if (!started.cleared) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao liberar',
+          description: 'Não foi possível registrar a liberação. Tente novamente.',
+        });
+        setStep('triage');
+        return;
+      }
       setStep('test');
     } catch (error) {
       logger.error('Error starting session', error);
@@ -292,6 +290,18 @@ export function QuickProtocolWizard({
             onStart={handleStart}
             hasPriorAssessment={!!assessmentId}
             priorDeficits={priorDeficits}
+          />
+        );
+
+      case 'triage':
+        return (
+          <QuickProtocolTriage
+            flags={redFlags}
+            onFlagsChange={setRedFlags}
+            justification={justification}
+            onJustificationChange={setJustification}
+            onContinue={() => setStep('side_selection')}
+            onClose={handleClose}
           />
         );
 

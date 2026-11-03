@@ -32,6 +32,7 @@ export type Database = {
           occupation: string | null
           pain_history: Json | null
           red_flags: Json | null
+          red_flags_version: number
           sedentary_hours_per_day: number | null
           sleep_hours: number | null
           sleep_quality: number | null
@@ -59,6 +60,7 @@ export type Database = {
           occupation?: string | null
           pain_history?: Json | null
           red_flags?: Json | null
+          red_flags_version?: number
           sedentary_hours_per_day?: number | null
           sleep_hours?: number | null
           sleep_quality?: number | null
@@ -86,6 +88,7 @@ export type Database = {
           occupation?: string | null
           pain_history?: Json | null
           red_flags?: Json | null
+          red_flags_version?: number
           sedentary_hours_per_day?: number | null
           sleep_hours?: number | null
           sleep_quality?: number | null
@@ -650,6 +653,8 @@ export type Database = {
           primary_deficit: string | null
           professional_id: string
           protocol_type: string
+          red_flags: Json | null
+          red_flags_version: number
           retest_feedback: string | null
           retest_result: string | null
           secondary_deficits: Json | null
@@ -668,6 +673,8 @@ export type Database = {
           primary_deficit?: string | null
           professional_id: string
           protocol_type?: string
+          red_flags?: Json | null
+          red_flags_version?: number
           retest_feedback?: string | null
           retest_result?: string | null
           secondary_deficits?: Json | null
@@ -686,6 +693,8 @@ export type Database = {
           primary_deficit?: string | null
           professional_id?: string
           protocol_type?: string
+          red_flags?: Json | null
+          red_flags_version?: number
           retest_feedback?: string | null
           retest_result?: string | null
           secondary_deficits?: Json | null
@@ -700,6 +709,83 @@ export type Database = {
             columns: ["assessment_id"]
             isOneToOne: false
             referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      red_flag_clearance_revocations: {
+        Row: {
+          clearance_id: string
+          created_at: string
+          professional_id: string
+          reason: string
+        }
+        Insert: {
+          clearance_id: string
+          created_at?: string
+          professional_id: string
+          reason: string
+        }
+        Update: {
+          clearance_id?: string
+          created_at?: string
+          professional_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "red_flag_clearance_revocations_clearance_id_fkey"
+            columns: ["clearance_id"]
+            isOneToOne: true
+            referencedRelation: "red_flag_clearances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      red_flag_clearances: {
+        Row: {
+          assessment_id: string | null
+          cleared_flags: string[]
+          created_at: string
+          id: string
+          justification: string
+          professional_id: string
+          quick_session_id: string | null
+          red_flags_version: number
+        }
+        Insert: {
+          assessment_id?: string | null
+          cleared_flags: string[]
+          created_at?: string
+          id?: string
+          justification: string
+          professional_id: string
+          quick_session_id?: string | null
+          red_flags_version: number
+        }
+        Update: {
+          assessment_id?: string | null
+          cleared_flags?: string[]
+          created_at?: string
+          id?: string
+          justification?: string
+          professional_id?: string
+          quick_session_id?: string | null
+          red_flags_version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "red_flag_clearances_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "red_flag_clearances_quick_session_id_fkey"
+            columns: ["quick_session_id"]
+            isOneToOne: false
+            referencedRelation: "quick_protocol_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -793,9 +879,21 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: undefined
       }
+      assessment_red_flag_status: {
+        Args: { _assessment_id: string }
+        Returns: Json
+      }
       can_author_assessment: {
         Args: { _assessment_id: string }
         Returns: boolean
+      }
+      clear_assessment_red_flags: {
+        Args: { _assessment_id: string; _justification: string }
+        Returns: string
+      }
+      clear_quick_session_red_flags: {
+        Args: { _justification: string; _session_id: string }
+        Returns: string
       }
       has_role: {
         Args: {
@@ -807,6 +905,14 @@ export type Database = {
       is_org_member: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
+      }
+      quick_session_red_flag_status: {
+        Args: { _session_id: string }
+        Returns: Json
+      }
+      revoke_red_flag_clearance: {
+        Args: { _clearance_id: string; _reason: string }
+        Returns: undefined
       }
       save_assessment_protocol: {
         Args: { _assessment_id: string; _findings: Json; _protocol: Json }

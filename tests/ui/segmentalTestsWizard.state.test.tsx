@@ -72,6 +72,8 @@ vi.mock('@/hooks/useMovementAnalysis', () => ({
 beforeEach(() => {
   localStorage.clear();
   for (const table of Object.keys(h.tables)) delete h.tables[table];
+  // Etapa 5a: avaliação sem red flag, a porta aberta
+  h.tables['rpc:assessment_red_flag_status'] = { blocked: null, active_flags: [], clearance: null };
   h.tables.global_test_results = [{ anterior_view: { compensations: ['compensacao_sintetica'] } }];
   h.writes.length = 0;
   h.invokes.length = 0;
@@ -107,6 +109,7 @@ const protocolInput = async (rows: Array<Record<string, unknown>>) => {
   h.tables.segmental_test_results = rows;
   render(<ProtocolGenerator assessmentId={ASSESSMENT} onComplete={() => {}} />);
   await waitFor(() => expect(h.invokes.some((i) => i.name === 'generate-protocol')).toBe(true));
+  expect(h.invokes.find((i) => i.name === 'generate-protocol')!.body).toMatchObject({ assessmentId: ASSESSMENT });
   return h.invokes.find((i) => i.name === 'generate-protocol')!.body as { segmentalResults: Array<Record<string, unknown>> };
 };
 

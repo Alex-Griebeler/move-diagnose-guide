@@ -6,6 +6,8 @@
 // their options and `eq` filters, and succeed; without it they throw, so a page test that should only read
 // fails loudly if it writes. `fail` makes a write answer `{ data: null, error: { message } }` instead, by
 // "table.op" (for example "assessments.update") or "name.rpc"; the write is still recorded.
+// An rpc that only reads answers from tables["rpc:name"] instead, like a table (a value, or a function of the
+// arguments), and is not recorded.
 export type RecordedWrite = {
   table: string;
   op: 'insert' | 'update' | 'upsert' | 'delete' | 'rpc';
@@ -66,6 +68,10 @@ export function createSupabaseFake(tables: Record<string, unknown>, writes?: Rec
       delete: write('delete'),
     };
   };
-  const rpc = (name: string, args?: unknown) => record(name, 'rpc', args).result();
+  const rpc = (name: string, args?: unknown) => {
+    const read = `rpc:${name}`;
+    if (Object.prototype.hasOwnProperty.call(tables, read)) return answer(read, (args ?? {}) as TableFilters, null);
+    return record(name, 'rpc', args).result();
+  };
   return { from, rpc };
 }

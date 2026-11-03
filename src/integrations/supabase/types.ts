@@ -103,7 +103,7 @@ export type Database = {
           {
             foreignKeyName: "anamnesis_responses_assessment_id_fkey"
             columns: ["assessment_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "assessments"
             referencedColumns: ["id"]
           },
@@ -636,7 +636,7 @@ export type Database = {
           {
             foreignKeyName: "protocols_assessment_id_fkey"
             columns: ["assessment_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "assessments"
             referencedColumns: ["id"]
           },
@@ -879,6 +879,10 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: undefined
       }
+      active_red_flags: {
+        Args: { _flags: Json; _has: boolean }
+        Returns: string[]
+      }
       assessment_red_flag_status: {
         Args: { _assessment_id: string }
         Returns: Json
@@ -910,12 +914,34 @@ export type Database = {
         Args: { _session_id: string }
         Returns: Json
       }
+      red_flags_cleared: {
+        Args: {
+          _active: string[]
+          _assessment_id: string
+          _quick_session_id: string
+          _version: number
+        }
+        Returns: boolean
+      }
+      red_flags_next_version: {
+        Args: { _new: string[]; _old: string[]; _version: number }
+        Returns: number
+      }
       revoke_red_flag_clearance: {
         Args: { _clearance_id: string; _reason: string }
         Returns: undefined
       }
       save_assessment_protocol: {
         Args: { _assessment_id: string; _findings: Json; _protocol: Json }
+        Returns: string
+      }
+      valid_red_flag_clearance: {
+        Args: {
+          _active: string[]
+          _assessment_id: string
+          _quick_session_id: string
+          _version: number
+        }
         Returns: string
       }
     }

@@ -97,13 +97,13 @@ O resultado esperado está em `race.out`:
 - **Com a trava:** a segunda inserção espera e falha, e nenhuma colisão fica gravada.
 - **Sem a trava:** a colisão acontece.
 
-`red_flags_race.sh` (Etapa 5a) faz o mesmo para as red flags, sobre as migrations de verdade, e reaproveita o Supabase mínimo de `tests/db/harness.ts`. Em cada corrida, a transação 1 segura a sua por 3 s e a 2 começa 1 s depois. A porta 54332 pode ser trocada em `PG_PORT`.
+`red_flags_race.sh` (Etapa 5a) faz o mesmo para as red flags, sobre as migrations de verdade, e reaproveita o Supabase mínimo de `tests/db/harness.ts`. Em cada corrida, a transação 2 começa quando a 1 já fez o seu comando e dorme 3 s antes do `COMMIT` (o script olha o `pg_stat_activity`, sem `sleep` fixo). Cada caso confere o erro, a espera e o estado esperados, e o script sai com erro se algum não bater. A porta 54332 pode ser trocada em `PG_PORT`.
 
 ```bash
 PG_BIN=/caminho/do/postgres/bin tests/integration/race/red_flags_race.sh
 ```
 
-O resultado esperado está em `red_flags_race.out` (os tempos variam um pouco):
+A última execução está em `red_flags_race.out` (os tempos variam um pouco). O esperado:
 
 - **Gravação e anamnese, com a trava:** se a anamnese marca red flag primeiro, a gravação espera e dá `red_flags_not_cleared`; se a gravação vem primeiro, a anamnese espera e é recusada, porque a avaliação fechou.
 - **Sem a trava** (a gravação lê a anamnese sem `FOR UPDATE`): nos dois casos, o protocolo é salvo com a red flag marcada.

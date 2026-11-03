@@ -1,9 +1,10 @@
 #!/bin/bash
 # Teste MANUAL (fora do Vitest e da CI) da Etapa 5a: corridas entre duas transações num PostgreSQL real (o PGlite
-# tem uma conexão só), sobre as migrations de verdade de supabase/migrations/. A transação 1 segura a sua por 3 s;
-# a 2 começa 1 s depois. Os dois primeiros casos rodam também sem a trava da anamnese na gravação, para mostrar que
-# a corrida existe sem ela. No fim, o dono e o cascade de protocols. Cria um cluster descartável e apaga tudo no fim.
-# Ver README.md. Dados sintéticos.
+# tem uma conexão só), sobre as migrations de verdade de supabase/migrations/. A transação 2 começa quando a 1 já
+# fez o seu comando e dorme 3 s antes do COMMIT. Os dois primeiros casos rodam também sem a trava da anamnese na
+# gravação, para mostrar que a corrida existe sem ela. No fim, o dono e o cascade de protocols. Cada caso confere o
+# erro, a espera e o estado esperados; o script sai com erro se algum não bater. Cria um cluster descartável e apaga
+# tudo no fim. Ver README.md. Dados sintéticos.
 set -uo pipefail
 PG_BIN="${PG_BIN:-/Applications/Postgres.app/Contents/Versions/latest/bin}"
 PORT="${PG_PORT:-54332}"
@@ -76,55 +77,94 @@ now() { python3 -c 'import time; print(time.time())'; }
 as_who() { # P1 | service
   if [ "$1" = service ]; then echo "SET ROLE service_role"; else echo "SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub', '$P1', false)"; fi
 }
+fails=0
+check() { # <ok?> <motivo>: conta a falha e diz qual foi
+  if [ "$1" = 1 ]; then return; fi
+  fails=$((fails + 1)); echo "   FALHOU: $2"
+}
 n=0
-# race <variante> <título> <quem 1> <sql 1> <quem 2> <sql 2> <estado>: cada corrida numa cópia nova do modelo
+# race <variante> <título> <quem 1> <sql 1> <quem 2> <sql 2> <sql do estado> <erro esperado na 2 ('' = sem erro)>
+#      <a 2 espera? sim|não> <estado esperado>
+# Cada corrida numa cópia nova do modelo. A 2 só começa quando a 1 já fez o seu comando e está no pg_sleep, com as
+# travas seguras; a 1 ainda dorme 3 s antes do COMMIT. A 1 nunca pode falhar.
 race() {
-  n=$((n + 1)); local db="corrida_$n"
+  n=$((n + 1)); local db="corrida_$n" app="t1_corrida_$n"
   $Q -d postgres -c "CREATE DATABASE $db TEMPLATE modelo_$1" || exit 1
-  ( $Q -d $db -c "BEGIN" -c "$(as_who "$3")" -c "$4" -c "SELECT pg_sleep(3)" -c "COMMIT" > "$TMP/t1.out" 2>&1; echo $? > "$TMP/t1.exit" ) &
-  sleep 1
-  local t0 t1 out e e1 err1
+  ( PGAPPNAME=$app $Q -d $db -c "BEGIN" -c "$(as_who "$3")" -c "$4" -c "SELECT pg_sleep(3)" -c "COMMIT" > "$TMP/t1.out" 2>&1; echo $? > "$TMP/t1.exit" ) &
+  local tries=0
+  until [ "$($Q -d postgres -Atc "SELECT count(*) FROM pg_stat_activity WHERE application_name = '$app' AND wait_event = 'PgSleep'")" = 1 ]; do
+    tries=$((tries + 1)); [ $tries -gt 100 ] && { echo "a transação 1 não chegou ao pg_sleep: $2"; exit 1; }
+    sleep 0.1
+  done
+  local t0 t1 out e e1 err1 err2 waited state
   t0=$(now)
   out=$($Q -d $db -c "$(as_who "$5")" -c "$6" 2>&1); e=$?
   t1=$(now)
   wait
   e1=$(cat "$TMP/t1.exit"); err1=$(grep -m1 ERROR "$TMP/t1.out")
+  err2=$(echo "$out" | grep -m1 ERROR)
+  waited=$(python3 -c "print(round($t1-$t0,1))")
+  state=$($Q -d $db -Atc "$7")
   echo "== $2 ($1)"
   echo "   T1: exit=$e1${err1:+ | $err1}"
-  echo "   T2: exit=$e, esperou $(python3 -c "print(round($t1-$t0,1))") s$(echo "$out" | grep -m1 ERROR | sed 's/^/ | /')"
-  echo "   estado: $($Q -d $db -Atc "$7")"
+  echo "   T2: exit=$e, esperou $waited s${err2:+ | $err2}"
+  echo "   estado: $state"
+  check "$([ "$e1" = 0 ] && [ -z "$err1" ] && echo 1)" "a transação 1 falhou"
+  if [ -z "$8" ]; then
+    check "$([ "$e" = 0 ] && [ -z "$err2" ] && echo 1)" "a transação 2 devia passar"
+  else
+    check "$([ "$e" != 0 ] && [[ "$err2" == *"$8"* ]] && echo 1)" "a transação 2 devia dar: $8"
+  fi
+  if [ "$9" = sim ]; then
+    check "$(python3 -c "print(1 if $waited >= 1 else 0)")" "a transação 2 devia esperar a 1"
+  else
+    check "$(python3 -c "print(1 if $waited < 1 else 0)")" "a transação 2 não devia esperar"
+  fi
+  check "$([ "$state" = "${10}" ] && echo 1)" "estado esperado: ${10}"
 }
 STATE_A="SELECT 'status=' || (SELECT status FROM assessments WHERE id = '%s') || ' protocolos=' || (SELECT count(*) FROM protocols WHERE assessment_id = '%s') || ' red_flags=' || (SELECT red_flags::text FROM anamnesis_responses WHERE assessment_id = '%s')"
 state_a() { printf "$STATE_A" "$1" "$1" "$1"; }
 STATE_QS="SELECT 'status=' || status || ' intervenção=' || coalesce(intervention_applied::text, 'nenhuma') || ' red_flags=' || red_flags::text FROM quick_protocol_sessions WHERE id = '$QS'"
+STATE_GONE="SELECT 'avaliações=' || (SELECT count(*) FROM assessments WHERE id = '$A') || ' anamneses=' || (SELECT count(*) FROM anamnesis_responses WHERE assessment_id = '$A')"
 MARK="UPDATE public.anamnesis_responses SET red_flags = '{\"nightPain\":true}', has_red_flags = true WHERE assessment_id = '$A'"
+CLOSED='the anamnesis changes only while its assessment is open'
+NOT_FOUND='clearance not found or not yours'
 
-for v in com_trava sem_trava; do
-  race $v "gravação × anamnese: a anamnese marca red flag primeiro" P1 "$MARK" P1 "$(printf "$SAVE" "$A")" "$(state_a "$A")"
-  race $v "gravação × anamnese: a gravação primeiro" P1 "$(printf "$SAVE" "$A")" P1 "$MARK" "$(state_a "$A")"
-done
+race com_trava "gravação × anamnese: a anamnese marca red flag primeiro" P1 "$MARK" P1 "$(printf "$SAVE" "$A")" "$(state_a "$A")" \
+  red_flags_not_cleared sim 'status=in_progress protocolos=0 red_flags={"nightPain": true}'
+race com_trava "gravação × anamnese: a gravação primeiro" P1 "$(printf "$SAVE" "$A")" P1 "$MARK" "$(state_a "$A")" \
+  "$CLOSED" sim 'status=completed protocolos=1 red_flags={"nightPain": false}'
+# Sem a trava, a corrida acontece: nos dois casos, o protocolo fica salvo com a red flag marcada
+race sem_trava "gravação × anamnese: a anamnese marca red flag primeiro" P1 "$MARK" P1 "$(printf "$SAVE" "$A")" "$(state_a "$A")" \
+  '' não 'status=completed protocolos=1 red_flags={"nightPain": true}'
+race sem_trava "gravação × anamnese: a gravação primeiro" P1 "$(printf "$SAVE" "$A")" P1 "$MARK" "$(state_a "$A")" \
+  '' não 'status=completed protocolos=1 red_flags={"nightPain": true}'
 race com_trava "liberação × anamnese: a anamnese acende outra red flag primeiro" \
   P1 "UPDATE public.anamnesis_responses SET red_flags = '{\"nightPain\":true,\"fever\":true}' WHERE assessment_id = '$A2'" \
   P1 "SELECT public.clear_assessment_red_flags('$A2', '$J')" \
-  "SELECT 'liberações=' || count(*) || ' a última cobre=' || (array_agg(c.cleared_flags::text ORDER BY c.created_at DESC))[1] || ' versão igual à da anamnese=' || bool_or(c.red_flags_version = r.red_flags_version) FROM red_flag_clearances c JOIN anamnesis_responses r USING (assessment_id) WHERE c.assessment_id = '$A2'"
+  "SELECT 'liberações=' || count(*) || ' a última cobre=' || (array_agg(c.cleared_flags::text ORDER BY c.created_at DESC))[1] || ' versão igual à da anamnese=' || bool_or(c.red_flags_version = r.red_flags_version) FROM red_flag_clearances c JOIN anamnesis_responses r USING (assessment_id) WHERE c.assessment_id = '$A2'" \
+  '' sim 'liberações=2 a última cobre={fever,nightPain} versão igual à da anamnese=true'
 race com_trava "revogação × gravação: a revogação primeiro" \
-  P1 "SELECT public.revoke_red_flag_clearance($CLEARANCE_A2, '$R')" P1 "$(printf "$SAVE" "$A2")" "$(state_a "$A2")"
+  P1 "SELECT public.revoke_red_flag_clearance($CLEARANCE_A2, '$R')" P1 "$(printf "$SAVE" "$A2")" "$(state_a "$A2")" \
+  red_flags_not_cleared sim 'status=in_progress protocolos=0 red_flags={"nightPain": true}'
 race com_trava "revogação × gravação: a gravação primeiro" \
   P1 "$(printf "$SAVE" "$A2")" P1 "SELECT public.revoke_red_flag_clearance($CLEARANCE_A2, '$R')" \
-  "$(state_a "$A2") || ' revogações=' || (SELECT count(*) FROM red_flag_clearance_revocations)"
+  "$(state_a "$A2") || ' revogações=' || (SELECT count(*) FROM red_flag_clearance_revocations)" \
+  "$NOT_FOUND" sim 'status=completed protocolos=1 red_flags={"nightPain": true} revogações=0'
 race com_trava "sem deadlock: anamnese travada e marcada, apagar a avaliação no meio" \
   P1 "SELECT 1 FROM public.anamnesis_responses WHERE assessment_id = '$A' FOR UPDATE; SELECT pg_sleep(1.5); $MARK" \
-  P1 "DELETE FROM public.assessments WHERE id = '$A'" \
-  "SELECT 'avaliações=' || (SELECT count(*) FROM assessments WHERE id = '$A') || ' anamneses=' || (SELECT count(*) FROM anamnesis_responses WHERE assessment_id = '$A')"
+  P1 "DELETE FROM public.assessments WHERE id = '$A'" "$STATE_GONE" '' sim 'avaliações=0 anamneses=0'
 race com_trava "sem deadlock: avaliação apagada, a anamnese no meio" \
-  P1 "DELETE FROM public.assessments WHERE id = '$A'" P1 "$MARK" \
-  "SELECT 'avaliações=' || (SELECT count(*) FROM assessments WHERE id = '$A') || ' anamneses=' || (SELECT count(*) FROM anamnesis_responses WHERE assessment_id = '$A')"
+  P1 "DELETE FROM public.assessments WHERE id = '$A'" P1 "$MARK" "$STATE_GONE" '' sim 'avaliações=0 anamneses=0'
 race com_trava "sessão rápida: a red flag nova primeiro, a conclusão no meio" \
-  P1 "UPDATE public.quick_protocol_sessions SET red_flags = '{\"fever\":true,\"nightPain\":true}' WHERE id = '$QS'" P1 "$COMPLETE_QS" "$STATE_QS"
+  P1 "UPDATE public.quick_protocol_sessions SET red_flags = '{\"fever\":true,\"nightPain\":true}' WHERE id = '$QS'" P1 "$COMPLETE_QS" "$STATE_QS" \
+  red_flags_not_cleared sim 'status=in_progress intervenção=nenhuma red_flags={"fever": true, "nightPain": true}'
 race com_trava "sessão rápida: a revogação primeiro, a conclusão no meio" \
-  P1 "SELECT public.revoke_red_flag_clearance($CLEARANCE_QS, '$R')" P1 "$COMPLETE_QS" "$STATE_QS"
+  P1 "SELECT public.revoke_red_flag_clearance($CLEARANCE_QS, '$R')" P1 "$COMPLETE_QS" "$STATE_QS" \
+  red_flags_not_cleared sim 'status=in_progress intervenção=nenhuma red_flags={"fever": true}'
 race com_trava "sessão rápida: a conclusão primeiro, a revogação no meio" \
-  P1 "$COMPLETE_QS" P1 "SELECT public.revoke_red_flag_clearance($CLEARANCE_QS, '$R')" "$STATE_QS"
+  P1 "$COMPLETE_QS" P1 "SELECT public.revoke_red_flag_clearance($CLEARANCE_QS, '$R')" "$STATE_QS" \
+  "$NOT_FOUND" sim 'status=completed intervenção={"exercicio": "sintético"} red_flags={"fever": true}'
 
 # Dono e cascade de protocols, sobre as migrations de verdade. Um trigger de teste registra quem apaga.
 $Q -d postgres -c "CREATE DATABASE dono TEMPLATE modelo_com_trava" || exit 1
@@ -141,13 +181,27 @@ SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '$P1', false);
 $(printf "$SAVE" "$A");
 SQL
-try() { out=$($Q -d dono -c "$(as_who "$2")" -c "$3" 2>&1 | grep -m1 ERROR); echo "   $1: ${out:-ok}"; }
+# try <rótulo> <quem> <sql> <erro esperado ('' = sem erro)>
+try() {
+  local out; out=$($Q -d dono -c "$(as_who "$2")" -c "$3" 2>&1 | grep -m1 ERROR)
+  echo "   $1: ${out:-ok}"
+  if [ -z "$4" ]; then check "$([ -z "$out" ] && echo 1)" "devia passar"; else check "$([[ "$out" == *"$4"* ]] && echo 1)" "devia dar: $4"; fi
+}
+WRITTEN_BY_RPC='protocols are written only by save_assessment_protocol'
+DENIED='permission denied for table protocols'
 echo "== dono e cascade de protocols"
-try "service_role apaga protocolo direto" service "DELETE FROM public.protocols WHERE assessment_id = '$A'"
-try "service_role muda protocolo direto" service "UPDATE public.protocols SET name = 'x' WHERE assessment_id = '$A'"
-try "service_role TRUNCATE protocols" service "TRUNCATE public.protocols"
-try "service_role TRUNCATE assessments CASCADE" service "TRUNCATE public.assessments CASCADE"
-try "authenticated TRUNCATE protocols" P1 "TRUNCATE public.protocols"
-try "service_role apaga a avaliação concluída (cascade)" service "DELETE FROM public.assessments WHERE id = '$A'"
-echo "   o que o trigger de teste viu (só os confirmados): $($Q -d dono -Atc "SELECT string_agg(who || '/' || owner || '/' || op || '/depth=' || depth, '; ') FROM cascade_seen")"
-echo "   protocolos restantes: $($Q -d dono -Atc "SELECT count(*) FROM protocols")"
+try "service_role apaga protocolo direto" service "DELETE FROM public.protocols WHERE assessment_id = '$A'" "$WRITTEN_BY_RPC"
+try "service_role muda protocolo direto" service "UPDATE public.protocols SET name = 'x' WHERE assessment_id = '$A'" "$WRITTEN_BY_RPC"
+try "service_role TRUNCATE protocols" service "TRUNCATE public.protocols" "$DENIED"
+try "service_role TRUNCATE assessments CASCADE" service "TRUNCATE public.assessments CASCADE" "$DENIED"
+try "authenticated TRUNCATE protocols" P1 "TRUNCATE public.protocols" "$DENIED"
+try "service_role apaga a avaliação concluída (cascade)" service "DELETE FROM public.assessments WHERE id = '$A'" ''
+seen=$($Q -d dono -Atc "SELECT string_agg(who || '/' || owner || '/' || op || '/depth=' || depth, '; ') FROM cascade_seen")
+left=$($Q -d dono -Atc "SELECT count(*) FROM protocols")
+echo "   o que o trigger de teste viu (só os confirmados): $seen"
+echo "   protocolos restantes: $left"
+check "$([ "$seen" = 'postgres/postgres/DELETE/depth=2' ] && echo 1)" "o cascade devia rodar como o dono (postgres), na profundidade 2"
+check "$([ "$left" = 0 ] && echo 1)" "o protocolo devia sair junto com a avaliação"
+
+echo "== falhas: $fails"
+[ "$fails" = 0 ]

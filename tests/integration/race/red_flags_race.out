@@ -1,10 +1,10 @@
 == gravação × anamnese: a anamnese marca red flag primeiro (com_trava)
    T1: exit=0
-   T2: exit=1, esperou 2.0 s | ERROR:  red_flags_not_cleared
+   T2: exit=1, esperou 2.9 s | ERROR:  red_flags_not_cleared
    estado: status=in_progress protocolos=0 red_flags={"nightPain": true}
 == gravação × anamnese: a gravação primeiro (com_trava)
    T1: exit=0
-   T2: exit=1, esperou 2.0 s | ERROR:  the anamnesis changes only while its assessment is open
+   T2: exit=1, esperou 2.9 s | ERROR:  the anamnesis changes only while its assessment is open
    estado: status=completed protocolos=1 red_flags={"nightPain": false}
 == gravação × anamnese: a anamnese marca red flag primeiro (sem_trava)
    T1: exit=0
@@ -16,35 +16,35 @@
    estado: status=completed protocolos=1 red_flags={"nightPain": true}
 == liberação × anamnese: a anamnese acende outra red flag primeiro (com_trava)
    T1: exit=0
-   T2: exit=0, esperou 2.0 s
+   T2: exit=0, esperou 2.9 s
    estado: liberações=2 a última cobre={fever,nightPain} versão igual à da anamnese=true
 == revogação × gravação: a revogação primeiro (com_trava)
    T1: exit=0
-   T2: exit=1, esperou 2.0 s | ERROR:  red_flags_not_cleared
+   T2: exit=1, esperou 2.9 s | ERROR:  red_flags_not_cleared
    estado: status=in_progress protocolos=0 red_flags={"nightPain": true}
 == revogação × gravação: a gravação primeiro (com_trava)
    T1: exit=0
-   T2: exit=1, esperou 2.0 s | ERROR:  clearance not found or not yours
+   T2: exit=1, esperou 2.9 s | ERROR:  clearance not found or not yours
    estado: status=completed protocolos=1 red_flags={"nightPain": true} revogações=0
 == sem deadlock: anamnese travada e marcada, apagar a avaliação no meio (com_trava)
    T1: exit=0
-   T2: exit=0, esperou 3.5 s
+   T2: exit=0, esperou 4.4 s
    estado: avaliações=0 anamneses=0
 == sem deadlock: avaliação apagada, a anamnese no meio (com_trava)
    T1: exit=0
-   T2: exit=0, esperou 2.0 s
+   T2: exit=0, esperou 2.9 s
    estado: avaliações=0 anamneses=0
 == sessão rápida: a red flag nova primeiro, a conclusão no meio (com_trava)
    T1: exit=0
-   T2: exit=1, esperou 2.0 s | ERROR:  red_flags_not_cleared
+   T2: exit=1, esperou 2.9 s | ERROR:  red_flags_not_cleared
    estado: status=in_progress intervenção=nenhuma red_flags={"fever": true, "nightPain": true}
 == sessão rápida: a revogação primeiro, a conclusão no meio (com_trava)
    T1: exit=0
-   T2: exit=1, esperou 2.0 s | ERROR:  red_flags_not_cleared
+   T2: exit=1, esperou 2.9 s | ERROR:  red_flags_not_cleared
    estado: status=in_progress intervenção=nenhuma red_flags={"fever": true}
 == sessão rápida: a conclusão primeiro, a revogação no meio (com_trava)
    T1: exit=0
-   T2: exit=1, esperou 2.0 s | ERROR:  clearance not found or not yours
+   T2: exit=1, esperou 2.9 s | ERROR:  clearance not found or not yours
    estado: status=completed intervenção={"exercicio": "sintético"} red_flags={"fever": true}
 == dono e cascade de protocols
    service_role apaga protocolo direto: ERROR:  protocols are written only by save_assessment_protocol
@@ -55,3 +55,4 @@
    service_role apaga a avaliação concluída (cascade): ok
    o que o trigger de teste viu (só os confirmados): postgres/postgres/DELETE/depth=2
    protocolos restantes: 0
+== falhas: 0

@@ -344,6 +344,16 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
       }
       if (!isLatest()) return;
 
+      // A red flag may have been marked, or the clearance revoked, while the protocol was generated: read the
+      // status again before showing it
+      const statusNow = await readRedFlagStatus(assessmentId);
+      if (!isLatest()) return;
+      setGate(statusNow);
+      if (statusNow.blocked) {
+        setProtocol(null);
+        return;
+      }
+
       setEvidenceStats(stats);
       setPriorityResult(prioridadesCalculadas);
       setProtocol(generated);

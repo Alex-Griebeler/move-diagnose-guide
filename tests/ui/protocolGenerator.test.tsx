@@ -438,6 +438,29 @@ describe('Etapa 5a: red flags', () => {
     expect(upserts()).toHaveLength(0);
   });
 
+  it('uma red flag marcada durante a geração: o status é lido de novo e o protocolo gerado não aparece (Codex r1)', async () => {
+    holdCall(0);
+    mount();
+    await waitFor(() => expect(generations()).toBe(1));
+    h.tables['rpc:assessment_red_flag_status'] = BLOCKED;
+    releases[0]();
+    expect(await screen.findByText('Liberar e gerar protocolo')).toBeTruthy();
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+    expect(screen.queryByText('Mobilidade sintética')).toBeNull();
+  });
+
+  it('uma liberação revogada durante a geração: o mesmo, e a nota da liberação sai', async () => {
+    h.tables['rpc:assessment_red_flag_status'] = CLEARED;
+    holdCall(0);
+    mount();
+    await waitFor(() => expect(generations()).toBe(1));
+    h.tables['rpc:assessment_red_flag_status'] = { ...BLOCKED, active_flags: ['nightPain'] };
+    releases[0]();
+    expect(await screen.findByText('Red flags na anamnese — Dor noturna que não melhora')).toBeTruthy();
+    expect(screen.queryByText('Salvar e Finalizar')).toBeNull();
+    expect(screen.queryByText(/^Liberado por você em/)).toBeNull();
+  });
+
   it('a Edge devolve 400 (a versão antiga da tela, sem o id): tela de erro, como qualquer falha', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     h.edgeError = { message: 'Edge Function returned a non-2xx status code', context: { status: 400 } };

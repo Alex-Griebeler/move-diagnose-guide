@@ -2,22 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 
-  FABRIK Design System - Synchronized with Fabrik Performance
-  ============================================================
-  Aesthetic: "Apple minimalista + Quiet luxury"
-  Theme: Dark mode by default (matching Fabrik Performance)
-  
-  Cores:
-  - Terracota: #A45248 → HSL(5, 36%, 46%) | Dark: #c06b63 → HSL(5, 40%, 57%)
-  - Background Dark: #141414 → HSL(0, 0%, 8%)
-  - Card Dark: #1C1C1C → HSL(0, 0%, 11%)
-  - Muted Dark: #262626 → HSL(0, 0%, 15%)
-  - Border Dark: #383838 → HSL(0, 0%, 22%)
-  
+/*
+  FABRIK Design System - igual ao Fabrik Performance
+  ==================================================
+  O app roda só no tema escuro (.dark). Os valores do .dark são cópia
+  exata do Fabrik Performance (projeto Lovable 905d5174).
+
+  Cores (escuro):
+  - Terracota: HSL(7, 50%, 55%), letra branca nos botões
+  - Fundo: HSL(20, 8%, 9%) | Cartão: HSL(20, 6%, 13%)
+  - Muted: HSL(20, 5%, 17%) | Borda: HSL(20, 5%, 22%)
+
   Tipografia:
-  - Títulos: Bebas Neue (similar Square 721 Condensed)
-  - Corpo: Inter / SF Pro / Roboto
+  - Corpo e títulos: Inter
+  - Bebas Neue (.font-display) só em cabeçalhos de fase e números grandes
 */
 
 @layer base {
@@ -92,64 +90,73 @@
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
     --shadow-elevated: 0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04);
     --shadow-soft: 0 8px 30px -6px rgb(0 0 0 / 0.06);
+
+    /* Informação */
+    --info: 199 80% 42%;
+    --info-foreground: 0 0% 100%;
+
+    /* Degradês e sombra do Performance (seguem a cor de cada tema) */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    --gradient-card: linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--accent) / 0.08));
+    --gradient-primary-subtle: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.05));
+    --shadow-primary: 0 8px 24px -4px hsl(var(--primary) / 0.3);
+
+    /* Tamanho do h1 (Performance) */
+    --font-size-h1: clamp(1.625rem, 1.35rem + 1vw, 2rem);
   }
 
-  /* Dark Mode - Synchronized with Fabrik Performance */
+  /* Tema escuro - cópia exata do Fabrik Performance */
   .dark {
-    /* Background - #141414 */
-    --background: 0 0% 8%;
-    --foreground: 0 0% 97%;
+    --background: 20 8% 9%;
+    --foreground: 30 10% 95%;
 
-    /* Card - #1C1C1C */
-    --card: 0 0% 11%;
-    --card-foreground: 0 0% 97%;
+    --card: 20 6% 13%;
+    --card-foreground: 30 10% 95%;
 
-    /* Popover */
-    --popover: 0 0% 11%;
-    --popover-foreground: 0 0% 97%;
+    --popover: 20 6% 13%;
+    --popover-foreground: 30 10% 95%;
 
-    /* Primary - Terracota mais vibrante no dark #c06b63 */
-    --primary: 5 40% 57%;
+    /* Terracota do Performance, letra branca */
+    --primary: 7 50% 55%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary */
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 97%;
+    --secondary: 20 5% 20%;
+    --secondary-foreground: 30 10% 92%;
 
-    /* Muted - #262626 para tabs background */
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
+    --muted: 20 5% 17%;
+    --muted-foreground: 25 6% 65%;
 
-    /* Accent */
-    --accent: 5 36% 20%;
-    --accent-foreground: 5 40% 65%;
+    --accent: 15 6% 22%;
+    --accent-foreground: 30 10% 95%;
 
-    /* Status Colors */
-    --success: 142 50% 45%;
-    --success-foreground: 0 0% 100%;
+    /* Status */
+    --success: 142 60% 42%;
+    --success-foreground: 0 0% 8%;
 
-    --warning: 38 80% 55%;
-    --warning-foreground: 0 0% 0%;
+    --info: 199 80% 50%;
+    --info-foreground: 0 0% 8%;
 
-    --destructive: 0 55% 45%;
-    --destructive-foreground: 0 0% 100%;
+    --warning: 38 85% 52%;
+    --warning-foreground: 0 0% 8%;
 
-    /* Border - #383838 */
-    --border: 0 0% 22%;
-    --input: 0 0% 22%;
-    --ring: 5 40% 57%;
+    --destructive: 0 70% 62%;
+    --destructive-foreground: 0 0% 8%;
+
+    --border: 20 5% 22%;
+    --input: 20 5% 17%;
+    --ring: 7 50% 55%;
 
     /* Sidebar */
-    --sidebar-background: 0 0% 6%;
-    --sidebar-foreground: 0 0% 97%;
-    --sidebar-primary: 5 40% 57%;
+    --sidebar-background: 20 8% 9%;
+    --sidebar-foreground: 30 10% 90%;
+    --sidebar-primary: 7 50% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 12%;
-    --sidebar-accent-foreground: 0 0% 97%;
-    --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 5 40% 57%;
+    --sidebar-accent: 20 5% 15%;
+    --sidebar-accent-foreground: 30 10% 90%;
+    --sidebar-border: 20 5% 18%;
+    --sidebar-ring: 7 50% 55%;
 
-    /* Shadows - Adjusted for dark mode */
+    /* Sombras no escuro */
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.2);
     --shadow-elevated: 0 4px 16px -2px rgb(0 0 0 / 0.3), 0 2px 6px -2px rgb(0 0 0 / 0.2);
     --shadow-soft: 0 8px 30px -6px rgb(0 0 0 / 0.25);
@@ -169,15 +176,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* FABRIK Typography Hierarchy */
+  /* Títulos em Inter, como no Fabrik Performance.
+     A Bebas Neue fica só onde houver .font-display. */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
-    @apply tracking-wide;
-    letter-spacing: 0.02em;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    @apply font-semibold tracking-tight;
   }
 
   h1 {
-    @apply text-4xl md:text-5xl lg:text-6xl;
+    font-size: var(--font-size-h1);
+    line-height: 1.2;
   }
 
   h2 {
@@ -213,8 +221,11 @@
   }
 
   /* Font utilities */
+  /* Bebas Neue: cabeçalhos de fase, números grandes e o título da home */
   .font-display {
     font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.02em;
   }
 
   .font-body {
@@ -320,13 +331,31 @@
     @apply flex-1 h-px bg-border;
   }
 
-  /* Gradient backgrounds - Fabrik Performance pattern */
+  /* Degradês - padrão do Fabrik Performance */
   .gradient-primary {
-    @apply bg-gradient-to-br from-primary to-primary/80;
+    background-image: var(--gradient-primary);
+  }
+
+  .gradient-card {
+    background-image: var(--gradient-card);
+  }
+
+  .gradient-primary-subtle {
+    background-image: var(--gradient-primary-subtle);
+  }
+
+  /* Fundo das telas de login e cadastro */
+  .gradient-hero {
+    @apply bg-background;
+    background-image: var(--gradient-primary-subtle);
   }
 
   .gradient-accent {
     @apply bg-gradient-to-br from-accent to-accent/80;
+  }
+
+  .shadow-primary {
+    box-shadow: var(--shadow-primary);
   }
 
   /* Gradient text */

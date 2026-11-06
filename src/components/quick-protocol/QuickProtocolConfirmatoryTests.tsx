@@ -270,12 +270,13 @@ export function QuickProtocolConfirmatoryTests({
 
       {/* Navigation */}
       <div className="flex gap-3 pt-4">
-        <Button variant="outline" onClick={handlePrevious} className="flex-1">
+        <Button variant="outline" size="touch" onClick={handlePrevious} className="flex-1">
           <ChevronLeft className="w-4 h-4 mr-1" />
           {currentTestIndex === 0 ? 'Voltar' : 'Anterior'}
         </Button>
         
         <Button 
+          size="touch"
           onClick={handleNext} 
           className="flex-1"
           disabled={!selectedOption || (requiresFindingSide && !findingSide)}

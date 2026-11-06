@@ -41,6 +41,9 @@ const buttonVariants = cva(
         icon: "h-10 w-10",
         "icon-sm": "h-8 w-8",
         "icon-lg": "h-12 w-12",
+        // Alvos de toque de 44px (padrão do Fabrik Performance)
+        touch: "min-h-11 px-4 py-2 text-sm rounded-lg",
+        "icon-touch": "h-11 w-11 rounded-lg",
       },
     },
     defaultVariants: {

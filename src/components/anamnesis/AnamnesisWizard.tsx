@@ -539,6 +539,7 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
         {currentStep > 1 && (
           <Button
             variant="ghost"
+            size="touch"
             onClick={handlePrevious}
             className="text-muted-foreground"
           >
@@ -548,12 +549,13 @@ export function AnamnesisWizard({ assessmentId, studentId, onComplete }: Anamnes
         )}
 
         {currentStep < 8 ? (
-          <Button onClick={handleNext}>
+          <Button size="touch" onClick={handleNext}>
             Próximo
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
           <Button
+            size="touch"
             onClick={handleSubmit}
             disabled={isSubmitting || !data.lgpdConsent}
             className="bg-success hover:bg-success/90"

@@ -127,7 +127,7 @@ export function StudentSearchList({
           {searchTerm && (
             <Button
               variant="ghost"
-              size="icon"
+              size="icon-touch"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
               onClick={() => setSearchTerm('')}
             >

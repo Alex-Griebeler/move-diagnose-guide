@@ -153,7 +153,7 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
             {students.length > 3 && (
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-touch"
                 className="h-8 w-8"
                 onClick={() => setShowSearch(!showSearch)}
               >
@@ -210,7 +210,7 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
                   </div>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-touch"
                     className="shrink-0 text-muted-foreground hover:text-destructive"
                     onClick={() => setStudentToRemove(student)}
                   >

@@ -241,12 +241,13 @@ export default function Auth() {
                           type={showPassword ? 'text' : 'password'}
                           placeholder="••••••••"
                           {...loginForm.register('password')}
-                          className="h-11 pr-10"
+                          className="h-11 pr-11"
                         />
                         <button
                           type="button"
+                          aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          className="absolute right-0 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -380,12 +381,13 @@ export default function Auth() {
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       {...signupForm.register('password')}
-                      className="h-11 pr-10"
+                      className="h-11 pr-11"
                     />
                     <button
                       type="button"
+                      aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>

@@ -84,7 +84,7 @@ export function PageHeader({
       <header className={cn('sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border', className)}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
           {showBack && (
-            <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0" aria-label={backLabel || 'Voltar'}>
+            <Button variant="ghost" size="icon-touch" onClick={handleBack} className="shrink-0" aria-label={backLabel || 'Voltar'}>
               <ChevronLeft className="w-5 h-5" />
             </Button>
           )}
@@ -122,7 +122,7 @@ export function PageHeader({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {showBack && (
-              <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0" aria-label={backLabel || 'Voltar'}>
+              <Button variant="ghost" size="icon-touch" onClick={handleBack} className="shrink-0" aria-label={backLabel || 'Voltar'}>
                 <ChevronLeft className="w-5 h-5" />
               </Button>
             )}

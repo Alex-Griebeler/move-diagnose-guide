@@ -29,15 +29,15 @@ export function QuickProtocolTriage({
   const active = activeRedFlags(flags);
   const actions = (
     <>
-      <Button variant="outline" onClick={onClose}>Encerrar</Button>
-      <Button onClick={onContinue} disabled={active.length > 0 && !justificationOk(justification)}>Continuar</Button>
+      <Button variant="outline" size="touch" onClick={onClose}>Encerrar</Button>
+      <Button size="touch" onClick={onContinue} disabled={active.length > 0 && !justificationOk(justification)}>Continuar</Button>
     </>
   );
 
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-display">Triagem de red flags</h2>
+        <h2 className="text-xl">Triagem de red flags</h2>
         <p className="text-sm text-muted-foreground">Marque se o aluno apresentar algum dos sinais abaixo.</p>
       </div>
 

@@ -671,7 +671,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
       )}
 
       {/* Protocol Header */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+      <Card className="border-primary/20 gradient-card">
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -689,7 +689,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
               <CardDescription className="mt-2">{protocol.summary}</CardDescription>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-2xl font-bold">{protocol.exercises.length}</p>
+              <p className="font-display text-4xl leading-none">{protocol.exercises.length}</p>
               <p className="text-xs text-muted-foreground">exercícios</p>
             </div>
           </div>
@@ -717,7 +717,7 @@ export function ProtocolGenerator({ assessmentId, onComplete }: ProtocolGenerato
         return (
           <Card key={phase}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="font-display font-normal tracking-wide text-xl flex items-center gap-2">
                 <Icon className={`w-5 h-5 ${config.color}`} />
                 {config.label}
                 <Badge variant="secondary">{exercises.length}</Badge>

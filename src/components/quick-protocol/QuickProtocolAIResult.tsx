@@ -151,11 +151,11 @@ export function QuickProtocolAIResult({
 
       {/* Actions */}
       <div className="flex gap-3 pt-4">
-        <Button variant="outline" onClick={onBack} className="flex-1">
+        <Button variant="outline" size="touch" onClick={onBack} className="flex-1">
           Refazer Captura
         </Button>
         
-        <Button onClick={onContinue} className="flex-1">
+        <Button size="touch" onClick={onContinue} className="flex-1">
           {suggestedTests.length > 0 ? 'Iniciar Testes' : 'Continuar'}
           <ChevronRight className="w-4 h-4 ml-1" />
         </Button>

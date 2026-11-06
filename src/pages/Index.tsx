@@ -60,7 +60,7 @@ export default function Index() {
 
       <PageContent className="py-16 sm:py-24">
         <div className="text-center max-w-3xl mx-auto animate-fade-in">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-6 text-balance font-display">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl text-foreground mb-6 text-balance font-display">
             FABRIK — Sistema de Avaliação de Movimento e Performance
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground mb-8 text-balance leading-relaxed">
@@ -91,7 +91,7 @@ export default function Index() {
         </div>
 
         <div className="mt-20 text-center">
-          <h2 className="text-2xl sm:text-3xl font-semibold text-foreground mb-10 font-display">Por que usar o FABRIK?</h2>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-foreground mb-10">Por que usar o FABRIK?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-4xl mx-auto">
             {[
               'Anamnese completa em 9 blocos',

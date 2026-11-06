@@ -344,10 +344,9 @@
     background-image: var(--gradient-primary-subtle);
   }
 
-  /* Fundo das telas de login e cadastro */
+  /* Fundo das telas de login e cadastro: escuro liso, como no Performance */
   .gradient-hero {
     @apply bg-background;
-    background-image: var(--gradient-primary-subtle);
   }
 
   .gradient-accent {

@@ -154,7 +154,6 @@ export function StudentsList({ onStudentRemoved }: StudentsListProps) {
               <Button
                 variant="ghost"
                 size="icon-touch"
-                className="h-8 w-8"
                 onClick={() => setShowSearch(!showSearch)}
               >
                 {showSearch ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}

@@ -122,13 +122,13 @@ export function StudentSearchList({
             placeholder={placeholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-10 h-11"
+            className="pl-10 pr-11 h-11"
           />
           {searchTerm && (
             <Button
               variant="ghost"
               size="icon-touch"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+              className="absolute right-0 top-1/2 -translate-y-1/2"
               onClick={() => setSearchTerm('')}
             >
               <X className="w-4 h-4" />

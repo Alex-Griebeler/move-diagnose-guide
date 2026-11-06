@@ -409,6 +409,7 @@ export function QuickProtocolWizard({
           <div className="max-w-2xl mx-auto px-4 py-4 flex justify-between">
             <Button
               variant="outline"
+              size="touch"
               onClick={handlePreviousTest}
               disabled={currentTestIndex === 0}
             >
@@ -416,7 +417,7 @@ export function QuickProtocolWizard({
               Anterior
             </Button>
 
-            <Button onClick={handleNextTest}>
+            <Button size="touch" onClick={handleNextTest}>
               {currentTestIndex === totalTests - 1 ? (
                 'Ver Resultado'
               ) : (

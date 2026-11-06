@@ -470,7 +470,7 @@ function ProfessionalDashboard() {
                       <Button
                         variant="ghost"
                         size="icon-touch"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        className="text-muted-foreground hover:text-destructive"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();

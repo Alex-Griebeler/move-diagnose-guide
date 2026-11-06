@@ -81,7 +81,7 @@ export function QuickProtocolAIResult({
                 <Badge 
                   key={comp} 
                   variant="secondary"
-                  className="bg-warning/10 text-warning-foreground border border-warning/20"
+                  className="bg-warning/10 text-warning border border-warning/20"
                 >
                   {COMPENSATION_LABELS[comp] || comp}
                 </Badge>

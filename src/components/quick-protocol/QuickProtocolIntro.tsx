@@ -46,7 +46,7 @@ export function QuickProtocolIntro({
       </div>
 
       {/* Title */}
-      <h1 className="text-2xl md:text-3xl font-display mb-3">
+      <h1 className="mb-3">
         {meta.name}
       </h1>
 

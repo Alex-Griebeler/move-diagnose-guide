@@ -285,8 +285,8 @@ export function QuickProtocolTest({ test, value, onChange }: QuickProtocolTestPr
         <div className={cn(
           "flex items-center gap-2 p-3 rounded-lg text-sm",
           value?.isPositive 
-            ? "bg-warning/10 text-warning-foreground border border-warning/20" 
-            : "bg-success/10 text-success-foreground border border-success/20"
+            ? "bg-warning/10 text-warning border border-warning/20"
+            : "bg-success/10 text-success border border-success/20"
         )}>
           {value?.isPositive ? (
             <>

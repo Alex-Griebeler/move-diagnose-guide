@@ -415,7 +415,7 @@ export function QuickProtocolWizardV2({
             <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mb-6 animate-scale-in">
               <Check className="w-10 h-10 text-success" />
             </div>
-            <h2 className="text-2xl font-display mb-2">Concluído!</h2>
+            <h2 className="text-2xl mb-2">Concluído!</h2>
             <p className="text-muted-foreground">Redirecionando...</p>
           </div>
         );
@@ -458,7 +458,7 @@ export function QuickProtocolWizardV2({
                 )}
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleClose}>
+            <Button variant="ghost" size="icon-touch" onClick={handleClose}>
               <X className="w-5 h-5" />
             </Button>
           </div>
@@ -483,11 +483,11 @@ export function QuickProtocolWizardV2({
       {step === 'test' && (
         <footer className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t">
           <div className="max-w-2xl mx-auto px-4 py-4 flex justify-between">
-            <Button variant="outline" onClick={handlePreviousTest} disabled={currentTestIndex === 0}>
+            <Button variant="outline" size="touch" onClick={handlePreviousTest} disabled={currentTestIndex === 0}>
               <ChevronLeft className="w-4 h-4 mr-1" />
               Anterior
             </Button>
-            <Button onClick={handleNextTest}>
+            <Button size="touch" onClick={handleNextTest}>
               {currentTestIndex === totalTests - 1 ? 'Ver Resultado' : 'Próximo'}
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>

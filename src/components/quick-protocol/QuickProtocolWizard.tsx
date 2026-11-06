@@ -345,7 +345,7 @@ export function QuickProtocolWizard({
             <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mb-6 animate-scale-in">
               <Check className="w-10 h-10 text-success" />
             </div>
-            <h2 className="text-2xl font-display mb-2">Concluído!</h2>
+            <h2 className="text-2xl mb-2">Concluído!</h2>
             <p className="text-muted-foreground">Redirecionando...</p>
           </div>
         );
@@ -375,7 +375,7 @@ export function QuickProtocolWizard({
             </div>
             <Button
               variant="ghost"
-              size="icon"
+              size="icon-touch"
               onClick={handleClose}
               className="text-muted-foreground"
             >
@@ -409,6 +409,7 @@ export function QuickProtocolWizard({
           <div className="max-w-2xl mx-auto px-4 py-4 flex justify-between">
             <Button
               variant="outline"
+              size="touch"
               onClick={handlePreviousTest}
               disabled={currentTestIndex === 0}
             >
@@ -416,7 +417,7 @@ export function QuickProtocolWizard({
               Anterior
             </Button>
 
-            <Button onClick={handleNextTest}>
+            <Button size="touch" onClick={handleNextTest}>
               {currentTestIndex === totalTests - 1 ? (
                 'Ver Resultado'
               ) : (

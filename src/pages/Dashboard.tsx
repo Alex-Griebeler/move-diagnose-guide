@@ -238,7 +238,7 @@ function ProfessionalDashboard() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <>
-                <div className="text-3xl font-semibold text-foreground">{studentCount}</div>
+                <div className="font-display text-4xl leading-none text-foreground">{studentCount}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {studentCount === 0 ? 'Nenhum aluno cadastrado' : 'Alunos vinculados'}
                 </p>
@@ -259,7 +259,7 @@ function ProfessionalDashboard() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <>
-                <div className="text-3xl font-semibold text-foreground">{assessmentStats.pending}</div>
+                <div className="font-display text-4xl leading-none text-foreground">{assessmentStats.pending}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {assessmentStats.pending === 0 ? 'Nenhuma avaliação pendente' : 'Em rascunho ou andamento'}
                 </p>
@@ -280,7 +280,7 @@ function ProfessionalDashboard() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <>
-                <div className="text-3xl font-semibold text-foreground">{assessmentStats.completed}</div>
+                <div className="font-display text-4xl leading-none text-foreground">{assessmentStats.completed}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {assessmentStats.completed === 0 ? 'Nenhuma avaliação concluída' : 'Total de avaliações'}
                 </p>
@@ -469,8 +469,8 @@ function ProfessionalDashboard() {
                     {assessment.status === 'draft' || assessment.status === 'in_progress' ? (
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        size="icon-touch"
+                        className="text-muted-foreground hover:text-destructive"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -508,7 +508,7 @@ function StudentDashboard() {
   return (
     <div className="space-y-8">
       {/* Welcome Card */}
-      <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+      <Card className="gradient-card border-primary/20">
         <CardContent className="py-6">
           <div className="flex items-start gap-4">
             <img src={fabrikLogo} alt="FABRIK" className="h-12 w-auto shrink-0" />
@@ -549,7 +549,7 @@ function StudentDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-semibold text-foreground">0</div>
+              <div className="font-display text-4xl leading-none text-foreground">0</div>
               <p className="text-xs text-muted-foreground mt-1">Esta semana</p>
             </CardContent>
           </Card>

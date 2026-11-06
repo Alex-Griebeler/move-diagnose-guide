@@ -91,13 +91,13 @@ export function QuickProtocolResult({ result, onRetest, onClose }: QuickProtocol
           <Check className="w-10 h-10 text-success" />
         </div>
         
-        <h2 className="text-2xl font-display mb-3">Nenhum déficit identificado</h2>
+        <h2 className="text-2xl mb-3">Nenhum déficit identificado</h2>
         
         <p className="text-muted-foreground max-w-md mb-8">
           {explanation}
         </p>
 
-        <Button onClick={onClose}>
+        <Button size="touch" onClick={onClose}>
           Voltar ao Dashboard
         </Button>
       </div>

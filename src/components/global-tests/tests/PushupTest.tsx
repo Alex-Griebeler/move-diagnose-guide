@@ -149,7 +149,7 @@ export function PushupTest({ data, updateData }: PushupTestProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="p-3 bg-muted/50 rounded-lg text-center">
-              <p className="text-3xl font-bold">{data.compensations.length}</p>
+              <p className="font-display text-4xl leading-none">{data.compensations.length}</p>
               <p className="text-xs text-muted-foreground">compensações identificadas</p>
             </div>
 

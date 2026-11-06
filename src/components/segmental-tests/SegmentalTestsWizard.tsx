@@ -325,7 +325,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             <p className="text-muted-foreground mb-6">
               Não foram detectadas compensações que exijam testes adicionais.
             </p>
-            <Button onClick={onComplete}>
+            <Button size="touch" onClick={onComplete}>
               Continuar <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </CardContent>
@@ -462,6 +462,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
         {currentStep > 1 && (
           <Button
             variant="ghost"
+            size="touch"
             onClick={handlePrevious}
             className="text-muted-foreground"
           >
@@ -472,13 +473,14 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
 
         {!isSummaryStep && (
           // "Pular" leaves this test without a result and moves on; nothing is erased
-          <Button variant="ghost" onClick={handleNext} className="text-muted-foreground">
+          <Button variant="ghost" size="touch" onClick={handleNext} className="text-muted-foreground">
             Pular
           </Button>
         )}
 
         {isSummaryStep ? (
           <Button
+            size="touch"
             onClick={handleConclude}
             disabled={saving}
             className="bg-success hover:bg-success/90"
@@ -493,7 +495,7 @@ export function SegmentalTestsWizard({ assessmentId, onComplete }: SegmentalTest
             )}
           </Button>
         ) : (
-          <Button onClick={handleNext}>
+          <Button size="touch" onClick={handleNext}>
             Próximo
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>

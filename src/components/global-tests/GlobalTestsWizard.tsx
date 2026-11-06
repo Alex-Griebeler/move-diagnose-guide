@@ -475,19 +475,19 @@ export function GlobalTestsWizard({ assessmentId, onComplete }: GlobalTestsWizar
       {/* Navigation */}
       <div className="flex justify-end gap-3">
         {currentStep > 1 && (
-          <Button variant="ghost" onClick={handlePrevious} className="text-muted-foreground">
+          <Button variant="ghost" size="touch" onClick={handlePrevious} className="text-muted-foreground">
             <ChevronLeft className="w-4 h-4 mr-1" />
             Anterior
           </Button>
         )}
 
         {currentStep < 4 ? (
-          <Button onClick={handleNext}>
+          <Button size="touch" onClick={handleNext}>
             Próximo
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-success hover:bg-success/90">
+          <Button size="touch" onClick={handleSubmit} disabled={isSubmitting} className="bg-success hover:bg-success/90">
             {isSubmitting ? (
               <span className="animate-pulse-soft">Salvando...</span>
             ) : (

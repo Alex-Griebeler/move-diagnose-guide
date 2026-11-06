@@ -50,7 +50,7 @@ export function QuickProtocolRetest({ onComplete, onSkip }: QuickProtocolRetestP
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
           <RotateCcw className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-display mb-2">Reteste do Movimento</h2>
+        <h2 className="text-xl mb-2">Reteste do Movimento</h2>
         <p className="text-muted-foreground">
           Agora, refaça o movimento que causou dor
           <br />

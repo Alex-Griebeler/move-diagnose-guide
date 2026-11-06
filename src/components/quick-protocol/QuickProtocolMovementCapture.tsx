@@ -200,11 +200,11 @@ export function QuickProtocolMovementCapture({
       )}
 
       <div className="flex gap-3 pt-4">
-        <Button variant="outline" onClick={onSkip} className="flex-1" disabled={isAnalyzing}>
+        <Button variant="outline" size="touch" onClick={onSkip} className="flex-1" disabled={isAnalyzing}>
           Pular para testes manuais
         </Button>
         {allCaptured && !isAnalyzing && (
-          <Button onClick={handleAnalyze} className="flex-1">
+          <Button size="touch" onClick={handleAnalyze} className="flex-1">
             Analisar <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         )}

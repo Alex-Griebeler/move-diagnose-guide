@@ -78,7 +78,7 @@ export function QuickProtocolSideSelector({ protocolType, onSelect }: QuickProto
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
       {/* Title */}
-      <h2 className="text-xl font-display mb-2">
+      <h2 className="text-xl mb-2">
         Qual lado está afetado?
       </h2>
       <p className="text-muted-foreground mb-8 max-w-sm">
